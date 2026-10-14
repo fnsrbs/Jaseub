@@ -5,6 +5,7 @@ export const defaultSiteCopy = {
     "입실부터 퇴실까지, 나의 공부 시간을\n차분하게 기록하는 자습실.",
   login_title: "자습실에 들어가기",
   login_greeting: "안녕하세요. 오늘의 집중을 시작해 볼까요?",
-  production_badge: "용인 고등학",
+  production_badge: "용인고등학교",
 };
 export type SiteCopy = typeof defaultSiteCopy;
+
