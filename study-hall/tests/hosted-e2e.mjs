@@ -113,8 +113,9 @@ try {
     request_id: crypto.randomUUID(),
   });
   qr = await call("qr");
-  console.log("동시 HTTP 12건 중 입실 1건 성공. QR 만료를 기다립니다.");
-  await new Promise((resolve) => setTimeout(resolve, 47000));
+  assert.equal((await call("qr")).token, qr.token);
+  const renewedQr = await call("qr_rotate");
+  assert.notEqual(renewedQr.token, qr.token);
   await assert.rejects(
     call(
       "attendance",

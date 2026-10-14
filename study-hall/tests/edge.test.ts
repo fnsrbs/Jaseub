@@ -33,6 +33,16 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
     rpc: async (name: string, args: any) => {
       calls.push({ name, args });
       if (name === "consume_login_limit") return { data: limiter, error: null };
+      if (name === "classroom_qr")
+        return args.p_admin === "teacher-id"
+          ? {
+              data: {
+                token: "SH1." + (args.p_rotate ? "b" : "a").repeat(64),
+                fixed: true,
+              },
+              error: null,
+            }
+          : { data: null, error: Error("관리자 권한이 필요합니다.") };
       return {
         data:
           args.p_action === "login"
@@ -156,7 +166,25 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
     );
     const body = await r.json();
     assert.match(body.token, /^SH1\.[a-f0-9]{64}$/);
-    assert.notEqual(calls.at(-1).args.p_payload.token_hash, body.token);
+    assert.equal(calls.at(-1).name, "classroom_qr");
+    assert.equal(calls.at(-1).args.p_rotate, false);
+    const repeated = await send(
+      "qr",
+      {},
+      { Authorization: "Bearer verified-teacher" },
+    );
+    assert.equal((await repeated.json()).token, body.token);
+    const rotated = await send(
+      "qr_rotate",
+      {},
+      { Authorization: "Bearer verified-teacher" },
+    );
+    assert.notEqual((await rotated.json()).token, body.token);
+    assert.notEqual(
+      (await send("qr_rotate", {}, { "x-student-session": "a".repeat(64) }))
+        .status,
+      200,
+    );
     const cr = await send(
       "code",
       { student_id: "student-id", code: "chosen-unsafe" },

@@ -25,14 +25,12 @@ const initial = (): Snapshot => {
       col: (i % 8) + 1,
       enabled: true,
     })),
-    visits: students
-      .slice(0, 18)
-      .map((s, i) => ({
-        id: id(),
-        student_id: s.id,
-        entered_at: new Date(time - (i + 1) * 9 * 60000).toISOString(),
-        exited_at: i < 12 ? null : new Date(time - 5 * 60000).toISOString(),
-      })),
+    visits: students.slice(0, 18).map((s, i) => ({
+      id: id(),
+      student_id: s.id,
+      entered_at: new Date(time - (i + 1) * 9 * 60000).toISOString(),
+      exited_at: i < 12 ? null : new Date(time - 5 * 60000).toISOString(),
+    })),
     notices: [
       {
         id: id(),
@@ -60,7 +58,19 @@ try {
 } catch {
   state = initial();
 }
-let qr = { token: "", expires_at: "" };
+const readQr = (): { token: string; fixed: boolean } => {
+  try {
+    return (
+      JSON.parse(localStorage.getItem("study-hall-fictional-qr") || "null") || {
+        token: "",
+        fixed: true,
+      }
+    );
+  } catch {
+    return { token: "", fixed: true };
+  }
+};
+let qr = readQr();
 const sessions = new Map<string, string>();
 const codes = new Map<string, string>();
 codes.set("DEMO-STUDENT-0001", "demo-1");
@@ -137,12 +147,7 @@ export async function demoApi(
     if (!student) throw Error("이용 가능한 학생이 아닙니다.");
     const key = (teacher ? "teacher" : sid) + p.request_id;
     if (requests.has(key)) return requests.get(key);
-    if (
-      !teacher &&
-      (!validQr(p.qr) ||
-        p.qr !== qr.token ||
-        Date.parse(qr.expires_at) <= Date.now())
-    )
+    if (!teacher && (!validQr(p.qr) || p.qr !== readQr().token))
       throw Error("QR이 만료되었거나 유효하지 않습니다.");
     const v = state.visits.find(
       (v) => v.student_id === studentId && !v.exited_at,
@@ -164,15 +169,18 @@ export async function demoApi(
     return {};
   }
   if (!teacher) throw Error("관리자 권한이 필요합니다.");
-  if (action === "qr") {
+  if (action === "qr" || action === "qr_rotate") {
+    qr = readQr();
+    if (qr.token && action === "qr") return qr;
     qr = {
       token:
         "SH1." +
         Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) =>
           b.toString(16).padStart(2, "0"),
         ).join(""),
-      expires_at: new Date(Date.now() + 45000).toISOString(),
+      fixed: true,
     };
+    localStorage.setItem("study-hall-fictional-qr", JSON.stringify(qr));
     return qr;
   }
   if (action === "code") {
@@ -282,4 +290,4 @@ export async function demoApi(
   save();
   return {};
 }
-export const demoQr = () => qr;
+export const demoQr = () => readQr();

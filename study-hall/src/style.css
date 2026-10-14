@@ -973,3 +973,70 @@ blockquote {
     grid-template-columns: repeat(5, 1fr);
   }
 }
+@media print {
+  .layout,
+  main,
+  .content,
+  .qr-panel {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+  .page-title {
+    display: none !important;
+  }
+  @page {
+    size: A4 portrait;
+    margin: 16mm;
+  }
+  body {
+    background: white !important;
+  }
+  body * {
+    visibility: hidden;
+  }
+  .qr-poster,
+  .qr-poster * {
+    visibility: visible;
+  }
+  .qr-poster {
+    position: static;
+    width: 100%;
+    text-align: center;
+  }
+  .qr-poster img {
+    width: 140mm !important;
+    height: 140mm !important;
+    max-width: 100%;
+  }
+  .qr-poster h2 {
+    font-size: 25pt;
+  }
+  .qr-poster h3 {
+    font-size: 17pt;
+  }
+  .qr-poster p {
+    font-size: 12pt;
+  }
+  .qr-controls,
+  aside,
+  header,
+  footer {
+    display: none !important;
+  }
+}
+.qr-brand {
+  font-weight: 700;
+  color: #176b58;
+  font-size: 18px;
+}
+.qr-site {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.qr-controls.actions {
+  justify-content: center;
+}

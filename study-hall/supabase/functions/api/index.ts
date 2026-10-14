@@ -122,16 +122,13 @@ Deno.serve(async (req) => {
         return reply({ error: "인증이 만료되었습니다." }, 401);
       admin = data.user.id;
     }
-    if (action === "qr") {
-      // RPC verifies admin membership before issuing the QR.
-      const token = "SH1." + random();
-      const result = await rpc(
-        action,
-        { token_hash: await hash(token) },
-        admin,
-        session,
-      );
-      return reply({ ...result, token });
+    if (action === "qr" || action === "qr_rotate") {
+      const { data, error } = await db.rpc("classroom_qr", {
+        p_admin: admin,
+        p_rotate: action === "qr_rotate",
+      });
+      if (error) throw Error(error.message);
+      return reply(data);
     }
     if (action === "code") {
       const code = "SH-" + random().slice(0, 32).toUpperCase();

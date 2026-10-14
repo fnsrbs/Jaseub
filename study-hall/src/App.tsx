@@ -807,79 +807,115 @@ function SeatMap({
   );
 }
 function QRDisplay({ role, token }: { role: Role; token: string | null }) {
-  const [qr, setQr] = useState({ token: "", expires_at: "" }),
-    [image, setImage] = useState(""),
+  const [image, setImage] = useState(""),
     [error, setError] = useState(""),
-    [now, setNow] = useState(Date.now());
+    [busy, setBusy] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    let alive = true;
-    let generating = false;
-    const update = async () => {
-      if (generating) return;
-      generating = true;
-      try {
-        const next = await api("qr", {}, role, token);
-        const img = await QRCode.toDataURL(next.token, {
-          width: 600,
-          margin: 3,
-          errorCorrectionLevel: "M",
-        });
-        if (alive) {
-          setQr(next);
-          setImage(img);
-          setError("");
-        }
-      } catch (e) {
-        if (alive) {
-          setError((e as Error).message);
-          setImage("");
-        }
-      } finally {
-        generating = false;
+  const alive = useRef(true);
+  const loading = useRef(false);
+  async function load(rotate = false) {
+    if (loading.current) return;
+    loading.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      const qr = await api(rotate ? "qr_rotate" : "qr", {}, role, token);
+      const img = await QRCode.toDataURL(qr.token, {
+        width: 1000,
+        margin: 4,
+        errorCorrectionLevel: "M",
+      });
+      if (alive.current) setImage(img);
+    } catch (e) {
+      if (alive.current) {
+        setError((e as Error).message);
+        if (rotate) setImage("");
       }
-    };
-    update();
-    const t = setInterval(update, 30000),
-      clock = setInterval(() => setNow(Date.now()), 1000);
+    } finally {
+      loading.current = false;
+      if (alive.current) setBusy(false);
+    }
+  }
+  useEffect(() => {
+    alive.current = true;
+    void load();
     return () => {
-      alive = false;
-      clearInterval(t);
-      clearInterval(clock);
+      alive.current = false;
     };
   }, [role, token]);
   return (
     <div className="panel qr-panel" ref={ref}>
-      <h2>입실·퇴실 현장 QR</h2>
-      <p>학생은 로그인 후 입실 또는 퇴실 버튼을 선택해 스캔하세요.</p>
-      {error ? (
-        <p role="alert">{error}</p>
-      ) : image && Date.parse(qr.expires_at) > now ? (
-        <img src={image} alt="현장 입퇴실 QR" />
-      ) : (
-        <p>QR을 갱신하고 있습니다…</p>
-      )}
-      <h3>
-        유효 시간{" "}
-        {Math.min(
-          45,
-          Math.max(0, Math.ceil((Date.parse(qr.expires_at) - now) / 1000)),
-        ) || 0}
-        초
-      </h3>
-      <button
-        onClick={() => {
-          ref.current
-            ?.requestFullscreen()
-            .catch(() => setError("전체 화면을 지원하지 않는 브라우저입니다."));
-        }}
-      >
-        전체 화면 표시
-      </button>
-      <p className="muted">
-        30초마다 갱신 · 발급 후 45초 유효
+      <div className="qr-poster">
+        <p className="qr-brand">온실 · 자습실</p>
+        <h2>입실·퇴실 현장 QR</h2>
+        <p>
+          ① 내 코드로 로그인
+          <br />② 입실 또는 퇴실 버튼 선택
+          <br />③ 아래 QR 스캔
+        </p>
+        {error ? (
+          <p role="alert" className="error-text">
+            {error}
+          </p>
+        ) : image ? (
+          <img src={image} alt="인쇄용 고정 입퇴실 QR" />
+        ) : (
+          <p>고정 QR을 불러오고 있습니다…</p>
+        )}
+        <h3>인쇄해서 교실에 붙여 주세요</h3>
+        <p className="qr-site">
+          {mode === "production"
+            ? "https://fnsrbs.github.io/Jaseub/"
+            : location.href.split("#")[0]}
+        </p>
+        <p className="muted">
+          이 QR은 자동으로 바뀌지 않습니다.
+          <br />
+          학생 로그인 후 앱 안에서 스캔하세요.
+        </p>
+      </div>
+      <div className="qr-controls actions">
+        <button
+          className="primary"
+          disabled={!image || busy || !!error}
+          onClick={() => window.print()}
+        >
+          QR 인쇄
+        </button>
+        <button disabled={busy} onClick={() => void load()}>
+          다시 불러오기
+        </button>
+        <button
+          disabled={busy}
+          onClick={() => {
+            if (
+              confirm(
+                "QR을 재발급하면 기존 인쇄본은 사용할 수 없습니다. 재발급할까요?",
+              )
+            )
+              void load(true);
+          }}
+        >
+          QR 재발급
+        </button>
+        <button
+          onClick={() => {
+            ref.current
+              ?.requestFullscreen()
+              .catch(() =>
+                setError("전체 화면을 지원하지 않는 브라우저입니다."),
+              );
+          }}
+        >
+          전체 화면 표시
+        </button>
+      </div>
+      <p className="muted qr-controls">
+        재발급할 때만 QR이 변경됩니다. 재발급 후에는 새 인쇄본으로 교체해
+        주세요.
         <br />
-        QR 공유 등으로 현장 여부를 완벽하게 보장할 수는 없습니다.
+        고정 QR은 사진이나 복사본으로 전달될 수 있어 현장 여부를 완벽하게
+        보장하지 않습니다.
       </p>
     </div>
   );
