@@ -1,0 +1,2254 @@
+import React, { useEffect, useRef, useState } from "react";
+import QRCode from "qrcode";
+import type { Html5Qrcode } from "html5-qrcode";
+import { api, mode, supabase } from "./api";
+import { demoQr, demoReset } from "./demo";
+import {
+  attendanceVerdict,
+  csv,
+  csvTime,
+  dailyUsage,
+  dayStart,
+  duration,
+  koreanDay,
+  lottery,
+  totals,
+  validQr,
+  type Snapshot,
+  type Student,
+  type Visit,
+  type Notice,
+} from "./domain";
+import "./style.css";
+type Role = "teacher" | "student";
+const time = (s: string | null) =>
+  s
+    ? new Date(s).toLocaleString("ko-KR", {
+        timeZone: "Asia/Seoul",
+        month: "numeric",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "진행 중";
+const localInput = (s: string) =>
+  new Date(Date.parse(s) + 9 * 3600000).toISOString().slice(0, 16);
+const isoInput = (s: string) => new Date(`${s}:00+09:00`).toISOString();
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      {children}
+    </label>
+  );
+}
+export default function App() {
+  const [role, setRole] = useState<Role | null>(
+      () => sessionStorage.getItem("sh-role") as Role | null,
+    ),
+    [token, setToken] = useState<string | null>(() =>
+      sessionStorage.getItem("sh-token"),
+    ),
+    [data, setData] = useState<Snapshot | null>(null),
+    [page, setPage] = useState(location.hash.slice(1) || "home"),
+    [error, setError] = useState(""),
+    [message, setMessage] = useState(""),
+    [busy, setBusy] = useState(false),
+    [now, setNow] = useState(Date.now()),
+    [offset, setOffset] = useState(0),
+    [scan, setScan] = useState<"in" | "out" | null>(null),
+    [selected, setSelected] = useState("");
+  const inFlight = useRef(false);
+  const teacher = role === "teacher";
+  const navigate = (p: string) => {
+    location.hash = p;
+    setPage(p);
+  };
+  const refresh = async () => {
+    const next = await api("snapshot", {}, role, token);
+    setOffset(Date.parse(next.server_now) - Date.now());
+    setData(next);
+  };
+  useEffect(() => {
+    const h = () => setPage(location.hash.slice(1) || "home");
+    window.addEventListener("hashchange", h);
+    return () => window.removeEventListener("hashchange", h);
+  }, []);
+  useEffect(() => {
+    if (!role) return;
+    let alive = true;
+    const load = async () => {
+      try {
+        await refresh();
+        if (alive) setError("");
+      } catch (e) {
+        if (alive) setError((e as Error).message);
+      }
+    };
+    load();
+    const timer = setInterval(load, 15000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [role, token]);
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  async function act(action: string, payload: any) {
+    if (inFlight.current) throw Error("이전 요청을 처리하고 있습니다.");
+    inFlight.current = true;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const result = await api(action, payload, role, token);
+      setMessage(
+        mode === "demo" ? "데모 저장 완료 · 가상 데이터" : "DB 저장 완료",
+      );
+      try {
+        await refresh();
+      } catch {
+        setError(
+          "저장은 완료됐지만 화면 갱신에 실패했습니다. 다시 조회하세요.",
+        );
+      }
+      return result;
+    } catch (e) {
+      setError((e as Error).message);
+      throw e;
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
+  }
+  const safe = (promise: Promise<unknown>) => {
+    void promise.catch(() => {});
+  };
+  async function logout() {
+    try {
+      if (role === "student") await api("logout", {}, role, token);
+      else if (supabase) await supabase.auth.signOut();
+    } catch {}
+    sessionStorage.removeItem("sh-role");
+    sessionStorage.removeItem("sh-token");
+    setRole(null);
+    setToken(null);
+    setData(null);
+    setError("");
+    setMessage("");
+    navigate("home");
+  }
+  async function login(r: Role, code: string, email: string, password: string) {
+    setBusy(true);
+    setError("");
+    try {
+      let t: null | string = null;
+      if (r === "student") {
+        const result = await api("login", { code });
+        t = result.token;
+      } else if (mode === "production") {
+        if (!supabase) throw Error("Supabase 환경 설정이 필요합니다.");
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        await api("snapshot", {}, r, null);
+      }
+      sessionStorage.setItem("sh-role", r);
+      if (t) sessionStorage.setItem("sh-token", t);
+      else sessionStorage.removeItem("sh-token");
+      setToken(t);
+      setRole(r);
+      navigate("home");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (!role) return <Login onLogin={login} busy={busy} error={error} />;
+  const currentNow = now + offset;
+  const today = koreanDay(new Date(currentNow));
+  const me = data?.students[0];
+  const chosen = data?.students.find((s) => s.id === selected) || me;
+  const active = data?.visits.find(
+    (v) => v.student_id === me?.id && !v.exited_at,
+  );
+  const missing =
+    data?.visits.filter(
+      (v) =>
+        !v.exited_at &&
+        currentNow - Date.parse(v.entered_at) >
+          data.settings.missing_hours * 3600000,
+    ) || [];
+  const menu = teacher
+    ? [
+        ["home", "▦", "운영 대시보드"],
+        ["students", "♙", "학생 관리"],
+        ["seats", "▤", "좌석 관리"],
+        ["records", "◷", "출결 기록"],
+        ["qr", "▣", "현장 QR"],
+        ["notices", "♧", "공지사항"],
+        ["suggestions", "✉", "건의사항"],
+        ["stats", "▥", "이용 통계"],
+        ["settings", "⚙", "운영 설정"],
+      ]
+    : [
+        ["home", "▦", "내 자습실"],
+        ["seats", "▤", "좌석 확인"],
+        ["records", "◷", "나의 출결"],
+        ["notices", "♧", "공지사항"],
+        ["suggestions", "✉", "건의사항"],
+        ["stats", "▥", "이용 통계"],
+      ];
+  return (
+    <div className="layout">
+      <aside>
+        <a className="brand" href="#home">
+          <b>◒</b>
+          <span>
+            온실<small>STUDY ROOM</small>
+          </span>
+        </a>
+        <div className="role-label">
+          {teacher ? "TEACHER WORKSPACE" : "MY STUDY SPACE"}
+        </div>
+        <nav>
+          {menu.map(([p, icon, label]) => (
+            <a href={"#" + p} key={p} className={page === p ? "active" : ""}>
+              <span>{icon}</span>
+              {label}
+            </a>
+          ))}
+        </nav>
+        <div className="sidebar-bottom">
+          <span className="dot" /> Asia/Seoul 기준
+          <small>차분하게, 꾸준하게 성장하는 공간</small>
+        </div>
+      </aside>
+      <main>
+        <header>
+          <span>{teacher ? "교사 관리 공간" : "학생 전용 공간"}</span>
+          <div>
+            <span className={"mode " + (mode === "demo" ? "demo" : "")}>
+              {mode === "demo" ? "가상 데이터 · 데모" : "Supabase · 운영"}
+            </span>
+            <button onClick={logout}>로그아웃</button>
+          </div>
+        </header>
+        <div className="content">
+          <div className="page-title">
+            <div>
+              <p className="eyebrow">
+                {new Date(currentNow).toLocaleDateString("ko-KR", {
+                  timeZone: "Asia/Seoul",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                  weekday: "long",
+                })}
+              </p>
+              <h1>{menu.find((m) => m[0] === page)?.[2] || "자습실"}</h1>
+              <p>
+                {teacher
+                  ? "오늘의 학습 공간을 한눈에 살펴보세요."
+                  : "오늘도 나만의 속도로 한 걸음 나아가요."}
+              </p>
+            </div>
+            <div className="exam">
+              수능까지{" "}
+              <strong>
+                {data?.settings.exam_date
+                  ? (() => {
+                      const d = Math.round(
+                        (dayStart(data.settings.exam_date) - dayStart(today)) /
+                          86400000,
+                      );
+                      return d === 0
+                        ? "D-DAY"
+                        : d > 0
+                          ? "D−" + d
+                          : "D+" + Math.abs(d);
+                    })()
+                  : "설정 필요"}
+              </strong>
+            </div>
+          </div>
+          {error && (
+            <div role="alert" className="alert error">
+              {error} <button onClick={() => safe(refresh())}>다시 조회</button>
+            </div>
+          )}
+          {message && (
+            <div role="status" className="alert success">
+              {message}
+            </div>
+          )}
+          {!data ? (
+            <div className="panel">
+              {error
+                ? "데이터를 불러오지 못했습니다. 다시 조회하거나 로그아웃 후 로그인하세요."
+                : "데이터를 불러오고 있습니다…"}
+            </div>
+          ) : (
+            <>
+              {page === "home" && (
+                <>
+                  <div className="metrics">
+                    <Metric
+                      label="현재 입실 인원"
+                      value={`${data.current}`}
+                      unit={`/ ${data.settings.capacity}명`}
+                      caption="지금 자습실에서 공부하는 학생"
+                    />
+                    <Metric
+                      label="오늘 출석 인원"
+                      value={`${data.today}`}
+                      unit={`/ ${data.settings.capacity}명`}
+                      caption="오늘 한 번 이상 입실한 학생"
+                    />
+                    <Metric
+                      label={teacher ? "퇴실 확인 필요" : "나의 배정 좌석"}
+                      value={
+                        teacher
+                          ? String(missing.length)
+                          : String(me?.seat_id || "미배정")
+                      }
+                      unit={teacher ? "명" : "번"}
+                      caption={
+                        teacher
+                          ? "설정된 확인 시간을 넘긴 이용 구간"
+                          : "고정 좌석 · 좌석 배치도에서 확인"
+                      }
+                    />
+                  </div>
+                  {teacher ? (
+                    <>
+                      <div className="section-head">
+                        <h2>자습실 현황</h2>
+                        <a href="#qr" className="button primary">
+                          현장 QR 표시 ↗
+                        </a>
+                      </div>
+                      <SeatMap
+                        data={data}
+                        teacher
+                        selected={selected}
+                        onSelect={setSelected}
+                      />
+                      {chosen && (
+                        <div className="panel selected-card">
+                          <div>
+                            <h3>
+                              {chosen.name} <small>{chosen.number}</small>
+                            </h3>
+                            <p>
+                              오늘 판정:{" "}
+                              {attendanceVerdict(
+                                chosen.id,
+                                data.operating_days.find(
+                                  (d) => d.day === today,
+                                ),
+                                data.visits,
+                                currentNow,
+                              )}{" "}
+                              · 오늘 확정 이용{" "}
+                              {duration(
+                                dailyUsage(
+                                  data.visits.filter(
+                                    (v) => v.student_id === chosen.id,
+                                  ),
+                                  currentNow,
+                                  data.settings.missing_hours,
+                                )[today]?.confirmed || 0,
+                              )}
+                            </p>
+                          </div>
+                          <div className="actions">
+                            <button
+                              disabled={busy}
+                              onClick={() => {
+                                const reason = prompt("수동 입실 사유");
+                                if (reason)
+                                  safe(
+                                    act("manual", {
+                                      student_id: chosen.id,
+                                      direction: "in",
+                                      reason,
+                                      request_id: crypto.randomUUID(),
+                                    }),
+                                  );
+                              }}
+                            >
+                              수동 입실
+                            </button>
+                            <button
+                              disabled={busy}
+                              onClick={() => {
+                                const reason = prompt("수동 퇴실 사유");
+                                if (reason)
+                                  safe(
+                                    act("manual", {
+                                      student_id: chosen.id,
+                                      direction: "out",
+                                      reason,
+                                      request_id: crypto.randomUUID(),
+                                    }),
+                                  );
+                              }}
+                            >
+                              수동 퇴실
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {missing.length > 0 && (
+                        <div className="alert error">
+                          퇴실 확인 필요:{" "}
+                          {missing
+                            .map(
+                              (v) =>
+                                data.students.find((s) => s.id === v.student_id)
+                                  ?.name,
+                            )
+                            .join(", ")}
+                          . 출결 기록에서 실제 시각과 사유를 입력하세요.
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className="panel welcome">
+                        <div>
+                          <span className="eyebrow">MY DAILY STUDY</span>
+                          <h2>{me?.name} 님, 반가워요.</h2>
+                          <p>
+                            <span className={"status " + (active ? "in" : "")}>
+                              {active ? "● 입실 중" : "○ 퇴실"}
+                            </span>{" "}
+                            {active &&
+                              (currentNow - Date.parse(active.entered_at) >
+                              data.settings.missing_hours * 3600000
+                                ? "퇴실 확인 필요"
+                                : `현재 이용 ${duration((currentNow - Date.parse(active.entered_at)) / 1000)}`)}
+                          </p>
+                          <p>
+                            오늘 판정:{" "}
+                            {attendanceVerdict(
+                              me!.id,
+                              data.operating_days.find((d) => d.day === today),
+                              data.visits,
+                              currentNow,
+                            )}
+                          </p>
+                        </div>
+                        <div className="check-buttons">
+                          <button
+                            className="primary"
+                            onClick={() => setScan("in")}
+                            disabled={!!active || busy}
+                          >
+                            ▣ 입실 QR 찍기
+                          </button>
+                          <button
+                            onClick={() => setScan("out")}
+                            disabled={!active || busy}
+                          >
+                            ▣ 퇴실 QR 찍기
+                          </button>
+                          <small>
+                            출결은 서버 저장이 완료된 후 반영됩니다.
+                          </small>
+                        </div>
+                      </div>
+                      <h2>오늘의 이용 시간</h2>
+                      <Stats
+                        data={data}
+                        studentId={me!.id}
+                        now={currentNow}
+                        compact
+                      />
+                    </>
+                  )}
+                  <div className="section-head">
+                    <h2>자습실 소식</h2>
+                    <a href="#notices">모두 보기 →</a>
+                  </div>
+                  {data.notices.slice(0, 2).map((n) => (
+                    <NoticeCard key={n.id} n={n} />
+                  ))}
+                  {!data.notices.length && (
+                    <Empty text="등록된 공지가 없습니다." />
+                  )}
+                </>
+              )}
+              {page === "qr" && teacher && (
+                <QRDisplay role={role} token={token} />
+              )}
+              {page === "seats" && (
+                <>
+                  <SeatMap
+                    data={data}
+                    teacher={teacher}
+                    selected={teacher ? selected : me?.id}
+                    onSelect={setSelected}
+                  />
+                  {teacher && <SeatAdmin data={data} act={act} busy={busy} />}
+                </>
+              )}
+              {page === "students" && teacher && (
+                <Students data={data} act={act} busy={busy} />
+              )}
+              {page === "records" && (
+                <Records
+                  data={data}
+                  teacher={teacher}
+                  act={act}
+                  now={currentNow}
+                  busy={busy}
+                />
+              )}
+              {page === "notices" && (
+                <Notices data={data} teacher={teacher} act={act} busy={busy} />
+              )}
+              {page === "suggestions" && (
+                <Suggestions
+                  data={data}
+                  teacher={teacher}
+                  act={act}
+                  busy={busy}
+                />
+              )}
+              {page === "stats" && (
+                <Statistics data={data} teacher={teacher} now={currentNow} />
+              )}
+              {page === "settings" && teacher && (
+                <SettingsPanel data={data} act={act} busy={busy} />
+              )}
+            </>
+          )}
+          <footer>
+            온실 · 함께 만드는 몰입의 시간{" "}
+            <span>
+              {mode === "demo"
+                ? "이 화면은 가상 학생 데이터입니다."
+                : "출결과 통계는 서버 기록을 기준으로 합니다."}
+            </span>
+          </footer>
+        </div>
+      </main>
+      {scan && (
+        <Scanner
+          direction={scan}
+          close={() => setScan(null)}
+          submit={async (qr, requestId) => {
+            await act("attendance", {
+              direction: scan,
+              qr,
+              request_id: requestId,
+            });
+            setScan(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+function Login({
+  onLogin,
+  busy,
+  error,
+}: {
+  onLogin: (r: Role, c: string, e: string, p: string) => void;
+  busy: boolean;
+  error: string;
+}) {
+  const [role, setRole] = useState<Role>("student"),
+    [code, setCode] = useState(""),
+    [email, setEmail] = useState(""),
+    [password, setPassword] = useState("");
+  return (
+    <div className="login">
+      <section className="login-story">
+        <a className="brand" href="#">
+          <b>◒</b>
+          <span>
+            온실<small>STUDY ROOM</small>
+          </span>
+        </a>
+        <p className="eyebrow">A SPACE FOR YOUR GROWTH</p>
+        <h1>
+          꾸준한 오늘이
+          <br />더 큰 내일을 만듭니다.
+        </h1>
+        <p>
+          입실부터 퇴실까지, 나의 공부 시간을
+          <br />
+          차분하게 기록하는 자습실.
+        </p>
+        <div className="illustration">
+          <div>01</div>
+          <div>02</div>
+          <div>03</div>
+          <div>04</div>
+          <div>05</div>
+          <div>06</div>
+        </div>
+        <small>나의 자리 · 나의 시간 · 함께하는 성장</small>
+      </section>
+      <section className="login-form">
+        <span className="mode demo">
+          {mode === "demo" ? "가상 데이터 데모" : "실제 DB 운영 모드"}
+        </span>
+        <h2>자습실에 들어가기</h2>
+        <p>안녕하세요. 오늘의 집중을 시작해 볼까요?</p>
+        <div className="tabs">
+          <button
+            className={role === "student" ? "active" : ""}
+            onClick={() => setRole("student")}
+          >
+            학생
+          </button>
+          <button
+            className={role === "teacher" ? "active" : ""}
+            onClick={() => setRole("teacher")}
+          >
+            교사
+          </button>
+        </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            onLogin(role, code, email, password);
+          }}
+        >
+          {role === "student" ? (
+            <Field label="개인 접속 코드">
+              <input
+                autoComplete="off"
+                autoCapitalize="characters"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="선생님이 발급한 코드를 입력하세요"
+                required
+              />
+            </Field>
+          ) : mode === "production" ? (
+            <>
+              <Field label="교사 이메일">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="username"
+                />
+              </Field>
+              <Field label="비밀번호">
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                />
+              </Field>
+            </>
+          ) : (
+            <p>교사 데모는 가상 학생 72명을 관리합니다.</p>
+          )}
+          {error && (
+            <p role="alert" className="error-text">
+              {error}
+            </p>
+          )}
+          <button className="primary wide" disabled={busy}>
+            {busy ? "인증 중…" : "로그인 →"}
+          </button>
+        </form>
+        {mode === "demo" && (
+          <div className="demo-info">
+            <b>설정 없이 체험하기</b>
+            <p>
+              학생 코드: <code>DEMO-STUDENT-0001</code>
+            </p>
+            <button onClick={() => setCode("DEMO-STUDENT-0001")}>
+              데모 코드 채우기
+            </button>
+            <button
+              onClick={() => {
+                demoReset();
+                location.reload();
+              }}
+            >
+              가상 데이터 초기화
+            </button>
+            <small>
+              데모 로그인·코드는 브라우저 시연용입니다.
+              <br />
+              운영 모드에서는 서버에서 인증합니다.
+            </small>
+          </div>
+        )}
+        <small>개인 접속 코드는 다른 사람과 공유하지 마세요.</small>
+      </section>
+    </div>
+  );
+}
+function Metric({
+  label,
+  value,
+  unit,
+  caption,
+}: {
+  label: string;
+  value: string;
+  unit: string;
+  caption: string;
+}) {
+  return (
+    <div className="metric">
+      <span>{label}</span>
+      <div>
+        <strong>{value}</strong>
+        <span>{unit}</span>
+      </div>
+      <small>{caption}</small>
+    </div>
+  );
+}
+function Empty({ text }: { text: string }) {
+  return <div className="panel empty">{text}</div>;
+}
+function SeatMap({
+  data,
+  teacher,
+  selected,
+  onSelect,
+}: {
+  data: Snapshot;
+  teacher: boolean;
+  selected?: string;
+  onSelect: (id: string) => void;
+}) {
+  const rows = [...new Set(data.seats.map((s) => s.row))].sort((a, b) => a - b);
+  return (
+    <div className="panel">
+      <div className="seat-legend">
+        <span>
+          <i className="dot" />
+          입실 중
+        </span>
+        <span>○ 퇴실</span>
+        <span>▨ 사용 불가</span>
+        <span>내 좌석 / 선택 좌석</span>
+      </div>
+      <div className="seat-scroll">
+        <div className="seat-room">
+          <div className="front">칠판 · 교실 앞쪽</div>
+          {rows.map((row) => (
+            <div className="seat-row" key={row}>
+              {data.seats
+                .filter((s) => s.row === row)
+                .sort((a, b) => a.col - b.col)
+                .map((seat) => {
+                  const st = data.students.find((s) => s.seat_id === seat.id);
+                  const inside =
+                    st &&
+                    data.visits.some(
+                      (v) => v.student_id === st.id && !v.exited_at,
+                    );
+                  return (
+                    <button
+                      style={{ gridColumn: seat.col }}
+                      className={`seat ${inside && teacher ? "occupied" : ""} ${selected && st?.id === selected ? "mine" : ""} ${seat.enabled ? "" : "disabled"}`}
+                      key={seat.id}
+                      onClick={() => {
+                        if (st) onSelect(st.id);
+                      }}
+                      aria-label={`${seat.id}번 좌석 ${teacher && st ? st.name : st?.id === selected ? "내 좌석" : ""} ${teacher ? (inside ? "입실 중" : "퇴실") : ""} ${!seat.enabled ? "사용 불가" : ""}`}
+                    >
+                      <b>{seat.id.toString().padStart(2, "0")}</b>
+                      <small>
+                        {teacher
+                          ? st
+                            ? st.name
+                            : "미배정"
+                          : st?.id === selected
+                            ? "내 자리"
+                            : seat.enabled
+                              ? "좌석"
+                              : "사용 불가"}
+                      </small>
+                      {teacher && st && (
+                        <small>{inside ? "● 입실 중" : "○ 퇴실"}</small>
+                      )}
+                    </button>
+                  );
+                })}
+            </div>
+          ))}
+        </div>
+      </div>
+      <small>
+        예시 배치 · 9행 × 8열. 교사는 좌석의 위치와 사용 여부를 수정할 수
+        있습니다.
+      </small>
+    </div>
+  );
+}
+function QRDisplay({ role, token }: { role: Role; token: string | null }) {
+  const [qr, setQr] = useState({ token: "", expires_at: "" }),
+    [image, setImage] = useState(""),
+    [error, setError] = useState(""),
+    [now, setNow] = useState(Date.now());
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let alive = true;
+    let generating = false;
+    const update = async () => {
+      if (generating) return;
+      generating = true;
+      try {
+        const next = await api("qr", {}, role, token);
+        const img = await QRCode.toDataURL(next.token, {
+          width: 600,
+          margin: 3,
+          errorCorrectionLevel: "M",
+        });
+        if (alive) {
+          setQr(next);
+          setImage(img);
+          setError("");
+        }
+      } catch (e) {
+        if (alive) {
+          setError((e as Error).message);
+          setImage("");
+        }
+      } finally {
+        generating = false;
+      }
+    };
+    update();
+    const t = setInterval(update, 30000),
+      clock = setInterval(() => setNow(Date.now()), 1000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+      clearInterval(clock);
+    };
+  }, [role, token]);
+  return (
+    <div className="panel qr-panel" ref={ref}>
+      <h2>입실·퇴실 현장 QR</h2>
+      <p>학생은 로그인 후 입실 또는 퇴실 버튼을 선택해 스캔하세요.</p>
+      {error ? (
+        <p role="alert">{error}</p>
+      ) : image && Date.parse(qr.expires_at) > now ? (
+        <img src={image} alt="현장 입퇴실 QR" />
+      ) : (
+        <p>QR을 갱신하고 있습니다…</p>
+      )}
+      <h3>
+        유효 시간{" "}
+        {Math.min(
+          45,
+          Math.max(0, Math.ceil((Date.parse(qr.expires_at) - now) / 1000)),
+        ) || 0}
+        초
+      </h3>
+      <button
+        onClick={() => {
+          ref.current
+            ?.requestFullscreen()
+            .catch(() => setError("전체 화면을 지원하지 않는 브라우저입니다."));
+        }}
+      >
+        전체 화면 표시
+      </button>
+      <p className="muted">
+        30초마다 갱신 · 발급 후 45초 유효
+        <br />
+        QR 공유 등으로 현장 여부를 완벽하게 보장할 수는 없습니다.
+      </p>
+    </div>
+  );
+}
+function Scanner({
+  direction,
+  close,
+  submit,
+}: {
+  direction: "in" | "out";
+  close: () => void;
+  submit: (qr: string, id: string) => Promise<void>;
+}) {
+  const [error, setError] = useState(""),
+    [status, setStatus] = useState("카메라를 준비하세요."),
+    [manual, setManual] = useState(""),
+    [busy, setBusy] = useState(false);
+  const camera = useRef<Html5Qrcode | null>(null),
+    lock = useRef(false),
+    request = useRef({ qr: "", id: "" });
+  const stop = async () => {
+    if (camera.current?.isScanning) await camera.current.stop();
+  };
+  useEffect(
+    () => () => {
+      void stop().catch(() => {});
+    },
+    [],
+  );
+  async function send(text: string) {
+    if (lock.current) return;
+    lock.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      if (!validQr(text))
+        throw Error("온실 현장 QR 형식이 아닙니다. 외부 URL은 열지 않습니다.");
+      await stop();
+      if (request.current.qr !== text)
+        request.current = { qr: text, id: crypto.randomUUID() };
+      setStatus("서버에 저장 중…");
+      await submit(text, request.current.id);
+    } catch (e) {
+      setError((e as Error).message);
+      setStatus("완료되지 않았습니다. 다시 시도하세요.");
+    } finally {
+      lock.current = false;
+      setBusy(false);
+    }
+  }
+  async function start() {
+    setError("");
+    try {
+      await stop();
+      const { Html5Qrcode } = await import("html5-qrcode");
+      camera.current ??= new Html5Qrcode("camera-reader");
+      await camera.current.start(
+        { facingMode: "environment" },
+        { fps: 8, qrbox: { width: 240, height: 240 } },
+        (text) => {
+          void send(text);
+        },
+        () => {},
+      );
+      setStatus("현장 QR을 화면 안에 맞춰 주세요.");
+    } catch (e) {
+      setError(
+        `카메라를 사용할 수 없습니다. 권한과 카메라 연결을 확인하세요. 교사에게 수동 처리를 요청할 수 있습니다. (${(e as Error).message || e})`,
+      );
+    }
+  }
+  return (
+    <div className="modal-backdrop">
+      <section
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="scan-title"
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && !busy) {
+            void stop();
+            close();
+          }
+          if (e.key === "Tab") {
+            const controls = [
+              ...e.currentTarget.querySelectorAll<HTMLElement>(
+                "button:not([disabled]),input,select,textarea",
+              ),
+            ];
+            const first = controls[0],
+              last = controls.at(-1);
+            if (e.shiftKey && document.activeElement === first) {
+              e.preventDefault();
+              last?.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+              e.preventDefault();
+              first?.focus();
+            }
+          }
+        }}
+      >
+        <h2 id="scan-title">{direction === "in" ? "입실" : "퇴실"} QR 스캔</h2>
+        <div id="camera-reader" />
+        <p role="status">{status}</p>
+        {error && (
+          <p className="error-text" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="actions">
+          <button autoFocus onClick={() => void start()} disabled={busy}>
+            카메라 시작 / 재시도
+          </button>
+          <button
+            onClick={() => {
+              void stop();
+              close();
+            }}
+            disabled={busy}
+          >
+            닫기
+          </button>
+        </div>
+        {mode === "demo" && (
+          <div className="demo-info">
+            <p>
+              같은 브라우저의 교사 데모에서 QR을 표시한 후 학생으로
+              로그인하세요.
+            </p>
+            <button disabled={busy} onClick={() => void send(demoQr().token)}>
+              현재 데모 QR로 시연
+            </button>
+            <Field label="QR 내용으로 시연">
+              <input
+                value={manual}
+                onChange={(e) => setManual(e.target.value)}
+              />
+            </Field>
+            <button disabled={busy} onClick={() => void send(manual)}>
+              검증 및 저장
+            </button>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+function Students({
+  data,
+  act,
+  busy,
+}: {
+  data: Snapshot;
+  act: (a: string, p: any) => Promise<any>;
+  busy: boolean;
+}) {
+  const [search, setSearch] = useState(""),
+    [edit, setEdit] = useState<Partial<Student>>({ name: "", number: "" }),
+    [code, setCode] = useState("");
+  return (
+    <>
+      <div className="panel">
+        <h2>{edit.id ? "학생 정보 수정" : "학생 등록"}</h2>
+        <form
+          className="form-grid"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void act("student", edit)
+              .then(() => setEdit({ name: "", number: "" }))
+              .catch(() => {});
+          }}
+        >
+          <Field label="이름">
+            <input
+              required
+              maxLength={80}
+              value={edit.name}
+              onChange={(e) => setEdit({ ...edit, name: e.target.value })}
+            />
+          </Field>
+          <Field label="학번">
+            <input
+              required
+              maxLength={40}
+              value={edit.number}
+              onChange={(e) => setEdit({ ...edit, number: e.target.value })}
+            />
+          </Field>
+          {edit.id && (
+            <Field label="이용 상태">
+              <select
+                value={String(edit.active)}
+                onChange={(e) =>
+                  setEdit({ ...edit, active: e.target.value === "true" })
+                }
+              >
+                <option value="true">이용 가능</option>
+                <option value="false">이용 중지</option>
+              </select>
+            </Field>
+          )}
+          <button disabled={busy} className="primary">
+            저장
+          </button>
+          <button
+            type="button"
+            onClick={() => setEdit({ name: "", number: "" })}
+          >
+            새 학생
+          </button>
+        </form>
+      </div>
+      {code && (
+        <div className="alert success">
+          <b>접속 코드 · 지금 한 번만 표시됩니다</b>
+          <p>
+            <code>{code}</code>
+          </p>
+          <button onClick={() => setCode("")}>확인 후 닫기</button>
+          <small>재발급 시 이전 코드와 세션이 폐기됩니다.</small>
+        </div>
+      )}
+      <Field label="이름·학번 검색">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="학생 검색"
+        />
+      </Field>
+      <div className="table-wrap panel">
+        <table>
+          <thead>
+            <tr>
+              <th>이름</th>
+              <th>학번</th>
+              <th>좌석</th>
+              <th>이용 상태</th>
+              <th>관리</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.students
+              .filter((s) => `${s.name} ${s.number}`.includes(search))
+              .map((s) => (
+                <tr key={s.id}>
+                  <td>{s.name}</td>
+                  <td>{s.number}</td>
+                  <td>{s.seat_id || "미배정"}</td>
+                  <td>{s.active ? "이용 가능" : "이용 중지"}</td>
+                  <td>
+                    <button
+                      onClick={() => {
+                        setEdit(s);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                    >
+                      수정
+                    </button>{" "}
+                    <button
+                      disabled={busy || !s.active}
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `${s.name}의 접속 코드를 발급/재발급합니다. 기존 세션은 차단됩니다.`,
+                          )
+                        )
+                          void act("code", { student_id: s.id })
+                            .then((r) => setCode(r.code))
+                            .catch(() => {});
+                      }}
+                    >
+                      코드 발급 / 재발급
+                    </button>
+                  </td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+function SeatAdmin({
+  data,
+  act,
+  busy,
+}: {
+  data: Snapshot;
+  act: (a: string, p: any) => Promise<any>;
+  busy: boolean;
+}) {
+  const [selected, setSelected] = useState(
+      data.students.filter((s) => s.active).map((s) => s.id),
+    ),
+    [available, setAvailable] = useState(
+      data.seats.filter((s) => s.enabled).map((s) => s.id),
+    ),
+    [fixed, setFixed] = useState<string[]>([]),
+    [preview, setPreview] = useState<
+      { student_id: string; seat_id: number | null }[] | null
+    >(null),
+    [error, setError] = useState(""),
+    [seat, setSeat] = useState({ id: 1, row: 1, col: 1, enabled: true });
+  const toggle = (array: any[], value: any) =>
+    array.includes(value)
+      ? array.filter((v) => v !== value)
+      : [...array, value];
+  const draw = () => {
+    try {
+      setPreview(
+        lottery(data.students, data.seats, selected, available, fixed),
+      );
+      setError("");
+    } catch (e) {
+      setError((e as Error).message);
+      setPreview(null);
+    }
+  };
+  return (
+    <>
+      <div className="panel">
+        <h2>좌석 번호·위치 관리</h2>
+        <form
+          className="form-grid"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void act("seat", seat).catch(() => {});
+          }}
+        >
+          <Field label="좌석 번호">
+            <input
+              type="number"
+              min="1"
+              value={seat.id}
+              onChange={(e) => {
+                const id = +e.target.value;
+                setSeat(
+                  data.seats.find((s) => s.id === id) || {
+                    id,
+                    row: 10,
+                    col: 1,
+                    enabled: true,
+                  },
+                );
+              }}
+            />
+          </Field>
+          <Field label="행">
+            <input
+              type="number"
+              min="1"
+              value={seat.row}
+              onChange={(e) => setSeat({ ...seat, row: +e.target.value })}
+            />
+          </Field>
+          <Field label="열">
+            <input
+              type="number"
+              min="1"
+              value={seat.col}
+              onChange={(e) => setSeat({ ...seat, col: +e.target.value })}
+            />
+          </Field>
+          <label>
+            <input
+              type="checkbox"
+              checked={seat.enabled}
+              onChange={(e) => setSeat({ ...seat, enabled: e.target.checked })}
+            />{" "}
+            사용 가능
+          </label>
+          <button disabled={busy}>좌석 저장</button>
+        </form>
+      </div>
+      <div className="panel">
+        <h2>좌석 재추첨</h2>
+        <p>
+          대상 학생과 좌석을 고르고, 유지할 좌석은 고정하세요. 확정 전에는 기존
+          배정이 유지됩니다.
+        </p>
+        <div className="pick-grid">
+          <div>
+            <h3>대상 학생 / 기존 좌석 고정</h3>
+            <button
+              onClick={() => {
+                setSelected(
+                  data.students.filter((s) => s.active).map((s) => s.id),
+                );
+                setPreview(null);
+              }}
+            >
+              활동 학생 전체 선택
+            </button>
+            <button
+              onClick={() => {
+                setSelected([]);
+                setPreview(null);
+              }}
+            >
+              선택 해제
+            </button>
+            <div className="picker">
+              {data.students.map((s) => (
+                <div key={s.id}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(s.id)}
+                      onChange={() => {
+                        setSelected(toggle(selected, s.id));
+                        setPreview(null);
+                      }}
+                    />
+                    {s.name} · {s.seat_id || "미배정"}
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={fixed.includes(s.id)}
+                      onChange={() => {
+                        setFixed(toggle(fixed, s.id));
+                        setPreview(null);
+                      }}
+                    />
+                    고정
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <h3>사용할 좌석</h3>
+            <div className="seat-picks">
+              {data.seats.map((s) => (
+                <label key={s.id}>
+                  <input
+                    type="checkbox"
+                    disabled={!s.enabled}
+                    checked={available.includes(s.id)}
+                    onChange={() => {
+                      setAvailable(toggle(available, s.id));
+                      setPreview(null);
+                    }}
+                  />
+                  {s.id}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+        <button className="primary" onClick={draw}>
+          추첨 미리보기 / 다시 추첨
+        </button>
+        {error && (
+          <p role="alert" className="error-text">
+            {error}
+          </p>
+        )}
+        {preview && (
+          <>
+            <h3>배정 미리보기 · 아직 적용되지 않았습니다</h3>
+            <div className="preview-assign">
+              {preview.map((p) => (
+                <Field
+                  key={p.student_id}
+                  label={data.students.find((s) => s.id === p.student_id)!.name}
+                >
+                  <select
+                    value={p.seat_id ?? ""}
+                    onChange={(e) =>
+                      setPreview(
+                        preview.map((x) =>
+                          x.student_id === p.student_id
+                            ? {
+                                ...x,
+                                seat_id: e.target.value
+                                  ? +e.target.value
+                                  : null,
+                              }
+                            : x,
+                        ),
+                      )
+                    }
+                  >
+                    <option value="">미배정</option>
+                    {data.seats
+                      .filter((s) => s.enabled)
+                      .map((s) => (
+                        <option value={s.id} key={s.id}>
+                          {s.id}번
+                        </option>
+                      ))}
+                  </select>
+                </Field>
+              ))}
+            </div>
+            <button
+              disabled={busy}
+              className="primary"
+              onClick={() => {
+                void act("assign", { pairs: preview })
+                  .then(() => setPreview(null))
+                  .catch(() => {});
+              }}
+            >
+              배정 확정
+            </button>
+            <button onClick={() => setPreview(null)}>미리보기 취소</button>
+          </>
+        )}
+      </div>
+      <div className="panel">
+        <h2>학생 좌석 직접 변경</h2>
+        <DirectSeat data={data} act={act} busy={busy} />
+      </div>
+    </>
+  );
+}
+function DirectSeat({
+  data,
+  act,
+  busy,
+}: {
+  data: Snapshot;
+  act: (a: string, p: any) => Promise<any>;
+  busy: boolean;
+}) {
+  const [student, setStudent] = useState(data.students[0]?.id || ""),
+    [seat, setSeat] = useState("");
+  return (
+    <form
+      className="form-grid"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void act("assign", {
+          pairs: [{ student_id: student, seat_id: seat ? +seat : null }],
+        }).catch(() => {});
+      }}
+    >
+      <Field label="학생">
+        <select value={student} onChange={(e) => setStudent(e.target.value)}>
+          {data.students.map((s) => (
+            <option value={s.id} key={s.id}>
+              {s.name} · 현재 {s.seat_id || "미배정"}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="새 좌석">
+        <select value={seat} onChange={(e) => setSeat(e.target.value)}>
+          <option value="">배정 해제</option>
+          {data.seats
+            .filter((s) => s.enabled)
+            .map((s) => (
+              <option value={s.id} key={s.id}>
+                {s.id}번
+              </option>
+            ))}
+        </select>
+      </Field>
+      <button disabled={busy}>변경 확정</button>
+    </form>
+  );
+}
+function Records({
+  data,
+  teacher,
+  act,
+  now,
+  busy,
+}: {
+  data: Snapshot;
+  teacher: boolean;
+  act: (a: string, p: any) => Promise<any>;
+  now: number;
+  busy: boolean;
+}) {
+  const [student, setStudent] = useState(""),
+    [from, setFrom] = useState(""),
+    [to, setTo] = useState(""),
+    [edit, setEdit] = useState<Visit | null>(null),
+    [entered, setEntered] = useState(""),
+    [exited, setExited] = useState(""),
+    [reason, setReason] = useState("");
+  const visits = data.visits.filter(
+    (v) =>
+      (!student || v.student_id === student) &&
+      (!from || koreanDay(v.entered_at) >= from) &&
+      (!to || koreanDay(v.entered_at) <= to),
+  );
+  return (
+    <>
+      <div className="panel form-grid">
+        {teacher && (
+          <Field label="학생">
+            <select
+              value={student}
+              onChange={(e) => setStudent(e.target.value)}
+            >
+              <option value="">전체 학생</option>
+              {data.students.map((s) => (
+                <option value={s.id} key={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
+        <Field label="시작일">
+          <input
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+          />
+        </Field>
+        <Field label="종료일">
+          <input
+            type="date"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+          />
+        </Field>
+        {teacher && (
+          <button
+            onClick={() =>
+              download(
+                "출결.csv",
+                csv([
+                  [
+                    "학생",
+                    "학번",
+                    "입실(한국)",
+                    "퇴실(한국)",
+                    "확정 이용 초",
+                    "상태",
+                  ],
+                  ...visits.map((v) => {
+                    const s = data.students.find((s) => s.id === v.student_id)!;
+                    return [
+                      s.name,
+                      s.number,
+                      csvTime(v.entered_at),
+                      csvTime(v.exited_at),
+                      v.exited_at
+                        ? (Date.parse(v.exited_at) - Date.parse(v.entered_at)) /
+                          1000
+                        : "",
+                      v.exited_at
+                        ? "확정"
+                        : now - Date.parse(v.entered_at) >
+                            data.settings.missing_hours * 3600000
+                          ? "확인 필요"
+                          : "진행 중",
+                    ];
+                  }),
+                ]),
+              )
+            }
+          >
+            출결 CSV 다운로드
+          </button>
+        )}
+      </div>
+      {edit && (
+        <div className="panel">
+          <h2>기록 시각 수정 · 한국 시각</h2>
+          <form
+            className="form-grid"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void act("correct", {
+                id: edit.id,
+                entered_at: isoInput(entered),
+                exited_at: exited ? isoInput(exited) : null,
+                reason,
+              })
+                .then(() => setEdit(null))
+                .catch(() => {});
+            }}
+          >
+            <Field label="입실">
+              <input
+                type="datetime-local"
+                required
+                value={entered}
+                onChange={(e) => setEntered(e.target.value)}
+              />
+            </Field>
+            <Field label="퇴실 · 비우면 진행 중">
+              <input
+                type="datetime-local"
+                value={exited}
+                onChange={(e) => setExited(e.target.value)}
+              />
+            </Field>
+            <Field label="수정 사유">
+              <input
+                required
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </Field>
+            <button disabled={busy}>수정 저장</button>
+            <button type="button" onClick={() => setEdit(null)}>
+              취소
+            </button>
+          </form>
+        </div>
+      )}
+      <div className="panel table-wrap">
+        <table>
+          <thead>
+            <tr>
+              {teacher && <th>학생</th>}
+              <th>입실</th>
+              <th>퇴실</th>
+              <th>이용 시간</th>
+              <th>상태</th>
+              {teacher && <th>관리</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {visits.map((v) => {
+              const review =
+                !v.exited_at &&
+                now - Date.parse(v.entered_at) >
+                  data.settings.missing_hours * 3600000;
+              return (
+                <tr key={v.id}>
+                  {teacher && (
+                    <td>
+                      {data.students.find((s) => s.id === v.student_id)?.name}
+                    </td>
+                  )}
+                  <td>{time(v.entered_at)}</td>
+                  <td>{time(v.exited_at)}</td>
+                  <td>
+                    {review
+                      ? "미확정"
+                      : duration(
+                          ((v.exited_at ? Date.parse(v.exited_at) : now) -
+                            Date.parse(v.entered_at)) /
+                            1000,
+                        )}
+                  </td>
+                  <td>
+                    {review
+                      ? "⚠ 확인 필요"
+                      : v.exited_at
+                        ? "확정"
+                        : "● 진행 중"}
+                  </td>
+                  {teacher && (
+                    <td>
+                      <button
+                        onClick={() => {
+                          setEdit(v);
+                          setEntered(localInput(v.entered_at));
+                          setExited(v.exited_at ? localInput(v.exited_at) : "");
+                          setReason("");
+                        }}
+                      >
+                        수정
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {!visits.length && <Empty text="이 기간의 이용 기록이 없습니다." />}
+      </div>
+      {!teacher && (
+        <Stats data={data} studentId={data.students[0].id} now={now} />
+      )}{" "}
+      {teacher && (
+        <div className="panel">
+          <h2>최근 수정 및 배정 이력</h2>
+          {data.audits.map((a, i) => (
+            <details key={i}>
+              <summary>
+                {String(a.created_at)} · {String(a.kind)} · {String(a.reason)}
+              </summary>
+              <pre>{JSON.stringify(a, null, 2)}</pre>
+            </details>
+          ))}
+          {!data.audits.length && <p>수정 이력이 없습니다.</p>}
+        </div>
+      )}
+    </>
+  );
+}
+function NoticeCard({ n }: { n: Notice }) {
+  return (
+    <article className="panel notice">
+      <div>
+        {n.important && <span className="badge">중요 공지</span>}
+        <span className="muted">
+          작성 {time(n.created_at)} · 수정 {time(n.updated_at)}
+        </span>
+      </div>
+      <h3>{n.title}</h3>
+      <p className="text-body">{n.body}</p>
+    </article>
+  );
+}
+function Notices({
+  data,
+  teacher,
+  act,
+  busy,
+}: {
+  data: Snapshot;
+  teacher: boolean;
+  act: (a: string, p: any) => Promise<any>;
+  busy: boolean;
+}) {
+  const blank = { title: "", body: "", important: false };
+  const [edit, setEdit] = useState<Partial<Notice>>(blank);
+  return (
+    <>
+      {teacher && (
+        <div className="panel">
+          <h2>{edit.id ? "공지 수정" : "공지 작성"}</h2>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void act("notice", edit)
+                .then(() => setEdit(blank))
+                .catch(() => {});
+            }}
+          >
+            <Field label="제목">
+              <input
+                required
+                maxLength={160}
+                value={edit.title}
+                onChange={(e) => setEdit({ ...edit, title: e.target.value })}
+              />
+            </Field>
+            <Field label="내용">
+              <textarea
+                required
+                maxLength={10000}
+                value={edit.body}
+                onChange={(e) => setEdit({ ...edit, body: e.target.value })}
+              />
+            </Field>
+            <label>
+              <input
+                type="checkbox"
+                checked={edit.important}
+                onChange={(e) =>
+                  setEdit({ ...edit, important: e.target.checked })
+                }
+              />{" "}
+              중요 공지 · 상단 고정
+            </label>
+            <div className="actions">
+              <button className="primary" disabled={busy}>
+                저장
+              </button>
+              <button type="button" onClick={() => setEdit(blank)}>
+                작성 초기화
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+      {[...data.notices]
+        .sort(
+          (a, b) =>
+            Number(b.important) - Number(a.important) ||
+            b.created_at.localeCompare(a.created_at),
+        )
+        .map((n) => (
+          <div key={n.id}>
+            <NoticeCard n={n} />
+            {teacher && (
+              <div className="actions">
+                <button
+                  onClick={() => {
+                    setEdit(n);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                >
+                  수정
+                </button>
+                <button
+                  disabled={busy}
+                  onClick={() => {
+                    if (confirm("공지를 삭제할까요?"))
+                      void act("notice_delete", { id: n.id }).catch(() => {});
+                  }}
+                >
+                  삭제
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      {!data.notices.length && <Empty text="등록된 공지가 없습니다." />}
+    </>
+  );
+}
+function Suggestions({
+  data,
+  teacher,
+  act,
+  busy,
+}: {
+  data: Snapshot;
+  teacher: boolean;
+  act: (a: string, p: any) => Promise<any>;
+  busy: boolean;
+}) {
+  const [title, setTitle] = useState(""),
+    [body, setBody] = useState("");
+  return (
+    <>
+      {!teacher && (
+        <div className="panel">
+          <h2>자습실에 의견 보내기</h2>
+          <p>작성 학생과 교사만 내용을 확인할 수 있습니다.</p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void act("suggest", { title, body })
+                .then(() => {
+                  setTitle("");
+                  setBody("");
+                })
+                .catch(() => {});
+            }}
+          >
+            <Field label="제목">
+              <input
+                required
+                maxLength={160}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </Field>
+            <Field label="내용">
+              <textarea
+                required
+                maxLength={10000}
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+              />
+            </Field>
+            <button className="primary" disabled={busy}>
+              건의 등록
+            </button>
+          </form>
+        </div>
+      )}
+      {data.suggestions.map((s) => (
+        <article className="panel" key={s.id}>
+          <span className="badge">{s.status}</span>
+          <span className="muted">
+            {" "}
+            {teacher &&
+              data.students.find((st) => st.id === s.student_id)?.name}{" "}
+            · {time(s.created_at)}
+          </span>
+          <h3>{s.title}</h3>
+          <p className="text-body">{s.body}</p>
+          {s.reply && (
+            <blockquote>
+              <b>교사 답변</b>
+              <p className="text-body">{s.reply}</p>
+              <small>수정 {time(s.updated_at)}</small>
+            </blockquote>
+          )}
+          {teacher && <Reply suggestion={s} act={act} busy={busy} />}
+        </article>
+      ))}
+      {!data.suggestions.length && <Empty text="등록된 건의사항이 없습니다." />}
+    </>
+  );
+}
+function Reply({
+  suggestion,
+  act,
+  busy,
+}: {
+  suggestion: Snapshot["suggestions"][number];
+  act: (a: string, p: any) => Promise<any>;
+  busy: boolean;
+}) {
+  const [reply, setReply] = useState(suggestion.reply),
+    [status, setStatus] = useState(suggestion.status);
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        void act("reply", { id: suggestion.id, reply, status }).catch(() => {});
+      }}
+    >
+      <Field label="답변">
+        <textarea
+          maxLength={10000}
+          value={reply}
+          onChange={(e) => setReply(e.target.value)}
+        />
+      </Field>
+      <Field label="처리 상태">
+        <select value={status} onChange={(e) => setStatus(e.target.value)}>
+          {["접수", "확인 중", "처리 완료"].map((s) => (
+            <option key={s}>{s}</option>
+          ))}
+        </select>
+      </Field>
+      <button disabled={busy}>답변·상태 저장</button>
+    </form>
+  );
+}
+function Stats({
+  data,
+  studentId,
+  now,
+  compact = false,
+}: {
+  data: Snapshot;
+  studentId: string;
+  now: number;
+  compact?: boolean;
+}) {
+  const t = totals(
+    data.visits.filter((v) => v.student_id === studentId),
+    now,
+    data.settings.missing_hours,
+  );
+  const days = Object.entries(t.days).sort(([a], [b]) => b.localeCompare(a));
+  const max = Math.max(1, ...days.map(([, v]) => v.confirmed));
+  return (
+    <>
+      <div className="metrics stats">
+        <Metric
+          label="오늘 확정"
+          value={duration(t.today)}
+          unit=""
+          caption="진행 중인 이용 시간 제외"
+        />
+        <Metric
+          label="이번 주 확정"
+          value={duration(t.week)}
+          unit=""
+          caption="월요일부터 일요일까지"
+        />
+        <Metric
+          label="이번 달 확정"
+          value={duration(t.month)}
+          unit=""
+          caption="한국 날짜 기준"
+        />
+        {!compact && (
+          <Metric
+            label="전체 확정"
+            value={duration(t.all)}
+            unit=""
+            caption={`확정 이용 일수 ${t.count}일`}
+          />
+        )}
+      </div>
+      {!compact && (
+        <div className="panel">
+          <h2>날짜별 이용 시간</h2>
+          {days.map(([day, v]) => (
+            <div className="graph-row" key={day}>
+              <span>{day}</span>
+              <div>
+                <i style={{ width: `${(v.confirmed / max) * 100}%` }} />
+              </div>
+              <span>
+                {duration(v.confirmed)}
+                {v.ongoing > 0 && ` · 진행 ${duration(v.ongoing)}`}
+                {v.review > 0 && " · ⚠ 확인 필요"}
+              </span>
+            </div>
+          ))}
+          {!days.length && <p>이용 기록이 없습니다.</p>}
+          <small>
+            자정이 넘어간 이용은 한국 날짜별로 나눕니다. 확인 필요 기록은
+            합계에서 제외합니다.
+          </small>
+        </div>
+      )}
+    </>
+  );
+}
+function download(name: string, contents: string) {
+  const url = URL.createObjectURL(
+    new Blob([contents], { type: "text/csv;charset=utf-8" }),
+  );
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function Statistics({
+  data,
+  teacher,
+  now,
+}: {
+  data: Snapshot;
+  teacher: boolean;
+  now: number;
+}) {
+  const [from, setFrom] = useState(""),
+    [to, setTo] = useState("");
+  if (!teacher)
+    return <Stats data={data} studentId={data.students[0].id} now={now} />;
+  const rows = data.students.map((s) => {
+    const days = dailyUsage(
+      data.visits.filter((v) => v.student_id === s.id),
+      now,
+      data.settings.missing_hours,
+    );
+    const chosen = Object.entries(days).filter(
+      ([d]) => (!from || d >= from) && (!to || d <= to),
+    );
+    return {
+      s,
+      seconds: chosen.reduce((a, [, v]) => a + v.confirmed, 0),
+      count: chosen.filter(([, v]) => v.confirmed > 0).length,
+      ongoing: chosen.reduce((a, [, v]) => a + v.ongoing, 0),
+      review: chosen.reduce((a, [, v]) => a + v.review, 0),
+    };
+  });
+  return (
+    <>
+      <div className="panel form-grid">
+        <Field label="시작일">
+          <input
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+          />
+        </Field>
+        <Field label="종료일">
+          <input
+            type="date"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+          />
+        </Field>
+        <button
+          onClick={() =>
+            download(
+              "이용통계.csv",
+              csv([
+                [
+                  "학생",
+                  "학번",
+                  "확정 이용 초",
+                  "확정 이용 일수",
+                  "진행 중 초",
+                  "확인 필요 날짜 구간",
+                ],
+                ...rows.map((r) => [
+                  r.s.name,
+                  r.s.number,
+                  r.seconds,
+                  r.count,
+                  r.ongoing,
+                  r.review,
+                ]),
+              ]),
+            )
+          }
+        >
+          통계 CSV 다운로드
+        </button>
+      </div>
+      <div className="metrics">
+        <Metric
+          label="전체 확정 이용"
+          value={duration(rows.reduce((a, r) => a + r.seconds, 0))}
+          unit=""
+          caption="학생별 확정 이용 시간 합계"
+        />
+        <Metric
+          label="총 이용 일수"
+          value={String(rows.reduce((a, r) => a + r.count, 0))}
+          unit="학생·일"
+          caption="학생별 이용 일수의 합계"
+        />
+      </div>
+      <div className="panel table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>학생</th>
+              <th>확정 이용 시간</th>
+              <th>이용 일수</th>
+              <th>미확정</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.s.id}>
+                <td>{r.s.name}</td>
+                <td>{duration(r.seconds)}</td>
+                <td>{r.count}일</td>
+                <td>
+                  {r.review
+                    ? "⚠ 확인 필요"
+                    : r.ongoing
+                      ? `진행 중 ${duration(r.ongoing)}`
+                      : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+function SettingsPanel({
+  data,
+  act,
+  busy,
+}: {
+  data: Snapshot;
+  act: (a: string, p: any) => Promise<any>;
+  busy: boolean;
+}) {
+  const [settings, setSettings] = useState(data.settings),
+    [day, setDay] = useState(koreanDay(new Date())),
+    [start, setStart] = useState("18:00"),
+    [end, setEnd] = useState("22:00"),
+    [targets, setTargets] = useState(
+      data.students.filter((s) => s.active).map((s) => s.id),
+    );
+  return (
+    <>
+      <div className="panel">
+        <h2>기본 운영 설정</h2>
+        <form
+          className="form-grid"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void act("settings", settings).catch(() => {});
+          }}
+        >
+          <Field label="정원">
+            <input
+              type="number"
+              min="1"
+              max="1000"
+              value={settings.capacity}
+              onChange={(e) =>
+                setSettings({ ...settings, capacity: +e.target.value })
+              }
+              required
+            />
+          </Field>
+          <Field label="수능 날짜">
+            <input
+              type="date"
+              value={settings.exam_date || ""}
+              onChange={(e) =>
+                setSettings({ ...settings, exam_date: e.target.value || null })
+              }
+            />
+          </Field>
+          <Field label="퇴실 확인 필요 기준 (시간)">
+            <input
+              type="number"
+              min="1"
+              max="72"
+              value={settings.missing_hours}
+              onChange={(e) =>
+                setSettings({ ...settings, missing_hours: +e.target.value })
+              }
+              required
+            />
+          </Field>
+          <button className="primary" disabled={busy}>
+            설정 저장
+          </button>
+        </form>
+      </div>
+      <div className="panel">
+        <h2>운영일·출석 대상 설정</h2>
+        <p>
+          등록된 날짜와 대상 학생에 한해 지각·결석을 판정합니다. 결석은 운영
+          종료 후 판정됩니다.
+        </p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void act("operating_day", {
+              day,
+              start_time: start,
+              end_time: end,
+              student_ids: targets,
+            }).catch(() => {});
+          }}
+        >
+          <div className="form-grid">
+            <Field label="운영 날짜">
+              <input
+                type="date"
+                required
+                value={day}
+                onChange={(e) => setDay(e.target.value)}
+              />
+            </Field>
+            <Field label="입실 기준 시각">
+              <input
+                type="time"
+                required
+                value={start}
+                onChange={(e) => setStart(e.target.value)}
+              />
+            </Field>
+            <Field label="운영 종료">
+              <input
+                type="time"
+                required
+                value={end}
+                onChange={(e) => setEnd(e.target.value)}
+              />
+            </Field>
+          </div>
+          <div className="picker">
+            {data.students.map((s) => (
+              <label key={s.id}>
+                <input
+                  type="checkbox"
+                  checked={targets.includes(s.id)}
+                  onChange={() =>
+                    setTargets(
+                      targets.includes(s.id)
+                        ? targets.filter((id) => id !== s.id)
+                        : [...targets, s.id],
+                    )
+                  }
+                />
+                {s.name}
+              </label>
+            ))}
+          </div>
+          <button disabled={busy}>운영일 저장 / 수정</button>
+        </form>
+        <h3>등록된 운영일</h3>
+        {data.operating_days.map((d) => (
+          <p key={d.day}>
+            {d.day} · {d.start_time} ~ {d.end_time} · 대상{" "}
+            {d.student_ids.length}명{" "}
+            <button
+              onClick={() => {
+                setDay(d.day);
+                setStart(d.start_time);
+                setEnd(d.end_time);
+                setTargets(d.student_ids);
+              }}
+            >
+              불러오기
+            </button>
+          </p>
+        ))}
+      </div>
+    </>
+  );
+}

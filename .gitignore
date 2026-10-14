@@ -1,0 +1,11 @@
+# Only the application and its deployment workflow belong in this repository.
+# Existing rosters, spreadsheet exports, screenshots and Apps Script files stay local.
+/*
+!/.gitignore
+!/README.md
+!/study-hall/
+!/.github/
+/.github/*
+!/.github/workflows/
+/.github/workflows/*
+!/.github/workflows/study-hall-pages.yml
