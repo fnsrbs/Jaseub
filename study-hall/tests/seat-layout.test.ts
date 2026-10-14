@@ -21,7 +21,8 @@ test("참고 시트 좌석: 72석·6열 12줄·역순·통로·배정 보존", a
       classroomSeats().map((s) => ({ ...s, enabled: s.id !== 1 })),
     );
     assert.equal(
-      (await db.query("select seat_id from students")).rows[0].seat_id,
+      (await db.query<{ seat_id: number }>("select seat_id from students"))
+        .rows[0].seat_id,
       1,
     );
     assert.deepEqual(

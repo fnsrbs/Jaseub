@@ -54,6 +54,23 @@ try {
 } catch {
   state = initial();
 }
+// Upgrade only the original sample layout; retain user-edited demo positions.
+if (
+  state.seats.length === 72 &&
+  state.seats.every(
+    (s) =>
+      s.row === Math.floor((s.id - 1) / 8) + 1 &&
+      s.col === ((s.id - 1) % 8) + 1,
+  )
+) {
+  const layout = classroomSeats();
+  state.seats = state.seats.map((s) => ({
+    ...s,
+    row: layout[s.id - 1].row,
+    col: layout[s.id - 1].col,
+  }));
+  localStorage.setItem("study-hall-fictional-demo", JSON.stringify(state));
+}
 const readQr = (): { token: string; fixed: boolean } => {
   try {
     return (
