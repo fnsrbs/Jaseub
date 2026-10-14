@@ -16,7 +16,10 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
  create view vault.decrypted_secrets as select * from vault.secrets;
  create function vault.create_secret(v text,n text,d text) returns uuid language sql as 'insert into vault.secrets(name,decrypted_secret) values(n,v) returning id';
  create function vault.update_secret(i uuid,v text) returns void language sql as 'update vault.secrets set decrypted_secret=v where id=i';
- create function public.code_digest(v text) returns text language sql as 'select encode(sha256(convert_to(upper(trim(v)),''UTF8'')),''hex'')';`);
+ create function public.code_digest(p_code text) returns text language sql as 'select encode(sha256(convert_to(upper(trim(p_code)),''UTF8'')),''hex'')';`);
+    // Hosted pgcrypto HMAC is mocked; run the real validator and Vault lookup.
+    await db.exec(`create function extensions.hmac(v bytea,k bytea,a text) returns bytea language sql as 'select sha256(v||k)';
+      select vault.create_secret('private-test-pepper','study_hall_code_pepper','fixture');`);
     const dir = new URL("../supabase/migrations/", import.meta.url);
     const files = fs.readdirSync(dir);
     const migration = (suffix: string) =>
@@ -35,11 +38,42 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     );
     await db.exec(migration("_student_gender_groups.sql"));
     await db.exec(migration("_teacher_viewer_access.sql"));
+    await db.exec(migration("_student_gender_form.sql"));
+    await db.exec(migration("_short_login_codes.sql"));
+    await db.exec(migration("_five_character_code_digest.sql"));
+    await db.exec(migration("_student_soft_delete.sql"));
+    await db.exec(migration("_student_code_lookup.sql"));
+    await db.exec(migration("_attendance_record_delete.sql"));
+    await db.exec(migration("_editable_login_copy.sql"));
+    await assert.rejects(db.query("select code_digest('AB12')"), /형식/);
     const admin = crypto.randomUUID(),
       outsider = crypto.randomUUID(),
       student = crypto.randomUUID();
     await db.query("insert into auth.users values($1),($2)", [admin, outsider]);
     await db.query("insert into admins values($1)", [admin]);
+    const getCopy = async () =>
+      (await db.query<{ r: any }>("select get_site_copy() r")).rows[0].r;
+    const setCopy = async (who: string | null, copy: any) =>
+      db.query("select set_site_copy($1,$2)", [who, JSON.stringify(copy)]);
+    const originalCopy = await getCopy();
+    assert.equal(Object.keys(originalCopy).length, 6);
+    await assert.rejects(setCopy(null, originalCopy), /관리자/);
+    await assert.rejects(setCopy(outsider, originalCopy), /관리자/);
+    await assert.rejects(
+      setCopy(admin, { ...originalCopy, unexpected: "extra" }),
+      /항목/,
+    );
+    await assert.rejects(
+      setCopy(admin, { ...originalCopy, hero_title: 23 }),
+      /문구/,
+    );
+    await setCopy(admin, {
+      ...originalCopy,
+      hero_title: "테스트 제목\n다음 줄",
+      production_badge: "",
+    });
+    assert.equal((await getCopy()).hero_title, "테스트 제목\n다음 줄");
+    assert.equal((await getCopy()).production_badge, "");
     await db.query(
       "insert into students(id,name,number,seat_id) values($1,'가상학생','D001',1)",
       [student],
@@ -76,7 +110,9 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     await assert.rejects(access(null), /관리자/);
     await assert.rejects(access(outsider), /관리자/);
     const code = (await access(admin)).code;
-    assert.match(code, /^TV-[A-F0-9]{32}$/);
+    assert.match(code, /^[A-HJ-NP-Z2-9]{5}$/);
+    assert.match(code, /[A-Z]/);
+    assert.match(code, /[2-9]/);
     assert.equal((await access(admin)).code, code);
     await assert.rejects(login("WRONG", "a".repeat(64)), /코드/);
     await login(code, "a".repeat(64));
@@ -136,7 +172,211 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
         .rows[0].gender,
       "male",
     );
+    const save = async (who: string | null, payload: any) =>
+      (
+        await db.query<{ r: any }>("select save_student($1,$2) r", [
+          who,
+          JSON.stringify(payload),
+        ])
+      ).rows[0].r;
+    await assert.rejects(
+      save(null, { name: "차단학생", number: "D002", gender: "female" }),
+      /관리자/,
+    );
+    await save(admin, {
+      id: student,
+      name: "가상학생 수정",
+      number: "D001",
+      active: true,
+      gender: "female",
+    });
+    await assert.rejects(
+      save(admin, {
+        id: student,
+        name: "잘못된 수정",
+        number: "D001",
+        active: true,
+        gender: "invalid",
+      }),
+      /성별/,
+    );
+    assert.deepEqual(
+      (
+        await db.query("select name,gender from students where id=$1", [
+          student,
+        ])
+      ).rows[0],
+      { name: "가상학생 수정", gender: "female" },
+    );
+    await save(admin, {
+      id: student,
+      name: "가상학생 수정",
+      number: "D001",
+      active: true,
+    });
+    assert.equal(
+      (
+        await db.query<{ gender: string }>(
+          "select gender from students where id=$1",
+          [student],
+        )
+      ).rows[0].gender,
+      "female",
+    );
+    const another = (
+      await save(admin, { name: "가상학생 2", number: "D002", gender: "male" })
+    ).id;
+    const issue = async (who: string | null, id: string) =>
+      (
+        await db.query<{ r: any }>("select issue_student_code($1,$2) r", [
+          who,
+          id,
+        ])
+      ).rows[0].r.code;
+    await assert.rejects(issue(outsider, student), /관리자/);
+    const first = await issue(admin, student),
+      second = await issue(admin, another);
+    const lookup = async (who: string | null, id: string) =>
+      (await db.query<{ r: any }>("select student_code($1,$2) r", [who, id]))
+        .rows[0].r.code;
+    assert.equal(await lookup(admin, student), first);
+    await assert.rejects(lookup(null, student), /관리자/);
+    await assert.rejects(lookup(outsider, student), /관리자/);
+    for (const value of [first, second]) {
+      assert.match(value, /^[A-HJ-NP-Z2-9]{5}$/);
+      assert.match(value, /[A-Z]/);
+      assert.match(value, /[2-9]/);
+      assert.notEqual(value, changed);
+    }
+    assert.notEqual(first, second);
+    const studentLogin = async (value: string) =>
+      db.query(
+        "select app_api('login',jsonb_build_object('code_hash',code_digest($1),'token_hash',$2::text),null,null)",
+        [value, "d".repeat(64)],
+      );
+    await studentLogin(first.toLowerCase());
+    const renewed = await issue(admin, student);
+    assert.equal(await lookup(admin, student), renewed);
+    assert.notEqual(renewed, first);
+    await assert.rejects(studentLogin(first), /코드/);
+    await assert.rejects(
+      db.query("select app_api('snapshot','{}',null,$1)", ["d".repeat(64)]),
+      /세션/,
+    );
+    const remove = async (who: string | null, id: string) =>
+      db.query("select delete_student($1,$2)", [who, id]);
+    await assert.rejects(remove(null, another), /관리자/);
+    await assert.rejects(remove(outsider, another), /관리자/);
+    await db.query("update students set seat_id=2 where id=$1", [another]);
+    await db.query("insert into visits(student_id) values($1)", [another]);
+    await assert.rejects(remove(admin, another), /퇴실/);
+    assert.equal(
+      (
+        await db.query<{ active: boolean }>(
+          "select active from students where id=$1",
+          [another],
+        )
+      ).rows[0].active,
+      true,
+    );
+    await db.query("update visits set exited_at=now() where student_id=$1", [
+      another,
+    ]);
+    await studentLogin(second);
+    await remove(admin, another);
+    await remove(admin, another);
+    const deleted = (
+      await db.query<{
+        active: boolean;
+        seat_id: number | null;
+        deleted_at: string;
+      }>("select active,seat_id,deleted_at from students where id=$1", [
+        another,
+      ])
+    ).rows[0];
+    assert.equal(deleted.active, false);
+    assert.equal(deleted.seat_id, null);
+    assert.ok(deleted.deleted_at);
+    assert.equal(
+      (
+        await db.query<{ n: number }>(
+          "select count(*)::int n from visits where student_id=$1",
+          [another],
+        )
+      ).rows[0].n,
+      1,
+    );
+    await assert.rejects(studentLogin(second), /코드/);
+    await assert.rejects(
+      db.query("select app_api('snapshot','{}',null,$1)", ["d".repeat(64)]),
+      /세션/,
+    );
+    await assert.rejects(
+      save(admin, {
+        id: another,
+        name: "복구시도",
+        number: "D002",
+        active: true,
+      }),
+      /삭제/,
+    );
+    await assert.rejects(issue(admin, another), /학생/);
+    await assert.rejects(lookup(admin, another), /학생/);
+    const visit = (
+      await db.query<{ id: string }>(
+        "select id from visits where student_id=$1",
+        [another],
+      )
+    ).rows[0].id;
+    const deleteVisit = async (who: string | null, reason: string) =>
+      db.query("select delete_visit($1,$2,$3)", [who, visit, reason]);
+    await assert.rejects(deleteVisit(null, "테스트"), /관리자/);
+    await assert.rejects(deleteVisit(outsider, "테스트"), /관리자/);
+    await assert.rejects(deleteVisit(admin, " "), /사유/);
+    assert.equal(
+      (
+        await db.query<{ n: number }>(
+          "select count(*)::int n from visits where id=$1",
+          [visit],
+        )
+      ).rows[0].n,
+      1,
+    );
+    await deleteVisit(admin, "중복 출결 정리");
+    assert.equal(
+      (
+        await db.query<{ n: number }>(
+          "select count(*)::int n from visits where id=$1",
+          [visit],
+        )
+      ).rows[0].n,
+      0,
+    );
+    const audit = (
+      await db.query<{ before_value: any; reason: string }>(
+        "select before_value,reason from audits where kind='visit_delete'",
+      )
+    ).rows[0];
+    assert.equal(audit.before_value.id, visit);
+    assert.match(audit.reason, /중복 출결 정리/);
+    assert.equal(
+      (
+        await db.query<{ n: number }>(
+          "select count(*)::int n from vault.secrets where name=$1",
+          ["study_hall_student_code_" + another],
+        )
+      ).rows[0].n,
+      0,
+    );
     await db.exec("set role authenticated");
+    await assert.rejects(issue(admin, student), /permission denied/);
+    await assert.rejects(remove(admin, student), /permission denied/);
+    await assert.rejects(lookup(admin, student), /permission denied/);
+    await assert.rejects(setCopy(admin, originalCopy), /permission denied/);
+    await assert.rejects(
+      deleteVisit(admin, "직접 삭제 시도"),
+      /permission denied/,
+    );
     await assert.rejects(access(admin), /permission denied/);
     await assert.rejects(
       api("snapshot", {}, "a".repeat(64)),

@@ -84,18 +84,30 @@ Deno.serve(async (req) => {
     if (raw.length > 50000) return reply({ error: "요청이 너무 큽니다." }, 413);
     const { action, payload = {} } = JSON.parse(raw);
     if (typeof action !== "string") throw Error("요청 형식 오류");
+    if (action === "public_copy") {
+      const { data, error } = await db.rpc("get_site_copy");
+      if (error) throw Error(error.message);
+      return reply(data);
+    }
     if (action === "login" || action === "teacher_login") {
-      const code = String(payload.code || "");
-      if (!/^[A-Z0-9-]{16,80}$/i.test(code)) throw Error("코드를 확인하세요.");
+      const code = String(payload.code || "")
+        .trim()
+        .toUpperCase();
+      if (!/^(?:[A-Z0-9]{5}|[A-Z0-9-]{16,80})$/i.test(code))
+        throw Error("코드를 확인하세요.");
       const ch =
-        action === "teacher_login"
+        action === "teacher_login" || code.length === 5
           ? (await db.rpc("code_digest", { p_code: code })).data
           : await codeHash(code);
       if (typeof ch !== "string" || !/^[a-f0-9]{64}$/.test(ch))
         throw Error("서버 인증 설정 오류");
       const ip =
         req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-      for (const key of ["code:" + ch, "ip:" + (await hash(ip))]) {
+      for (const key of [
+        ...(code.length === 5 ? ["ip:short-code-global"] : []),
+        "code:" + ch,
+        "ip:" + (await hash(ip)),
+      ]) {
         const { data, error } = await db.rpc("consume_login_limit", {
           p_key: key,
         });
@@ -149,6 +161,47 @@ Deno.serve(async (req) => {
         return reply({ error: "인증이 만료되었습니다." }, 401);
       admin = data.user.id;
     }
+    if (action === "site_copy") {
+      const { data, error } = await db.rpc("set_site_copy", {
+        p_admin: admin,
+        p_copy: payload.copy,
+      });
+      if (error) throw Error(error.message);
+      return reply(data);
+    }
+    if (action === "visit_delete") {
+      const { data, error } = await db.rpc("delete_visit", {
+        p_admin: admin,
+        p_visit: payload.id,
+        p_reason: payload.reason,
+      });
+      if (error) throw Error(error.message);
+      return reply(data);
+    }
+    if (action === "student_code") {
+      const { data, error } = await db.rpc("student_code", {
+        p_admin: admin,
+        p_student: payload.student_id,
+      });
+      if (error) throw Error(error.message);
+      return reply(data);
+    }
+    if (action === "student_delete") {
+      const { data, error } = await db.rpc("delete_student", {
+        p_admin: admin,
+        p_student: payload.id,
+      });
+      if (error) throw Error(error.message);
+      return reply(data);
+    }
+    if (action === "student") {
+      const { data, error } = await db.rpc("save_student", {
+        p_admin: admin,
+        p_payload: payload,
+      });
+      if (error) throw Error(error.message);
+      return reply(data);
+    }
     if (action === "student_gender") {
       const { data, error } = await db.rpc("set_student_gender", {
         p_admin: admin,
@@ -175,14 +228,12 @@ Deno.serve(async (req) => {
       return reply(data);
     }
     if (action === "code") {
-      const code = "SH-" + random().slice(0, 32).toUpperCase();
-      await rpc(
-        action,
-        { student_id: payload.student_id, code_hash: await codeHash(code) },
-        admin,
-        session,
-      );
-      return reply({ code });
+      const { data, error } = await db.rpc("issue_student_code", {
+        p_admin: admin,
+        p_student: payload.student_id,
+      });
+      if (error) throw Error(error.message);
+      return reply(data);
     }
     if (action === "attendance") {
       if (!/^SH1\.[a-f0-9]{64}$/.test(String(payload.qr || "")))

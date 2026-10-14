@@ -4,6 +4,7 @@ export type Student = {
   number: string;
   active: boolean;
   gender?: "male" | "female" | "unknown";
+  deleted_at?: string | null;
   seat_id: number | null;
 };
 export type Seat = { id: number; row: number; col: number; enabled: boolean };

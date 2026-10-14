@@ -53,4 +53,3 @@ begin
 end $$;
 revoke all on function public.teacher_access(uuid,boolean),public.teacher_viewer_api(text,jsonb,text) from public,anon,authenticated;
 grant execute on function public.teacher_access(uuid,boolean),public.teacher_viewer_api(text,jsonb,text) to service_role;
-

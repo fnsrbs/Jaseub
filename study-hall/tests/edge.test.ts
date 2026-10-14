@@ -33,7 +33,13 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
     rpc: async (name: string, args: any) => {
       calls.push({ name, args });
       if (name === "consume_login_limit") return { data: limiter, error: null };
+      if (name === "get_site_copy")
+        return { data: { hero_title: "Public copy" }, error: null };
       if (name === "code_digest") return { data: "a".repeat(64), error: null };
+      if (name === "issue_student_code")
+        return args.p_admin === "teacher-id"
+          ? { data: { code: "B7K2P" }, error: null }
+          : { data: null, error: Error("관리자 권한이 필요합니다.") };
       if (name === "classroom_qr")
         return args.p_admin === "teacher-id"
           ? {
@@ -110,6 +116,10 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
       405,
     );
     assert.equal((await send("snapshot")).status, 401);
+    assert.deepEqual(
+      await (await send("public_copy", { p_admin: "spoof" })).json(),
+      { hero_title: "Public copy" },
+    );
     assert.equal(
       (await send("snapshot", {}, { Authorization: "Bearer forged" })).status,
       401,
@@ -136,6 +146,10 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
       assert.deepEqual(calls.at(-1).args.p_payload, {});
       for (const action of [
         "student",
+        "student_delete",
+        "student_code",
+        "visit_delete",
+        "site_copy",
         "student_gender",
         "code",
         "teacher_code",
@@ -190,6 +204,11 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
     limiter = false;
     assert.equal((await send("login", { code })).status, 429);
     limiter = true;
+    assert.equal((await send("login", { code: " b7k2p " })).status, 200);
+    assert.equal((await send("teacher_login", { code: "B7K2P" })).status, 200);
+    for (const invalid of ["AB12", "ABC123", "AB!2P"]) {
+      assert.equal((await send("login", { code: invalid })).status, 400);
+    }
   });
   await t.test("외부 URL QR 거부·개인정보 미포함 QR·재발급 해시", async () => {
     assert.equal(
@@ -234,8 +253,10 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
       { Authorization: "Bearer verified-teacher" },
     );
     const issued = await cr.json();
-    assert.match(issued.code, /^SH-[A-F0-9]{32}$/);
-    assert.equal(calls.at(-1).args.p_payload.code, undefined);
+    assert.match(issued.code, /^[A-Z0-9]{5}$/);
+    assert.equal(calls.at(-1).name, "issue_student_code");
+    assert.equal(calls.at(-1).args.p_admin, "teacher-id");
+    assert.equal(calls.at(-1).args.p_student, "student-id");
   });
   await t.test("Vault 모드에서 비밀키 없이 서버 해시 RPC 사용", async () => {
     const originalGet = globals.Deno.env.get;

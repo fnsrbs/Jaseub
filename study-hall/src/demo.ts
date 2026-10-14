@@ -7,6 +7,7 @@ import {
 } from "./domain";
 const now = () => new Date().toISOString();
 import { classroomSeats } from "./seat-layout";
+import { defaultSiteCopy } from "./site-copy";
 const id = () => crypto.randomUUID();
 // Entirely fictional browser-only demonstration. Never used by production.
 const initial = (): Snapshot => {
@@ -87,6 +88,23 @@ let qr = readQr();
 const sessions = new Map<string, string>();
 const codes = new Map<string, string>();
 codes.set("DEMO-STUDENT-0001", "demo-1");
+codes.set("S2K9D", "demo-1");
+const shortCode = () => {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  for (;;) {
+    const value = Array.from(
+      crypto.getRandomValues(new Uint8Array(5)),
+      (b) => alphabet[b % 32],
+    ).join("");
+    if (
+      /[A-Z]/.test(value) &&
+      /[2-9]/.test(value) &&
+      !codes.has(value) &&
+      value !== (localStorage.getItem("study-hall-demo-viewer-code") || "V7K2P")
+    )
+      return value;
+  }
+};
 const requests = new Map<string, unknown>();
 const save = () =>
   localStorage.setItem("study-hall-fictional-demo", JSON.stringify(state));
@@ -100,13 +118,23 @@ export async function demoApi(
   role: "student" | "teacher" | "viewer" | null,
   session: string | null,
 ): Promise<any> {
+  if (action === "public_copy") {
+    try {
+      return (
+        JSON.parse(
+          localStorage.getItem("study-hall-demo-site-copy") || "null",
+        ) || defaultSiteCopy
+      );
+    } catch {
+      return defaultSiteCopy;
+    }
+  }
   if (action === "teacher_login") {
     if (
       p.code !==
-      (localStorage.getItem("study-hall-demo-viewer-code") ||
-        "DEMO-TEACHER-VIEWER")
+      (localStorage.getItem("study-hall-demo-viewer-code") || "V7K2P")
     )
-      throw Error("데모 교사 코드: DEMO-TEACHER-VIEWER");
+      throw Error("데모 교사 코드: V7K2P");
     const token = id();
     sessions.set(token, "viewer");
     return { token, role: "viewer" };
@@ -197,6 +225,50 @@ export async function demoApi(
     return {};
   }
   if (!teacher) throw Error("관리자 권한이 필요합니다.");
+  if (action === "site_copy") {
+    localStorage.setItem("study-hall-demo-site-copy", JSON.stringify(p.copy));
+    return p.copy;
+  }
+  if (action === "visit_delete") {
+    if (!String(p.reason || "").trim()) throw Error("삭제 사유를 입력하세요.");
+    const vi = state.visits.find((v) => v.id === p.id);
+    if (!vi) throw Error("출결 기록을 찾을 수 없습니다.");
+    state.audits.unshift({
+      kind: "visit_delete",
+      before_value: vi,
+      reason: p.reason,
+      created_at: now(),
+    });
+    state.visits = state.visits.filter((v) => v.id !== p.id);
+    save();
+    return {};
+  }
+  if (action === "student_code") {
+    const s = state.students.find(
+      (s) => s.id === p.student_id && s.active && !s.deleted_at,
+    );
+    if (!s) throw Error("이용 가능한 학생이 아닙니다.");
+    const found = [...codes].find(
+      ([code, sid]) => sid === s.id && code.length === 5,
+    );
+    if (!found)
+      throw Error("발급된 코드가 없습니다. 코드 발급을 먼저 실행하세요.");
+    return { code: found[0] };
+  }
+  if (action === "student_delete") {
+    const s = state.students.find((s) => s.id === p.id);
+    if (!s) throw Error("학생을 찾을 수 없습니다.");
+    if (state.visits.some((v) => v.student_id === s.id && !v.exited_at))
+      throw Error("입실 중인 학생은 먼저 퇴실 처리하세요.");
+    s.active = false;
+    s.seat_id = null;
+    s.deleted_at = now();
+    for (const [key, value] of sessions)
+      if (value === s.id) sessions.delete(key);
+    for (const [key, value] of codes) if (value === s.id) codes.delete(key);
+    save();
+    return {};
+  }
   if (action === "student_gender") {
     if (!["male", "female", "unknown"].includes(p.gender))
       throw Error("성별 값을 확인하세요.");
@@ -207,17 +279,12 @@ export async function demoApi(
   }
   if (action === "teacher_code" || action === "teacher_code_rotate") {
     if (action === "teacher_code_rotate") {
-      localStorage.setItem(
-        "study-hall-demo-viewer-code",
-        "DEMO-VIEWER-" + id(),
-      );
+      localStorage.setItem("study-hall-demo-viewer-code", shortCode());
       for (const [key, value] of sessions)
         if (value === "viewer") sessions.delete(key);
     }
     return {
-      code:
-        localStorage.getItem("study-hall-demo-viewer-code") ||
-        "DEMO-TEACHER-VIEWER",
+      code: localStorage.getItem("study-hall-demo-viewer-code") || "V7K2P",
     };
   }
   if (action === "qr" || action === "qr_rotate") {
@@ -235,7 +302,7 @@ export async function demoApi(
     return qr;
   }
   if (action === "code") {
-    const code = "DEMO-" + id().toUpperCase();
+    const code = shortCode();
     for (const [key, value] of codes)
       if (value === p.student_id) codes.delete(key);
     codes.set(code, p.student_id);
@@ -244,8 +311,14 @@ export async function demoApi(
     return { code };
   }
   if (action === "student") {
+    if (
+      p.gender !== undefined &&
+      !["male", "female", "unknown"].includes(p.gender)
+    )
+      throw Error("성별 값을 확인하세요.");
     if (p.id) {
       const s = state.students.find((s) => s.id === p.id)!;
+      if (s.deleted_at) throw Error("삭제된 학생은 수정할 수 없습니다.");
       Object.assign(s, p);
       if (!s.active)
         for (const [key, value] of sessions)

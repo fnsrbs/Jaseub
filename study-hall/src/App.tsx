@@ -20,6 +20,7 @@ import {
   type Notice,
 } from "./domain";
 import "./style.css";
+import { defaultSiteCopy, type SiteCopy } from "./site-copy";
 type Role = "teacher" | "student" | "viewer";
 const time = (s: string | null) =>
   s
@@ -65,6 +66,12 @@ export default function App() {
     [scan, setScan] = useState<"in" | "out" | null>(null),
     [selected, setSelected] = useState("");
   const inFlight = useRef(false);
+  const [copy, setCopy] = useState<SiteCopy>(defaultSiteCopy);
+  useEffect(() => {
+    void api("public_copy")
+      .then(setCopy)
+      .catch(() => {});
+  }, []);
   const admin = role === "teacher";
   const teacher = admin || role === "viewer";
   const navigate = (p: string) => {
@@ -112,7 +119,11 @@ export default function App() {
     try {
       const result = await api(action, payload, role, token);
       setMessage(
-        mode === "demo" ? "데모 저장 완료 · 가상 데이터" : "DB 저장 완료",
+        action === "student_code" || action === "teacher_code"
+          ? "코드 조회 완료"
+          : mode === "demo"
+            ? "데모 저장 완료 · 가상 데이터"
+            : "DB 저장 완료",
       );
       try {
         await refresh();
@@ -179,7 +190,8 @@ export default function App() {
       setBusy(false);
     }
   }
-  if (!role) return <Login onLogin={login} busy={busy} error={error} />;
+  if (!role)
+    return <Login onLogin={login} busy={busy} error={error} copy={copy} />;
   const currentNow = now + offset;
   const today = koreanDay(new Date(currentNow));
   const me = data?.students[0];
@@ -563,6 +575,12 @@ export default function App() {
               {page === "settings" && admin && (
                 <>
                   <TeacherAccess act={act} busy={busy} />
+                  <SiteCopyEditor
+                    copy={copy}
+                    onSaved={setCopy}
+                    act={act}
+                    busy={busy}
+                  />
                   <SettingsPanel data={data} act={act} busy={busy} />
                 </>
               )}
@@ -646,14 +664,77 @@ function TeacherAccess({
     </div>
   );
 }
+function SiteCopyEditor({
+  copy,
+  onSaved,
+  act,
+  busy,
+}: {
+  copy: SiteCopy;
+  onSaved: (copy: SiteCopy) => void;
+  act: (a: string, p: any) => Promise<any>;
+  busy: boolean;
+}) {
+  const [draft, setDraft] = useState(copy);
+  useEffect(() => setDraft(copy), [copy]);
+  const labels: Record<keyof SiteCopy, string> = {
+    hero_eyebrow: "큰 제목 위의 문구",
+    hero_title: "큰 제목",
+    hero_description: "큰 제목 아래 설명",
+    login_title: "로그인 영역 제목",
+    login_greeting: "로그인 안내 문구",
+    production_badge: "운영 모드 표시 문구",
+  };
+  return (
+    <div className="panel">
+      <h2>로그인 화면 문구 편집</h2>
+      <p>
+        저장하면 접속 화면에 반영됩니다. 제목과 설명은 줄바꿈을 사용할 수
+        있습니다.
+      </p>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void act("site_copy", { copy: draft })
+            .then(onSaved)
+            .catch(() => {});
+        }}
+      >
+        {(Object.keys(labels) as (keyof SiteCopy)[]).map((key) => (
+          <Field key={key} label={labels[key]}>
+            <textarea
+              rows={key === "hero_title" || key === "hero_description" ? 3 : 2}
+              maxLength={2000}
+              value={draft[key]}
+              onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
+            />
+          </Field>
+        ))}
+        <div className="actions">
+          <button disabled={busy} className="primary">
+            문구 저장
+          </button>
+          <button
+            type="button"
+            onClick={() => setDraft({ ...defaultSiteCopy })}
+          >
+            기본 문구 불러오기
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
 function Login({
   onLogin,
   busy,
   error,
+  copy,
 }: {
   onLogin: (r: Role, c: string, e: string, p: string) => void;
   busy: boolean;
   error: string;
+  copy: SiteCopy;
 }) {
   const [role, setRole] = useState<Role>("student"),
     [code, setCode] = useState(""),
@@ -668,16 +749,9 @@ function Login({
             온실<small>STUDY ROOM</small>
           </span>
         </a>
-        <p className="eyebrow">A SPACE FOR YOUR GROWTH</p>
-        <h1>
-          꾸준한 오늘이
-          <br />더 큰 내일을 만듭니다.
-        </h1>
-        <p>
-          입실부터 퇴실까지, 나의 공부 시간을
-          <br />
-          차분하게 기록하는 자습실.
-        </p>
+        <p className="eyebrow">{copy.hero_eyebrow}</p>
+        <h1 style={{ whiteSpace: "pre-line" }}>{copy.hero_title}</h1>
+        <p style={{ whiteSpace: "pre-line" }}>{copy.hero_description}</p>
         <div className="illustration">
           <div>01</div>
           <div>02</div>
@@ -690,10 +764,10 @@ function Login({
       </section>
       <section className="login-form">
         <span className="mode demo">
-          {mode === "demo" ? "가상 데이터 데모" : "실제 DB 운영 모드"}
+          {mode === "demo" ? "가상 데이터 데모" : copy.production_badge}
         </span>
-        <h2>자습실에 들어가기</h2>
-        <p>안녕하세요. 오늘의 집중을 시작해 볼까요?</p>
+        <h2>{copy.login_title}</h2>
+        <p>{copy.login_greeting}</p>
         <div className="tabs">
           <button
             className={role === "student" ? "active" : ""}
@@ -729,7 +803,8 @@ function Login({
                 autoCapitalize="characters"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                placeholder="선생님이 발급한 코드를 입력하세요"
+                placeholder="5자리 코드 입력"
+                maxLength={5}
                 required
               />
             </Field>
@@ -770,11 +845,9 @@ function Login({
           <div className="demo-info">
             <b>설정 없이 체험하기</b>
             <p>
-              학생 코드: <code>DEMO-STUDENT-0001</code>
+              학생 코드: <code>S2K9D</code>
             </p>
-            <button onClick={() => setCode("DEMO-STUDENT-0001")}>
-              데모 코드 채우기
-            </button>
+            <button onClick={() => setCode("S2K9D")}>데모 코드 채우기</button>
             <button
               onClick={() => {
                 demoReset();
@@ -902,8 +975,8 @@ function SeatMap({
         </div>
       </div>
       <small>
-        6열 × 12줄 · 두 자리씩 세 구역. 교사는 좌석의 위치와 사용 여부를 수정할
-        수 있습니다.
+        6열 × 12줄 · 두 자리씩 세 구역. 관리자는 좌석의 위치와 사용 여부를
+        수정할 수 있습니다.
       </small>
     </div>
   );
@@ -1177,11 +1250,13 @@ function Students({
   const [search, setSearch] = useState(""),
     [edit, setEdit] = useState<Partial<Student>>({ name: "", number: "" }),
     [code, setCode] = useState("");
+  const [codeOwner, setCodeOwner] = useState("");
   const [genderFilter, setGenderFilter] = useState("all"),
     [picked, setPicked] = useState<string[]>([]),
     [bulkGender, setBulkGender] = useState("unknown");
   const visible = data.students.filter(
     (s) =>
+      !s.deleted_at &&
       `${s.name} ${s.number}`.includes(search) &&
       (genderFilter === "all" || (s.gender || "unknown") === genderFilter),
   );
@@ -1214,6 +1289,21 @@ function Students({
               onChange={(e) => setEdit({ ...edit, number: e.target.value })}
             />
           </Field>
+          <Field label="성별">
+            <select
+              value={edit.gender || "unknown"}
+              onChange={(e) =>
+                setEdit({
+                  ...edit,
+                  gender: e.target.value as Student["gender"],
+                })
+              }
+            >
+              <option value="unknown">미확인</option>
+              <option value="male">남자</option>
+              <option value="female">여자</option>
+            </select>
+          </Field>
           {edit.id && (
             <Field label="이용 상태">
               <select
@@ -1240,7 +1330,7 @@ function Students({
       </div>
       {code && (
         <div className="alert success">
-          <b>접속 코드 · 지금 한 번만 표시됩니다</b>
+          <b>{codeOwner} · 개인 접속 코드</b>
           <p>
             <code>{code}</code>
           </p>
@@ -1256,7 +1346,7 @@ function Students({
         />
       </Field>
       <div className="panel form-grid">
-        <Field label="남녀 구분 필터">
+        <Field label="성별 필터">
           <select
             value={genderFilter}
             onChange={(e) => setGenderFilter(e.target.value)}
@@ -1277,8 +1367,8 @@ function Students({
             onChange={(e) => setBulkGender(e.target.value)}
           >
             <option value="unknown">미확인</option>
-            <option value="male">남자 · 1</option>
-            <option value="female">여자 · 0</option>
+            <option value="male">남자</option>
+            <option value="female">여자</option>
           </select>
         </Field>
         <button
@@ -1289,7 +1379,7 @@ function Students({
               .catch(() => {})
           }
         >
-          남녀 구분 적용
+          성별 적용
         </button>
       </div>
       <div className="table-wrap panel">
@@ -1299,7 +1389,7 @@ function Students({
               <th>선택</th>
               <th>이름</th>
               <th>학번</th>
-              <th>남녀 구분</th>
+              <th>성별</th>
               <th>좌석</th>
               <th>이용 상태</th>
               <th>관리</th>
@@ -1326,7 +1416,7 @@ function Students({
                 <td>{s.number}</td>
                 <td>
                   <select
-                    aria-label={`${s.name} 남녀 구분`}
+                    aria-label={`${s.name} 성별`}
                     disabled={busy}
                     value={s.gender || "unknown"}
                     onChange={(e) =>
@@ -1337,8 +1427,8 @@ function Students({
                     }
                   >
                     <option value="unknown">미확인</option>
-                    <option value="male">남자 · 1</option>
-                    <option value="female">여자 · 0</option>
+                    <option value="male">남자</option>
+                    <option value="female">여자</option>
                   </select>
                 </td>
                 <td>{s.seat_id || "미배정"}</td>
@@ -1354,6 +1444,20 @@ function Students({
                   </button>{" "}
                   <button
                     disabled={busy || !s.active}
+                    onClick={() =>
+                      void act("student_code", { student_id: s.id })
+                        .then((r) => {
+                          setCode(r.code);
+                          setCodeOwner(`${s.name} (${s.number})`);
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        })
+                        .catch(() => {})
+                    }
+                  >
+                    코드 확인
+                  </button>
+                  <button
+                    disabled={busy || !s.active}
                     onClick={() => {
                       if (
                         confirm(
@@ -1361,11 +1465,34 @@ function Students({
                         )
                       )
                         void act("code", { student_id: s.id })
-                          .then((r) => setCode(r.code))
+                          .then((r) => {
+                            setCode(r.code);
+                            setCodeOwner(`${s.name} (${s.number})`);
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                          })
                           .catch(() => {});
                     }}
                   >
                     코드 발급 / 재발급
+                  </button>
+                  <button
+                    disabled={busy}
+                    onClick={() => {
+                      if (
+                        confirm(
+                          `${s.name} (${s.number}) 학생을 삭제할까요? 로그인과 좌석 배정을 해제하며 기존 출결 기록은 보존합니다.`,
+                        )
+                      )
+                        void act("student_delete", { id: s.id })
+                          .then(() => {
+                            setPicked(picked.filter((id) => id !== s.id));
+                            if (edit.id === s.id)
+                              setEdit({ name: "", number: "" });
+                          })
+                          .catch(() => {});
+                    }}
+                  >
+                    삭제
                   </button>
                 </td>
               </tr>
@@ -1523,32 +1650,34 @@ function SeatAdmin({
               선택 해제
             </button>
             <div className="picker">
-              {data.students.map((s) => (
-                <div key={s.id}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={selected.includes(s.id)}
-                      onChange={() => {
-                        setSelected(toggle(selected, s.id));
-                        setPreview(null);
-                      }}
-                    />
-                    {s.name} · {s.seat_id || "미배정"}
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={fixed.includes(s.id)}
-                      onChange={() => {
-                        setFixed(toggle(fixed, s.id));
-                        setPreview(null);
-                      }}
-                    />
-                    고정
-                  </label>
-                </div>
-              ))}
+              {data.students
+                .filter((s) => !s.deleted_at)
+                .map((s) => (
+                  <div key={s.id}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(s.id)}
+                        onChange={() => {
+                          setSelected(toggle(selected, s.id));
+                          setPreview(null);
+                        }}
+                      />
+                      {s.name} · {s.seat_id || "미배정"}
+                    </label>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={fixed.includes(s.id)}
+                        onChange={() => {
+                          setFixed(toggle(fixed, s.id));
+                          setPreview(null);
+                        }}
+                      />
+                      고정
+                    </label>
+                  </div>
+                ))}
             </div>
           </div>
           <div>
@@ -1887,6 +2016,27 @@ function Records({
                       >
                         수정
                       </button>
+                      <button
+                        disabled={busy}
+                        onClick={() => {
+                          const reason = prompt(
+                            "이 출결 기록을 삭제할 사유를 입력하세요. 삭제 전 내용은 관리자 변경 이력에 남습니다.",
+                          );
+                          if (
+                            reason?.trim() &&
+                            confirm(
+                              `${time(v.entered_at)} 입실 기록을 삭제할까요? 이 기록은 출결 목록과 통계에서 제외됩니다.`,
+                            )
+                          )
+                            void act("visit_delete", { id: v.id, reason })
+                              .then(() => {
+                                if (edit?.id === v.id) setEdit(null);
+                              })
+                              .catch(() => {});
+                        }}
+                      >
+                        삭제
+                      </button>
                     </td>
                   )}
                 </tr>
@@ -1901,7 +2051,7 @@ function Records({
       )}{" "}
       {canEdit && (
         <div className="panel">
-          <h2>최근 수정 및 배정 이력</h2>
+          <h2>최근 수정·삭제·배정 이력</h2>
           {data.audits.map((a, i) => (
             <details key={i}>
               <summary>
