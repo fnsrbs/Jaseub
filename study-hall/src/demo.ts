@@ -6,6 +6,7 @@ import {
   type Student,
 } from "./domain";
 const now = () => new Date().toISOString();
+import { classroomSeats } from "./seat-layout";
 const id = () => crypto.randomUUID();
 // Entirely fictional browser-only demonstration. Never used by production.
 const initial = (): Snapshot => {
@@ -19,12 +20,7 @@ const initial = (): Snapshot => {
   }));
   return {
     students,
-    seats: Array.from({ length: 72 }, (_, i) => ({
-      id: i + 1,
-      row: Math.floor(i / 8) + 1,
-      col: (i % 8) + 1,
-      enabled: true,
-    })),
+    seats: classroomSeats(),
     visits: students.slice(0, 18).map((s, i) => ({
       id: id(),
       student_id: s.id,

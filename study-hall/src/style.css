@@ -330,6 +330,27 @@ header button {
   gap: 10px;
   margin-bottom: 10px;
 }
+.seat-row.cross-aisle {
+  margin-bottom: 36px;
+}
+.room-caption {
+  text-align: center;
+  color: #65766d;
+  margin-bottom: 18px;
+}
+.room-front {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  text-align: center;
+  gap: 20px;
+  padding: 18px 0;
+}
+.room-front span {
+  background: #edf2ed;
+  border-radius: 7px;
+  padding: 12px;
+  color: #536a55;
+}
 .seat {
   padding: 10px 3px;
   min-height: 68px;

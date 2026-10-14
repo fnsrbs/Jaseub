@@ -754,9 +754,12 @@ function SeatMap({
       </div>
       <div className="seat-scroll">
         <div className="seat-room">
-          <div className="front">칠판 · 교실 앞쪽</div>
+          <div className="room-caption">1층 프로젝트실 · 72석</div>
           {rows.map((row) => (
-            <div className="seat-row" key={row}>
+            <div
+              className={`seat-row ${row === 5 ? "cross-aisle" : ""}`}
+              key={row}
+            >
               {data.seats
                 .filter((s) => s.row === row)
                 .sort((a, b) => a.col - b.col)
@@ -797,11 +800,19 @@ function SeatMap({
                 })}
             </div>
           ))}
+          <div
+            className="room-front"
+            aria-label="교실 아래쪽: 왼쪽 출입문, 가운데 교탁, 오른쪽 운동장"
+          >
+            <span>출입문</span>
+            <span>교탁</span>
+            <span>운동장</span>
+          </div>
         </div>
       </div>
       <small>
-        예시 배치 · 9행 × 8열. 교사는 좌석의 위치와 사용 여부를 수정할 수
-        있습니다.
+        6열 × 12줄 · 두 자리씩 세 구역. 교사는 좌석의 위치와 사용 여부를 수정할
+        수 있습니다.
       </small>
     </div>
   );
