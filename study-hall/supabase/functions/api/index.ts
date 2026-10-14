@@ -6,7 +6,8 @@ const db = createClient(
 );
 const pepper = Deno.env.get("CODE_PEPPER");
 const allowed = (
-  Deno.env.get("ALLOWED_ORIGINS") || "http://127.0.0.1:5173"
+  Deno.env.get("ALLOWED_ORIGINS") ||
+  "https://fnsrbs.github.io,http://127.0.0.1:5173"
 ).split(",");
 const hex = (bytes: Uint8Array) =>
   Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
@@ -19,7 +20,12 @@ async function hash(value: string) {
   );
 }
 async function codeHash(value: string) {
-  if (!pepper) throw Error("서버 인증 설정이 필요합니다.");
+  if (!pepper) {
+    const { data, error } = await db.rpc("code_digest", { p_code: value });
+    if (error || typeof data !== "string" || !/^[a-f0-9]{64}$/.test(data))
+      throw Error("서버 인증 설정이 필요합니다.");
+    return data;
+  }
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(pepper),

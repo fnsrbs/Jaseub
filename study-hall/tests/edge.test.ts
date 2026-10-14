@@ -166,6 +166,30 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
     assert.match(issued.code, /^SH-[A-F0-9]{32}$/);
     assert.equal(calls.at(-1).args.p_payload.code, undefined);
   });
+  await t.test("Vault 모드에서 비밀키 없이 서버 해시 RPC 사용", async () => {
+    const originalGet = globals.Deno.env.get;
+    globals.Deno.env.get = (key: string) =>
+      key === "CODE_PEPPER" ? undefined : originalGet(key);
+    const originalRpc = globals.__edgeClient.rpc;
+    globals.__edgeClient.rpc = async (name: string, args: any) => {
+      if (name === "code_digest") {
+        calls.push({ name, args });
+        return { data: "d".repeat(64), error: null };
+      }
+      return originalRpc(name, args);
+    };
+    await import(
+      "data:text/javascript;base64," +
+        Buffer.from(compiled.outputFiles[0].contents).toString("base64") +
+        "#vault-mode"
+    );
+    const response = await send("login", {
+      code: "SH-0123456789ABCDEF0123456789ABCDEF",
+    });
+    assert.equal(response.status, 200);
+    assert.ok(calls.some((c) => c.name === "code_digest"));
+    assert.equal(calls.at(-1).args.p_payload.code_hash, "d".repeat(64));
+  });
   delete globals.Deno;
   delete globals.__edgeClient;
 });

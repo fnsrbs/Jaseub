@@ -12,7 +12,7 @@ test("PostgreSQL: 마이그레이션·RLS·인증·QR·원자적 출결·좌석�
   const sql = (
     await readFile(
       new URL(
-        "../supabase/migrations/202610140001_initial.sql",
+        "../supabase/migrations/20261014142132_study_hall_initial.sql",
         import.meta.url,
       ),
       "utf8",

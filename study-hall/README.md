@@ -32,7 +32,7 @@ npm run dev
 
 ## 실제 Supabase 운영 설정
 
-1. 별도 Supabase 프로젝트를 만들고 접속 URL과 **anon 공개 키**를 확인합니다. 프로덕션과 테스트 프로젝트를 분리하세요.
+1. 별도 Supabase 프로젝트를 만들고 접속 URL과 **publishable 공개 키**를 확인합니다. 프로덕션과 테스트 프로젝트를 분리하세요.
 2. Supabase CLI와 Docker를 설치합니다. CLI 명령은 이 폴더에서 실행합니다.
 
 ```text
@@ -41,7 +41,7 @@ supabase link --project-ref YOUR_PROJECT_REF
 supabase db push
 ```
 
-CLI를 사용하지 않으면 SQL Editor에서 `supabase/migrations/202610140001_initial.sql`을 한 번 실행해도 됩니다. 이미 적용한 초기 마이그레이션을 다시 실행하지 마세요. 기존 프로젝트에 같은 이름의 테이블이 있다면 새 프로젝트를 사용하세요.
+CLI를 사용하지 않으면 SQL Editor에서 `supabase/migrations/`의 두 파일을 번호 순으로 한 번씩 실행해도 됩니다. 이 프로젝트에는 두 마이그레이션이 이미 적용되어 있습니다. 로컬 파일 버전은 실제 적용 기록에 맞춰 두었습니다. 이미 적용한 초기 마이그레이션을 다시 실행하지 마세요. 기존 프로젝트에 같은 이름의 테이블이 있다면 새 프로젝트를 사용하세요.
 정원과 예시 72석만 생성되고 실제 학생은 없습니다. `supabase/demo-seed.sql`은 전용 테스트 프로젝트에서만 수동 실행하는 가상 명단입니다. 운영에는 실행하지 않습니다.
 
 3. **최초 관리자**: Dashboard → Authentication → Users에서 교사의 이메일 계정을 만들고 이메일 확인을 완료합니다. 계정 UUID를 복사한 뒤 SQL Editor에서 다음을 실행합니다.
@@ -52,7 +52,7 @@ insert into public.admins(user_id) values ('AUTH_USER_UUID');
 
 공개 회원가입을 꺼 두세요. 앱은 학생용 Supabase Auth 계정을 만들지 않으며 학생은 코드만 입력합니다. 교사 역할은 `admins` 테이블에서 서버가 매 요청 검사합니다. 가입 metadata를 역할 근거로 쓰지 않습니다. `admins`에 없는 Auth 사용자는 교사 로그인을 완료할 수 없습니다. 관리자 추가/삭제는 서버 운영자가 SQL Editor에서 수행합니다.
 
-4. 안전한 무작위 비밀값(32바이트 이상)을 생성하고 **서버에만** `CODE_PEPPER`로 저장합니다. Supabase Dashboard → Edge Functions → Secrets에서 `CODE_PEPPER`, `ALLOWED_ORIGINS`를 설정합니다. `ALLOWED_ORIGINS`는 쉼표로 구분한 정확한 origin, 예: `https://YOUR_NAME.github.io,http://127.0.0.1:5173`. URL의 저장소 경로와 끝 `/`를 넣지 않습니다. service_role 키는 Supabase의 서버 환경값만 사용합니다. 비밀값을 shell 인자/로그나 Git 파일에 적지 마세요.
+4. 두 번째 마이그레이션은 코드 검증용 비밀값을 DB 내부에서 무작위 생성하여 **Supabase Vault**에 암호화 보관합니다. 브라우저에는 비밀값을 반환하지 않으며 service_role 전용 `code_digest` RPC로 HMAC 해시만 계산합니다. 기본 운영에서는 별도 `CODE_PEPPER` 입력이 필요 없습니다. 기존 Edge Secrets 방식을 쓰는 배포는 `CODE_PEPPER`를 서버에 설정할 수 있으나, 이미 코드를 발급한 뒤 Vault와 Edge 방식 사이를 바꾸면 전체 코드 재발급이 필요합니다. 기본 허용 origin은 `https://fnsrbs.github.io,http://127.0.0.1:5173`이며 다른 호스트에서는 서버 `ALLOWED_ORIGINS`를 설정합니다. `ALLOWED_ORIGINS`는 쉼표로 구분한 정확한 origin, 예: `https://YOUR_NAME.github.io,http://127.0.0.1:5173`. URL의 저장소 경로와 끝 `/`를 넣지 않습니다. service_role 키는 Supabase의 서버 환경값만 사용합니다. 비밀값을 shell 인자/로그나 Git 파일에 적지 마세요.
 
 ```text
 supabase functions deploy api
@@ -65,7 +65,7 @@ supabase functions deploy api
 ```dotenv
 VITE_APP_MODE=production
 VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
-VITE_SUPABASE_ANON_KEY=YOUR_PUBLIC_ANON_KEY
+VITE_SUPABASE_ANON_KEY=YOUR_PUBLIC_PUBLISHABLE_KEY
 ```
 
 운영 모드를 명시했는데 키가 없으면 오류로 중단하며 데모로 자동 전환하지 않습니다. VITE 접두사가 붙은 값은 공개 번들에 포함됩니다. **관리자 비밀번호, CODE_PEPPER, service_role 키를 VITE 환경변수에 넣지 마세요.**
@@ -76,7 +76,7 @@ VITE_SUPABASE_ANON_KEY=YOUR_PUBLIC_ANON_KEY
 
 브라우저 → Edge `api` → service_role 전용 `app_api` RPC → Postgres로 처리합니다. 모든 노출 테이블은 RLS를 켜고 anon/authenticated 직접 접근을 취소했으며 제한 정책도 적용했습니다. 이 앱은 학생을 Supabase의 authenticated 역할로 가장하지 않습니다. 사용자별 범위는 Edge의 인증 결과와 RPC에서 확정한 세션 신원으로 결정됩니다. 클라이언트의 student_id는 학생 출결/건의/조회 신원으로 사용하지 않습니다. 학생 snapshot에는 다른 학생 이름·학번·배정·개별 기록·건의·출석 대상 UUID·코드 해시가 없습니다. 좌석 번호/위치와 전체 집계만 공개됩니다. 관리자 snapshot에도 코드 해시·세션·QR 검증용 DB 행은 없습니다.
 
-접속 코드는 128비트 무작위 값이며 서버 pepper를 사용한 HMAC-SHA256만 저장합니다. 작은 학번 공간을 해시한 코드가 아닙니다. 256비트 세션 토큰은 SHA256 해시로 저장하고 8시간 만료되며, 코드 버전 변경 또는 이용 중지 시 기존 세션을 삭제합니다. 성공/실패를 포함하여 코드당 10회/10분, IP당 300회/10분을 DB 원자 연산으로 제한합니다. 학교 공유 NAT를 고려한 IP 한도입니다. 운영 gateway의 신뢰 가능한 `x-forwarded-for` 전달과 IP 위변조 방지는 배포 후 확인하세요. pepper 교체 시 전체 코드를 재발급해야 합니다.
+접속 코드는 128비트 무작위 값이며 Vault 또는 서버 pepper를 사용한 HMAC-SHA256만 저장합니다. 작은 학번 공간을 해시한 코드가 아닙니다. 256비트 세션 토큰은 SHA256 해시로 저장하고 8시간 만료되며, 코드 버전 변경 또는 이용 중지 시 기존 세션을 삭제합니다. 성공/실패를 포함하여 코드당 10회/10분, IP당 300회/10분을 DB 원자 연산으로 제한합니다. 학교 공유 NAT를 고려한 IP 한도입니다. 운영 gateway의 신뢰 가능한 `x-forwarded-for` 전달과 IP 위변조 방지는 배포 후 확인하세요. pepper 교체 시 전체 코드를 재발급해야 합니다.
 
 현장 QR은 256비트 무작위 토큰이며 서버에는 해시와 45초 만료시각을 보관합니다. 교사 화면은 30초마다 갱신합니다. 개인정보·관리자 키·URL을 담지 않으며 앱은 `SH1.` 뒤 64자리 hex 형식만 받습니다. 스캔 문자열로 외부 URL을 열지 않습니다. QR 전달/촬영 공유 때문에 현장 위치를 완벽하게 보장하지 않습니다.
 
@@ -111,7 +111,7 @@ git push -u origin main
 
 ## 검증 범위
 
-`npm test`의 25개 테스트(상위 DB·Edge 테스트 포함)는 PGlite PostgreSQL 엔진에 마이그레이션과 RPC를 실제 실행하여 RLS·직접 접근 차단·관리자 권한·학생 범위·건의 비공개·만료 QR·중복 요청·재입실·열린 구간 제약·좌석 중복/잘못된 좌석 롤백·감사 이력·재발급/중지/만료·로그인 제한을 검증하고, TypeScript 계산 테스트로 자정·주간·미확정·좌석 부족/고정/미리보기 분리·QR 형식·CSV를 확인합니다. PGlite에서는 hosted `pgcrypto` 로더만 대체하며 UUID는 같은 PostgreSQL `gen_random_uuid()`를 사용합니다.
+`npm test`의 26개 테스트(상위 DB·Edge 테스트 포함)는 PGlite PostgreSQL 엔진에 마이그레이션과 RPC를 실제 실행하여 RLS·직접 접근 차단·관리자 권한·학생 범위·건의 비공개·만료 QR·중복 요청·재입실·열린 구간 제약·좌석 중복/잘못된 좌석 롤백·감사 이력·재발급/중지/만료·로그인 제한을 검증하고, TypeScript 계산 테스트로 자정·주간·미확정·좌석 부족/고정/미리보기 분리·QR 형식·CSV를 확인합니다. PGlite에서는 hosted `pgcrypto` 로더만 대체하며 UUID는 같은 PostgreSQL `gen_random_uuid()`를 사용합니다.
 
 PGlite의 병렬 호출은 단일 엔진에서 직렬화됩니다. **여러 실제 DB 연결의 동시 경합 및 Edge gateway 검증 완료를 의미하지 않습니다.** 이를 검증하는 `tests/hosted-e2e.mjs`를 별도로 제공합니다. 테스트 관리자와 빈/가상 학생 전용 Supabase 테스트 프로젝트에서, 아래 환경변수를 프로세스에 설정 후 실행합니다. 비밀번호를 파일·저장소에 기록하지 마세요.
 
@@ -156,6 +156,6 @@ psql "$RESTORE_DB_URL" -v ON_ERROR_STOP=1 -f schema.sql
 psql "$RESTORE_DB_URL" -v ON_ERROR_STOP=1 -c "SET session_replication_role = replica" -f data.sql
 ```
 
-이미 마이그레이션을 적용한 DB에 schema.sql을 다시 넣으면 충돌할 수 있습니다. 복구 경로 하나를 선택하여 공식 문서대로 새 프로젝트에 복구하세요. 복구 뒤 제약·인덱스·권한을 확인하고 Edge 함수·CODE_PEPPER·허용 origin·프런트 URL/키를 재설정합니다. 관리자 로그인, 학생 코드, 기록 수, 좌석 중복 제약 및 실제 입퇴실을 검증한 후 서비스를 전환합니다. 기존 pepper 없이는 코드 해시를 검증할 수 없으므로 전체 코드를 재발급해야 합니다. 복구 시 학생 세션을 삭제해 재로그인을 요구하는 것이 좋습니다.
+이미 마이그레이션을 적용한 DB에 schema.sql을 다시 넣으면 충돌할 수 있습니다. 복구 경로 하나를 선택하여 공식 문서대로 새 프로젝트에 복구하세요. 복구 뒤 제약·인덱스·권한을 확인하고 Edge 함수·CODE_PEPPER·허용 origin·프런트 URL/키를 재설정합니다. 관리자 로그인, 학생 코드, 기록 수, 좌석 중복 제약 및 실제 입퇴실을 검증한 후 서비스를 전환합니다. Vault 비밀값은 암호화되어 있고 새 프로젝트에서 기존 암호문이 그대로 복호화된다고 보장할 수 없습니다. Vault 암호화 키의 별도 복구 절차도 [공식 Vault 문서](https://supabase.com/docs/guides/database/vault)를 따라야 합니다. 기존 pepper를 복구할 수 없으면 새 비밀값으로 전체 코드를 재발급해야 합니다. 복구 시 학생 세션을 삭제해 재로그인을 요구하는 것이 좋습니다.
 
 SQL dumps/백업·실제 명단·학생 코드 목록·비밀키는 GitHub에 커밋하지 않습니다. 백업은 보존 기간, 암호화, 접근 권한, 정기 복구 검증을 함께 운영합니다.

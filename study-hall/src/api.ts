@@ -3,6 +3,12 @@ import { demoApi } from "./demo";
 export const mode = import.meta.env.VITE_APP_MODE || "demo";
 if (!["demo", "production"].includes(mode))
   throw Error("VITE_APP_MODE는 demo 또는 production이어야 합니다.");
+// A demo identity must never carry into a production deployment.
+if (sessionStorage.getItem("sh-mode") !== mode) {
+  sessionStorage.removeItem("sh-role");
+  sessionStorage.removeItem("sh-token");
+  sessionStorage.setItem("sh-mode", mode);
+}
 const url = import.meta.env.VITE_SUPABASE_URL,
   key = import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const supabase =
