@@ -86,7 +86,7 @@ VITE_SUPABASE_ANON_KEY=YOUR_PUBLIC_ANON_KEY
 
 ## GitHub Pages 배포
 
-현재 상위 작업 폴더에는 개인정보가 포함될 수 있는 명단·출력 파일이 있고 GitHub 원격 저장소가 없습니다. 이 앱만 새 저장소의 루트로 복사하는 방식을 권장합니다. `node_modules`, `dist`, `.env`, DB 백업을 복사하지 않습니다. 소스 zip에도 포함하지 않습니다.
+현재 저장소는 https://github.com/fnsrbs/Jaseub 의 main 브랜치에 연결되어 있습니다. 상위 .gitignore는 앱과 배포·안내 파일만 등록하고 기존 명단·출력 파일을 제외합니다. 다른 저장소로 옮기는 경우 이 앱만 새 저장소의 루트로 복사하는 방식도 사용할 수 있습니다. `node_modules`, `dist`, `.env`, DB 백업을 복사하지 않습니다. 소스 zip에도 포함하지 않습니다.
 
 새 저장소에 앱을 넣은 뒤:
 
@@ -107,7 +107,7 @@ git push -u origin main
 - `YOUR_NAME.github.io` 루트 저장소 또는 사용자 도메인이라면 workflow의 `PAGES_BASE`를 `/`로 바꿉니다.
 - 새로고침/브라우저 변경/재배포해도 운영 데이터는 Supabase에 남습니다. Auth/학생 세션은 각 브라우저에서 다시 로그인할 수 있습니다.
 
-2026-10-14에 확인한 [GitHub 공식 Pages workflow 문서](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)를 따릅니다. 실제 GitHub 업로드/Pages 배포는 아직 수행하지 않았습니다.
+2026-10-14에 확인한 [GitHub 공식 Pages workflow 문서](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)를 따릅니다. GitHub 업로드와 Pages의 GitHub Actions 방식 설정을 완료했습니다. 데모 주소는 https://fnsrbs.github.io/Jaseub/ 이며 배포 결과는 https://github.com/fnsrbs/Jaseub/actions 에서 확인합니다. 실제 Supabase 운영 연결은 별도입니다.
 
 ## 검증 범위
 

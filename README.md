@@ -5,7 +5,7 @@
 - [전체 설치·Supabase·관리자 등록·백업 안내](study-hall/README.md)
 - [검증 결과와 운영 전 확인 사항](study-hall/VERIFICATION.md)
 - [GitHub Actions 배포 상태](https://github.com/fnsrbs/Jaseub/actions)
-- 데모 배포 주소: https://fnsrbs.github.io/Jaseub/ (최초 Pages 배포 성공 후 접속 가능)
+- [실행 가능한 데모](https://fnsrbs.github.io/Jaseub/)
 
 ## 로컬 실행
 
