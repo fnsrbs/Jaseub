@@ -690,7 +690,7 @@ function Login({
       </section>
       <section className="login-form">
         <span className="mode demo">
-          {mode === "demo" ? "가상 데이터 데모" : "실제 DB 운영 모드"}
+          {mode === "demo" ? "가상 데이터 데모" : "용인 고등학"}
         </span>
         <h2>자습실에 들어가기</h2>
         <p>안녕하세요. 오늘의 집중을 시작해 볼까요?</p>
