@@ -97,9 +97,20 @@ export function demoReset() {
 export async function demoApi(
   action: string,
   p: any,
-  role: "student" | "teacher" | null,
+  role: "student" | "teacher" | "viewer" | null,
   session: string | null,
 ): Promise<any> {
+  if (action === "teacher_login") {
+    if (
+      p.code !==
+      (localStorage.getItem("study-hall-demo-viewer-code") ||
+        "DEMO-TEACHER-VIEWER")
+    )
+      throw Error("데모 교사 코드: DEMO-TEACHER-VIEWER");
+    const token = id();
+    sessions.set(token, "viewer");
+    return { token, role: "viewer" };
+  }
   if (action === "login") {
     const sid = codes.get(String(p.code).trim().toUpperCase());
     if (!sid || !state.students.find((s) => s.id === sid && s.active))
@@ -110,6 +121,7 @@ export async function demoApi(
   }
   const sid = session ? sessions.get(session) : undefined;
   const teacher = role === "teacher";
+  const viewer = role === "viewer" && sid === "viewer";
   if (!teacher && !sid)
     throw Error("데모 세션이 만료되었습니다. 다시 로그인하세요.");
   if (action === "logout") {
@@ -125,7 +137,9 @@ export async function demoApi(
         .map((v) => v.student_id),
     ).size;
     data.server_now = now();
-    if (!teacher) {
+    if (viewer) {
+      data.audits = [];
+    } else if (!teacher) {
       data.students = data.students.filter((s) => s.id === sid);
       data.visits = data.visits.filter((v) => v.student_id === sid);
       data.suggestions = data.suggestions.filter((s) => s.student_id === sid);
@@ -137,6 +151,7 @@ export async function demoApi(
     }
     return data;
   }
+  if (viewer) throw Error("교사는 조회만 가능합니다.");
   if (action === "suggest" && !teacher) {
     state.suggestions.unshift({
       id: id(),
@@ -182,6 +197,29 @@ export async function demoApi(
     return {};
   }
   if (!teacher) throw Error("관리자 권한이 필요합니다.");
+  if (action === "student_gender") {
+    if (!["male", "female", "unknown"].includes(p.gender))
+      throw Error("성별 값을 확인하세요.");
+    for (const s of state.students)
+      if (p.ids.includes(s.id)) s.gender = p.gender;
+    save();
+    return {};
+  }
+  if (action === "teacher_code" || action === "teacher_code_rotate") {
+    if (action === "teacher_code_rotate") {
+      localStorage.setItem(
+        "study-hall-demo-viewer-code",
+        "DEMO-VIEWER-" + id(),
+      );
+      for (const [key, value] of sessions)
+        if (value === "viewer") sessions.delete(key);
+    }
+    return {
+      code:
+        localStorage.getItem("study-hall-demo-viewer-code") ||
+        "DEMO-TEACHER-VIEWER",
+    };
+  }
   if (action === "qr" || action === "qr_rotate") {
     qr = readQr();
     if (qr.token && action === "qr") return qr;

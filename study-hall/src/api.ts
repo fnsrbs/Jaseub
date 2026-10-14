@@ -20,7 +20,7 @@ export const supabase =
 export async function api(
   action: string,
   payload: unknown = {},
-  role: "teacher" | "student" | null = null,
+  role: "teacher" | "student" | "viewer" | null = null,
   token: string | null = null,
 ) {
   if (mode === "demo") return demoApi(action, payload, role, token);
@@ -35,7 +35,10 @@ export async function api(
       "Content-Type": "application/json",
       apikey: key,
       ...(token
-        ? { "x-student-session": token }
+        ? {
+            [role === "viewer" ? "x-teacher-session" : "x-student-session"]:
+              token,
+          }
         : session
           ? { Authorization: `Bearer ${session.access_token}` }
           : {}),

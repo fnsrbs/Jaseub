@@ -33,6 +33,7 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
     rpc: async (name: string, args: any) => {
       calls.push({ name, args });
       if (name === "consume_login_limit") return { data: limiter, error: null };
+      if (name === "code_digest") return { data: "a".repeat(64), error: null };
       if (name === "classroom_qr")
         return args.p_admin === "teacher-id"
           ? {
@@ -114,6 +115,48 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
       401,
     );
   });
+  await t.test(
+    "교사 뷰어는 읽기만 전달하고 모든 쓰기를 RPC 전에 차단",
+    async () => {
+      const login = await send("teacher_login", {
+        code: "TV-" + "A".repeat(32),
+      });
+      assert.equal(login.status, 200);
+      assert.match((await login.json()).token, /^[a-f0-9]{64}$/);
+      const headers = {
+        "x-teacher-session": "c".repeat(64),
+        Authorization: "Bearer verified-teacher",
+      };
+      calls.length = 0;
+      assert.equal(
+        (await send("snapshot", { p_admin: "teacher-id" }, headers)).status,
+        200,
+      );
+      assert.equal(calls.at(-1).name, "teacher_viewer_api");
+      assert.deepEqual(calls.at(-1).args.p_payload, {});
+      for (const action of [
+        "student",
+        "student_gender",
+        "code",
+        "teacher_code",
+        "teacher_code_rotate",
+        "qr",
+        "qr_rotate",
+        "assign",
+        "manual",
+        "attendance",
+        "correct",
+        "settings",
+        "notice",
+        "reply",
+        "suggest",
+      ]) {
+        calls.length = 0;
+        assert.equal((await send(action, {}, headers)).status, 403, action);
+        assert.equal(calls.length, 0);
+      }
+    },
+  );
   await t.test("세션 토큰 해시·클라이언트 관리자 주장 무시", async () => {
     const r = await send(
       "snapshot",

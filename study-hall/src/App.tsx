@@ -20,7 +20,7 @@ import {
   type Notice,
 } from "./domain";
 import "./style.css";
-type Role = "teacher" | "student";
+type Role = "teacher" | "student" | "viewer";
 const time = (s: string | null) =>
   s
     ? new Date(s).toLocaleString("ko-KR", {
@@ -65,7 +65,8 @@ export default function App() {
     [scan, setScan] = useState<"in" | "out" | null>(null),
     [selected, setSelected] = useState("");
   const inFlight = useRef(false);
-  const teacher = role === "teacher";
+  const admin = role === "teacher";
+  const teacher = admin || role === "viewer";
   const navigate = (p: string) => {
     location.hash = p;
     setPage(p);
@@ -134,7 +135,8 @@ export default function App() {
   };
   async function logout() {
     try {
-      if (role === "student") await api("logout", {}, role, token);
+      if (role === "student" || role === "viewer")
+        await api("logout", {}, role, token);
       else if (supabase) await supabase.auth.signOut();
     } catch {}
     sessionStorage.removeItem("sh-role");
@@ -151,8 +153,10 @@ export default function App() {
     setError("");
     try {
       let t: null | string = null;
-      if (r === "student") {
-        const result = await api("login", { code });
+      if (r === "student" || r === "viewer") {
+        const result = await api(r === "viewer" ? "teacher_login" : "login", {
+          code,
+        });
         t = result.token;
       } else if (mode === "production") {
         if (!supabase) throw Error("Supabase 환경 설정이 필요합니다.");
@@ -190,7 +194,7 @@ export default function App() {
         currentNow - Date.parse(v.entered_at) >
           data.settings.missing_hours * 3600000,
     ) || [];
-  const menu = teacher
+  const menu = admin
     ? [
         ["home", "▦", "운영 대시보드"],
         ["students", "♙", "학생 관리"],
@@ -202,14 +206,23 @@ export default function App() {
         ["stats", "▥", "이용 통계"],
         ["settings", "⚙", "운영 설정"],
       ]
-    : [
-        ["home", "▦", "내 자습실"],
-        ["seats", "▤", "좌석 확인"],
-        ["records", "◷", "나의 출결"],
-        ["notices", "♧", "공지사항"],
-        ["suggestions", "✉", "건의사항"],
-        ["stats", "▥", "이용 통계"],
-      ];
+    : role === "viewer"
+      ? [
+          ["home", "▦", "운영 현황"],
+          ["seats", "▤", "좌석 확인"],
+          ["records", "◷", "출결 조회"],
+          ["notices", "♧", "공지사항"],
+          ["suggestions", "✉", "건의사항 조회"],
+          ["stats", "▥", "이용 통계"],
+        ]
+      : [
+          ["home", "▦", "내 자습실"],
+          ["seats", "▤", "좌석 확인"],
+          ["records", "◷", "나의 출결"],
+          ["notices", "♧", "공지사항"],
+          ["suggestions", "✉", "건의사항"],
+          ["stats", "▥", "이용 통계"],
+        ];
   return (
     <div className="layout">
       <aside>
@@ -220,7 +233,11 @@ export default function App() {
           </span>
         </a>
         <div className="role-label">
-          {teacher ? "TEACHER WORKSPACE" : "MY STUDY SPACE"}
+          {admin
+            ? "ADMIN WORKSPACE"
+            : teacher
+              ? "TEACHER VIEW"
+              : "MY STUDY SPACE"}
         </div>
         <nav>
           {menu.map(([p, icon, label]) => (
@@ -237,7 +254,13 @@ export default function App() {
       </aside>
       <main>
         <header>
-          <span>{teacher ? "교사 관리 공간" : "학생 전용 공간"}</span>
+          <span>
+            {admin
+              ? "관리자 공간"
+              : teacher
+                ? "교사 조회 전용 공간"
+                : "학생 전용 공간"}
+          </span>
           <div>
             <span className={"mode " + (mode === "demo" ? "demo" : "")}>
               {mode === "demo" ? "가상 데이터 · 데모" : "Supabase · 운영"}
@@ -335,9 +358,11 @@ export default function App() {
                     <>
                       <div className="section-head">
                         <h2>자습실 현황</h2>
-                        <a href="#qr" className="button primary">
-                          현장 QR 표시 ↗
-                        </a>
+                        {admin && (
+                          <a href="#qr" className="button primary">
+                            현장 QR 표시 ↗
+                          </a>
+                        )}
                       </div>
                       <SeatMap
                         data={data}
@@ -373,42 +398,44 @@ export default function App() {
                               )}
                             </p>
                           </div>
-                          <div className="actions">
-                            <button
-                              disabled={busy}
-                              onClick={() => {
-                                const reason = prompt("수동 입실 사유");
-                                if (reason)
-                                  safe(
-                                    act("manual", {
-                                      student_id: chosen.id,
-                                      direction: "in",
-                                      reason,
-                                      request_id: crypto.randomUUID(),
-                                    }),
-                                  );
-                              }}
-                            >
-                              수동 입실
-                            </button>
-                            <button
-                              disabled={busy}
-                              onClick={() => {
-                                const reason = prompt("수동 퇴실 사유");
-                                if (reason)
-                                  safe(
-                                    act("manual", {
-                                      student_id: chosen.id,
-                                      direction: "out",
-                                      reason,
-                                      request_id: crypto.randomUUID(),
-                                    }),
-                                  );
-                              }}
-                            >
-                              수동 퇴실
-                            </button>
-                          </div>
+                          {admin && (
+                            <div className="actions">
+                              <button
+                                disabled={busy}
+                                onClick={() => {
+                                  const reason = prompt("수동 입실 사유");
+                                  if (reason)
+                                    safe(
+                                      act("manual", {
+                                        student_id: chosen.id,
+                                        direction: "in",
+                                        reason,
+                                        request_id: crypto.randomUUID(),
+                                      }),
+                                    );
+                                }}
+                              >
+                                수동 입실
+                              </button>
+                              <button
+                                disabled={busy}
+                                onClick={() => {
+                                  const reason = prompt("수동 퇴실 사유");
+                                  if (reason)
+                                    safe(
+                                      act("manual", {
+                                        student_id: chosen.id,
+                                        direction: "out",
+                                        reason,
+                                        request_id: crypto.randomUUID(),
+                                      }),
+                                    );
+                                }}
+                              >
+                                수동 퇴실
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )}
                       {missing.length > 0 && (
@@ -491,7 +518,7 @@ export default function App() {
                   )}
                 </>
               )}
-              {page === "qr" && teacher && (
+              {page === "qr" && admin && (
                 <QRDisplay role={role} token={token} />
               )}
               {page === "seats" && (
@@ -502,28 +529,30 @@ export default function App() {
                     selected={teacher ? selected : me?.id}
                     onSelect={setSelected}
                   />
-                  {teacher && <SeatAdmin data={data} act={act} busy={busy} />}
+                  {admin && <SeatAdmin data={data} act={act} busy={busy} />}
                 </>
               )}
-              {page === "students" && teacher && (
+              {page === "students" && admin && (
                 <Students data={data} act={act} busy={busy} />
               )}
               {page === "records" && (
                 <Records
                   data={data}
                   teacher={teacher}
+                  canEdit={admin}
                   act={act}
                   now={currentNow}
                   busy={busy}
                 />
               )}
               {page === "notices" && (
-                <Notices data={data} teacher={teacher} act={act} busy={busy} />
+                <Notices data={data} teacher={admin} act={act} busy={busy} />
               )}
               {page === "suggestions" && (
                 <Suggestions
                   data={data}
                   teacher={teacher}
+                  canReply={admin}
                   act={act}
                   busy={busy}
                 />
@@ -531,8 +560,11 @@ export default function App() {
               {page === "stats" && (
                 <Statistics data={data} teacher={teacher} now={currentNow} />
               )}
-              {page === "settings" && teacher && (
-                <SettingsPanel data={data} act={act} busy={busy} />
+              {page === "settings" && admin && (
+                <>
+                  <TeacherAccess act={act} busy={busy} />
+                  <SettingsPanel data={data} act={act} busy={busy} />
+                </>
               )}
             </>
           )}
@@ -560,6 +592,57 @@ export default function App() {
           }}
         />
       )}
+    </div>
+  );
+}
+function TeacherAccess({
+  act,
+  busy,
+}: {
+  act: (a: string, p: any) => Promise<any>;
+  busy: boolean;
+}) {
+  const [code, setCode] = useState("");
+  return (
+    <div className="panel">
+      <h2>교사 조회 전용 코드</h2>
+      <p>
+        다른 선생님은 로그인 화면의 ‘교사’에서 이 코드를 입력합니다.
+        출결·좌석·공지·건의사항·통계를 조회하며 학생 정보나 기록을 수정할 수
+        없습니다.
+      </p>
+      {code && (
+        <p>
+          <code>{code}</code>
+        </p>
+      )}
+      <div className="actions">
+        <button
+          disabled={busy}
+          onClick={() =>
+            void act("teacher_code", {})
+              .then((r) => setCode(r.code))
+              .catch(() => {})
+          }
+        >
+          코드 확인
+        </button>
+        <button
+          disabled={busy}
+          onClick={() => {
+            if (
+              confirm(
+                "교사용 코드를 재발급합니다. 기존 코드와 모든 교사 조회 세션이 폐기됩니다.",
+              )
+            )
+              void act("teacher_code_rotate", {})
+                .then((r) => setCode(r.code))
+                .catch(() => {});
+          }}
+        >
+          코드 재발급
+        </button>
+      </div>
     </div>
   );
 }
@@ -619,10 +702,16 @@ function Login({
             학생
           </button>
           <button
+            className={role === "viewer" ? "active" : ""}
+            onClick={() => setRole("viewer")}
+          >
+            교사
+          </button>
+          <button
             className={role === "teacher" ? "active" : ""}
             onClick={() => setRole("teacher")}
           >
-            교사
+            관리자
           </button>
         </div>
         <form
@@ -631,8 +720,10 @@ function Login({
             onLogin(role, code, email, password);
           }}
         >
-          {role === "student" ? (
-            <Field label="개인 접속 코드">
+          {role === "student" || role === "viewer" ? (
+            <Field
+              label={role === "viewer" ? "교사용 조회 코드" : "개인 접속 코드"}
+            >
               <input
                 autoComplete="off"
                 autoCapitalize="characters"
@@ -644,7 +735,7 @@ function Login({
             </Field>
           ) : mode === "production" ? (
             <>
-              <Field label="교사 이메일">
+              <Field label="관리자 이메일">
                 <input
                   type="email"
                   value={email}
@@ -664,7 +755,7 @@ function Login({
               </Field>
             </>
           ) : (
-            <p>교사 데모는 가상 학생 72명을 관리합니다.</p>
+            <p>관리자 데모는 가상 학생 72명을 관리합니다.</p>
           )}
           {error && (
             <p role="alert" className="error-text">
@@ -805,7 +896,7 @@ function SeatMap({
             aria-label="교실 아래쪽: 왼쪽 출입문, 가운데 교탁, 오른쪽 운동장"
           >
             <span>출입문</span>
-            <span>교탁</span>
+            <span>칠판 · 교탁</span>
             <span>운동장</span>
           </div>
         </div>
@@ -1086,6 +1177,14 @@ function Students({
   const [search, setSearch] = useState(""),
     [edit, setEdit] = useState<Partial<Student>>({ name: "", number: "" }),
     [code, setCode] = useState("");
+  const [genderFilter, setGenderFilter] = useState("all"),
+    [picked, setPicked] = useState<string[]>([]),
+    [bulkGender, setBulkGender] = useState("unknown");
+  const visible = data.students.filter(
+    (s) =>
+      `${s.name} ${s.number}`.includes(search) &&
+      (genderFilter === "all" || (s.gender || "unknown") === genderFilter),
+  );
   return (
     <>
       <div className="panel">
@@ -1156,53 +1255,121 @@ function Students({
           placeholder="학생 검색"
         />
       </Field>
+      <div className="panel form-grid">
+        <Field label="남녀 구분 필터">
+          <select
+            value={genderFilter}
+            onChange={(e) => setGenderFilter(e.target.value)}
+          >
+            <option value="all">전체</option>
+            <option value="male">남학생</option>
+            <option value="female">여학생</option>
+            <option value="unknown">미확인</option>
+          </select>
+        </Field>
+        <button onClick={() => setPicked(visible.map((s) => s.id))}>
+          검색 결과 전체 선택
+        </button>
+        <button onClick={() => setPicked([])}>선택 해제</button>
+        <Field label={`선택 ${picked.length}명 일괄 지정`}>
+          <select
+            value={bulkGender}
+            onChange={(e) => setBulkGender(e.target.value)}
+          >
+            <option value="unknown">미확인</option>
+            <option value="male">남자 · 1</option>
+            <option value="female">여자 · 0</option>
+          </select>
+        </Field>
+        <button
+          disabled={busy || !picked.length}
+          onClick={() =>
+            void act("student_gender", { ids: picked, gender: bulkGender })
+              .then(() => setPicked([]))
+              .catch(() => {})
+          }
+        >
+          남녀 구분 적용
+        </button>
+      </div>
       <div className="table-wrap panel">
         <table>
           <thead>
             <tr>
+              <th>선택</th>
               <th>이름</th>
               <th>학번</th>
+              <th>남녀 구분</th>
               <th>좌석</th>
               <th>이용 상태</th>
               <th>관리</th>
             </tr>
           </thead>
           <tbody>
-            {data.students
-              .filter((s) => `${s.name} ${s.number}`.includes(search))
-              .map((s) => (
-                <tr key={s.id}>
-                  <td>{s.name}</td>
-                  <td>{s.number}</td>
-                  <td>{s.seat_id || "미배정"}</td>
-                  <td>{s.active ? "이용 가능" : "이용 중지"}</td>
-                  <td>
-                    <button
-                      onClick={() => {
-                        setEdit(s);
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                      }}
-                    >
-                      수정
-                    </button>{" "}
-                    <button
-                      disabled={busy || !s.active}
-                      onClick={() => {
-                        if (
-                          confirm(
-                            `${s.name}의 접속 코드를 발급/재발급합니다. 기존 세션은 차단됩니다.`,
-                          )
+            {visible.map((s) => (
+              <tr key={s.id}>
+                <td>
+                  <input
+                    type="checkbox"
+                    aria-label={`${s.name} 선택`}
+                    checked={picked.includes(s.id)}
+                    onChange={() =>
+                      setPicked(
+                        picked.includes(s.id)
+                          ? picked.filter((id) => id !== s.id)
+                          : [...picked, s.id],
+                      )
+                    }
+                  />
+                </td>
+                <td>{s.name}</td>
+                <td>{s.number}</td>
+                <td>
+                  <select
+                    aria-label={`${s.name} 남녀 구분`}
+                    disabled={busy}
+                    value={s.gender || "unknown"}
+                    onChange={(e) =>
+                      void act("student_gender", {
+                        ids: [s.id],
+                        gender: e.target.value,
+                      }).catch(() => {})
+                    }
+                  >
+                    <option value="unknown">미확인</option>
+                    <option value="male">남자 · 1</option>
+                    <option value="female">여자 · 0</option>
+                  </select>
+                </td>
+                <td>{s.seat_id || "미배정"}</td>
+                <td>{s.active ? "이용 가능" : "이용 중지"}</td>
+                <td>
+                  <button
+                    onClick={() => {
+                      setEdit(s);
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                  >
+                    수정
+                  </button>{" "}
+                  <button
+                    disabled={busy || !s.active}
+                    onClick={() => {
+                      if (
+                        confirm(
+                          `${s.name}의 접속 코드를 발급/재발급합니다. 기존 세션은 차단됩니다.`,
                         )
-                          void act("code", { student_id: s.id })
-                            .then((r) => setCode(r.code))
-                            .catch(() => {});
-                      }}
-                    >
-                      코드 발급 / 재발급
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                      )
+                        void act("code", { student_id: s.id })
+                          .then((r) => setCode(r.code))
+                          .catch(() => {});
+                    }}
+                  >
+                    코드 발급 / 재발급
+                  </button>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
@@ -1310,6 +1477,33 @@ function SeatAdmin({
         <div className="pick-grid">
           <div>
             <h3>대상 학생 / 기존 좌석 고정</h3>
+            <p>
+              남녀를 따로 배정하려면 한 그룹을 선택하고 사용할 좌석 구역을 고른
+              뒤 확정하세요. 선택하지 않은 학생의 자리는 유지됩니다.
+            </p>
+            {(
+              [
+                ["male", "남학생"],
+                ["female", "여학생"],
+                ["unknown", "미확인"],
+              ] as const
+            ).map(([gender, label]) => (
+              <button
+                key={gender}
+                onClick={() => {
+                  setSelected(
+                    data.students
+                      .filter(
+                        (s) => s.active && (s.gender || "unknown") === gender,
+                      )
+                      .map((s) => s.id),
+                  );
+                  setPreview(null);
+                }}
+              >
+                {label}만 선택
+              </button>
+            ))}
             <button
               onClick={() => {
                 setSelected(
@@ -1494,12 +1688,14 @@ function DirectSeat({
 function Records({
   data,
   teacher,
+  canEdit,
   act,
   now,
   busy,
 }: {
   data: Snapshot;
   teacher: boolean;
+  canEdit: boolean;
   act: (a: string, p: any) => Promise<any>;
   now: number;
   busy: boolean;
@@ -1590,7 +1786,7 @@ function Records({
           </button>
         )}
       </div>
-      {edit && (
+      {canEdit && edit && (
         <div className="panel">
           <h2>기록 시각 수정 · 한국 시각</h2>
           <form
@@ -1645,7 +1841,7 @@ function Records({
               <th>퇴실</th>
               <th>이용 시간</th>
               <th>상태</th>
-              {teacher && <th>관리</th>}
+              {canEdit && <th>관리</th>}
             </tr>
           </thead>
           <tbody>
@@ -1679,7 +1875,7 @@ function Records({
                         ? "확정"
                         : "● 진행 중"}
                   </td>
-                  {teacher && (
+                  {canEdit && (
                     <td>
                       <button
                         onClick={() => {
@@ -1703,7 +1899,7 @@ function Records({
       {!teacher && (
         <Stats data={data} studentId={data.students[0].id} now={now} />
       )}{" "}
-      {teacher && (
+      {canEdit && (
         <div className="panel">
           <h2>최근 수정 및 배정 이력</h2>
           {data.audits.map((a, i) => (
@@ -1836,11 +2032,13 @@ function Notices({
 function Suggestions({
   data,
   teacher,
+  canReply,
   act,
   busy,
 }: {
   data: Snapshot;
   teacher: boolean;
+  canReply: boolean;
   act: (a: string, p: any) => Promise<any>;
   busy: boolean;
 }) {
@@ -1903,7 +2101,7 @@ function Suggestions({
               <small>수정 {time(s.updated_at)}</small>
             </blockquote>
           )}
-          {teacher && <Reply suggestion={s} act={act} busy={busy} />}
+          {canReply && <Reply suggestion={s} act={act} busy={busy} />}
         </article>
       ))}
       {!data.suggestions.length && <Empty text="등록된 건의사항이 없습니다." />}

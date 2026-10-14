@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
       ? origin
       : allowed[0],
     "Access-Control-Allow-Headers":
-      "authorization, apikey, content-type, x-student-session",
+      "authorization, apikey, content-type, x-student-session, x-teacher-session",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     Vary: "Origin",
     "Content-Type": "application/json",
@@ -84,10 +84,15 @@ Deno.serve(async (req) => {
     if (raw.length > 50000) return reply({ error: "요청이 너무 큽니다." }, 413);
     const { action, payload = {} } = JSON.parse(raw);
     if (typeof action !== "string") throw Error("요청 형식 오류");
-    if (action === "login") {
+    if (action === "login" || action === "teacher_login") {
       const code = String(payload.code || "");
       if (!/^[A-Z0-9-]{16,80}$/i.test(code)) throw Error("코드를 확인하세요.");
-      const ch = await codeHash(code);
+      const ch =
+        action === "teacher_login"
+          ? (await db.rpc("code_digest", { p_code: code })).data
+          : await codeHash(code);
+      if (typeof ch !== "string" || !/^[a-f0-9]{64}$/.test(ch))
+        throw Error("서버 인증 설정 오류");
       const ip =
         req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
       for (const key of ["code:" + ch, "ip:" + (await hash(ip))]) {
@@ -102,11 +107,33 @@ Deno.serve(async (req) => {
           );
       }
       const token = random();
+      if (action === "teacher_login") {
+        const { data, error } = await db.rpc("teacher_viewer_api", {
+          p_action: "login",
+          p_payload: { code_hash: ch, token_hash: await hash(token) },
+          p_session: null,
+        });
+        if (error) throw Error(error.message);
+        return reply({ ...data, token });
+      }
       const data = await rpc("login", {
         code_hash: ch,
         token_hash: await hash(token),
       });
       return reply({ ...data, token });
+    }
+    const viewerToken = req.headers.get("x-teacher-session");
+    if (viewerToken) {
+      if (!/^[a-f0-9]{64}$/.test(viewerToken)) throw Error("교사 세션 오류");
+      if (!["snapshot", "logout"].includes(action))
+        return reply({ error: "교사는 조회만 가능합니다." }, 403);
+      const { data, error } = await db.rpc("teacher_viewer_api", {
+        p_action: action,
+        p_payload: {},
+        p_session: await hash(viewerToken),
+      });
+      if (error) throw Error(error.message);
+      return reply(data);
     }
     let admin: string | null = null;
     let session: string | null = null;
@@ -121,6 +148,23 @@ Deno.serve(async (req) => {
       if (error || !data.user)
         return reply({ error: "인증이 만료되었습니다." }, 401);
       admin = data.user.id;
+    }
+    if (action === "student_gender") {
+      const { data, error } = await db.rpc("set_student_gender", {
+        p_admin: admin,
+        p_ids: payload.ids,
+        p_gender: payload.gender,
+      });
+      if (error) throw Error(error.message);
+      return reply(data);
+    }
+    if (action === "teacher_code" || action === "teacher_code_rotate") {
+      const { data, error } = await db.rpc("teacher_access", {
+        p_admin: admin,
+        p_rotate: action === "teacher_code_rotate",
+      });
+      if (error) throw Error(error.message);
+      return reply(data);
     }
     if (action === "qr" || action === "qr_rotate") {
       const { data, error } = await db.rpc("classroom_qr", {

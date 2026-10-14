@@ -3,6 +3,7 @@ export type Student = {
   name: string;
   number: string;
   active: boolean;
+  gender?: "male" | "female" | "unknown";
   seat_id: number | null;
 };
 export type Seat = { id: number; row: number; col: number; enabled: boolean };
