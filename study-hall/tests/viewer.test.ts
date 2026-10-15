@@ -55,6 +55,7 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     await db.exec(migration("_roster_sheet_import.sql"));
     await db.exec(migration("_cleaning_schedule.sql"));
     await db.exec(migration("_cleaning_notice.sql"));
+    await db.exec(migration("_student_weekly_rank.sql"));
     await assert.rejects(db.query("select code_digest('AB12')"), /형식/);
     const admin = crypto.randomUUID(),
       outsider = crypto.randomUUID(),
@@ -1046,7 +1047,74 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
       cleaningNotice("save", { body: "이전 버전", revision: 1 }),
       /다른 변경/,
     );
+    // Pin server time only in this fixture to test Friday/Saturday and next-week boundaries.
+    const rankMigration = migration("_student_weekly_rank.sql").replace(
+      "create function",
+      "create or replace function",
+    );
+    await db.exec(
+      rankMigration.replaceAll(
+        "now()",
+        "'2026-10-18T23:00:00+09:00'::timestamptz",
+      ),
+    );
+    await db.exec(
+      "update student_sessions set expires_at='2099-01-01';update teacher_viewer_sessions set expires_at='2099-01-01'",
+    );
+    const rankPeer = crypto.randomUUID();
+    await db.query(
+      "insert into students(id,number,name) values($1,'39802','동점 학생')",
+      [rankPeer],
+    );
+    await db.query(
+      "insert into visits(student_id,entered_at,exited_at) values($1,'2026-10-12T10:00:00+09:00','2026-10-12T11:00:00+09:00'),($1,'2026-10-16T23:30:00+09:00','2026-10-17T00:30:00+09:00'),($1,'2026-10-17T10:00:00+09:00','2026-10-17T11:00:00+09:00'),($2,'2026-10-13T10:00:00+09:00','2026-10-13T11:30:00+09:00')",
+      [cleaner, rankPeer],
+    );
+    const rankRead = async (
+      who: string | null = admin,
+      viewerToken: string | null = null,
+      studentToken: string | null = null,
+    ) =>
+      (
+        await db.query<{ r: any }>("select weekly_ranking($1,$2,$3) r", [
+          who,
+          viewerToken,
+          studentToken,
+        ])
+      ).rows[0].r;
+    await assert.rejects(rankRead(null), /로그인/);
+    await assert.rejects(rankRead(outsider), /로그인/);
+    const teacherRanks = await rankRead();
+    assert.ok(Array.isArray(teacherRanks.rows));
+    assert.deepEqual(await rankRead(null, "d".repeat(64)), teacherRanks);
+    const privateRank = await rankRead(null, null, "c".repeat(64));
+    assert.equal(privateRank.rows, undefined);
+    assert.deepEqual(Object.keys(privateRank.mine).sort(), [
+      "rank",
+      "seconds",
+      "tied",
+    ]);
+    assert.equal(privateRank.mine.seconds, 5400);
+    assert.equal(privateRank.mine.tied, true);
+    const peerRank = teacherRanks.rows.find((r: any) => r.id === rankPeer);
+    assert.equal(privateRank.mine.rank, peerRank.rank);
+    assert.deepEqual(
+      teacherRanks.rows.find((r: any) => r.id === cleaner).seconds,
+      5400,
+    );
+    await db.exec(
+      rankMigration.replaceAll(
+        "now()",
+        "'2026-10-19T12:00:00+09:00'::timestamptz",
+      ),
+    );
+    assert.equal((await rankRead(null, null, "c".repeat(64))).mine.rank, null);
+    await db.exec(
+      "update student_sessions set expires_at='2020-01-01' where token_hash=repeat('c',64)",
+    );
+    await assert.rejects(rankRead(null, null, "c".repeat(64)), /로그인/);
     await db.exec("set role authenticated");
+    await assert.rejects(rankRead(), /permission/i);
     await assert.rejects(cleaningNotice("read"), /permission/i);
     await assert.rejects(
       db.query("select * from cleaning_notice"),

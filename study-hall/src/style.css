@@ -421,6 +421,16 @@ header button {
   color: #000;
   margin: 16px 0 9px;
 }
+.my-weekly-rank {
+  display: block;
+  color: #176b55;
+  font-size: 40px;
+  margin: 12px 0;
+}
+.weekly-ranking .table-wrap {
+  max-height: 480px;
+  overflow-y: auto;
+}
 .notice p {
   color: #000;
   font-size: 13px;

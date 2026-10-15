@@ -28,6 +28,7 @@ import { WarningCards } from "./WarningCards";
 import { StudentLookup } from "./StudentLookup";
 import { Supervision } from "./Supervision";
 import { Cleaning } from "./Cleaning";
+import { WeeklyRanking } from "./WeeklyRanking";
 import { pairLottery, validateDeskPairs } from "./seat-pairs";
 import { defaultSiteCopy, type SiteCopy } from "./site-copy";
 type Role = "teacher" | "student" | "viewer";
@@ -557,6 +558,11 @@ export default function App() {
                       />
                     </>
                   )}
+                  <WeeklyRanking
+                    role={role}
+                    token={token}
+                    visits={data.visits}
+                  />
                   <div className="section-head">
                     <h2>자습실 소식</h2>
                     <a href="#notices">모두 보기 →</a>
@@ -2271,9 +2277,7 @@ function Records({
 function NoticeCard({ n }: { n: Notice }) {
   return (
     <article className="panel notice">
-      <div>
-        {n.important && <span className="badge">중요 공지</span>}
-      </div>
+      <div>{n.important && <span className="badge">중요 공지</span>}</div>
       <h3>{n.title}</h3>
       <p className="text-body">{n.body}</p>
     </article>

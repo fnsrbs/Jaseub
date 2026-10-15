@@ -1,5 +1,6 @@
 import {
   koreanDay,
+  totals,
   validateAssignments,
   validQr,
   type Snapshot,
@@ -231,6 +232,53 @@ export async function demoApi(
       }));
     }
     return data;
+  }
+  if (action === "weekly_ranking") {
+    const rows = state.students
+      .filter((s) => s.active && !s.deleted_at)
+      .map((s) => ({
+        id: s.id,
+        name: s.name,
+        number: s.number,
+        seconds: Math.floor(
+          totals(
+            state.visits.filter((v) => v.student_id === s.id),
+            Date.now(),
+            state.settings.missing_hours,
+          ).week,
+        ),
+      }))
+      .sort(
+        (a, b) =>
+          b.seconds - a.seconds ||
+          a.number.localeCompare(b.number, "ko", { numeric: true }),
+      );
+    const ranked = rows.map((r) => ({
+      ...r,
+      rank: r.seconds
+        ? rows.findIndex((s) => s.seconds === r.seconds) + 1
+        : null,
+      tied:
+        r.seconds > 0 && rows.filter((s) => s.seconds === r.seconds).length > 1,
+    }));
+    const today = koreanDay(new Date()),
+      wd = new Date(`${today}T12:00:00Z`).getUTCDay(),
+      start = new Date(
+        Date.parse(`${today}T12:00:00Z`) - ((wd + 6) % 7) * 86400000,
+      ),
+      end = new Date(start.getTime() + 4 * 86400000);
+    const shared = {
+      week_start: start.toISOString().slice(0, 10),
+      week_end: end.toISOString().slice(0, 10),
+      participants: rows.filter((r) => r.seconds > 0).length,
+      eligible: rows.length,
+    };
+    if (teacher || viewer) return { ...shared, rows: ranked };
+    const r = ranked.find((r) => r.id === sid);
+    return {
+      ...shared,
+      mine: r ? { rank: r.rank, seconds: r.seconds, tied: r.tied } : null,
+    };
   }
   if (action === "cleaning") return structuredClone(cleaning);
   if (action === "cleaning_notice") return structuredClone(cleaningNotice);

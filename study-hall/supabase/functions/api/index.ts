@@ -143,6 +143,13 @@ Deno.serve(async (req) => {
     const viewerToken = req.headers.get("x-teacher-session");
     if (viewerToken) {
       if (!/^[a-f0-9]{64}$/.test(viewerToken)) throw Error("교사 세션 오류");
+      if (action === "weekly_ranking") {
+        const { data, error } = await db.rpc("weekly_ranking", {
+          p_viewer_session: await hash(viewerToken),
+        });
+        if (error) throw Error(error.message);
+        return reply(data);
+      }
       if (action === "cleaning" || action === "cleaning_notice") {
         const { data, error } = await db.rpc(
           action === "cleaning" ? "cleaning_api" : "cleaning_notice_api",
@@ -202,6 +209,14 @@ Deno.serve(async (req) => {
       if (error || !data.user)
         return reply({ error: "인증이 만료되었습니다." }, 401);
       admin = data.user.id;
+    }
+    if (action === "weekly_ranking") {
+      const { data, error } = await db.rpc("weekly_ranking", {
+        p_admin: admin,
+        p_student_session: session,
+      });
+      if (error) throw Error(error.message);
+      return reply(data);
     }
     if (
       [

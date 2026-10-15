@@ -286,6 +286,34 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
       assert.equal(calls.at(-1).args.p_action, "save");
     },
   );
+  await t.test(
+    "순위 조회는 학생 본인 세션·교사 세션·관리자 검증 신원만 전달",
+    async () => {
+      assert.equal((await send("weekly_ranking")).status, 401);
+      await send(
+        "weekly_ranking",
+        { p_admin: "spoof", student_id: "other" },
+        { "x-student-session": "a".repeat(64) },
+      );
+      assert.equal(calls.at(-1).name, "weekly_ranking");
+      assert.equal(calls.at(-1).args.p_admin, null);
+      assert.equal(calls.at(-1).args.p_student_session.length, 64);
+      assert.equal(calls.at(-1).args.student_id, undefined);
+      await send(
+        "weekly_ranking",
+        { p_admin: "spoof" },
+        { "x-teacher-session": "b".repeat(64) },
+      );
+      assert.equal(calls.at(-1).args.p_viewer_session.length, 64);
+      assert.equal(calls.at(-1).args.p_admin, undefined);
+      await send(
+        "weekly_ranking",
+        { p_admin: "spoof" },
+        { Authorization: "Bearer verified-teacher" },
+      );
+      assert.equal(calls.at(-1).args.p_admin, "teacher-id");
+    },
+  );
   await t.test("구글 시트 연결 정보 요청도 서버 검증 신원만 전달", async () => {
     assert.equal((await send("sheet_sync_status")).status, 401);
     await send(
