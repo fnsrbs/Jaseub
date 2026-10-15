@@ -111,9 +111,6 @@ export function WeeklyRanking({
           ) : (
             <p>퇴실을 완료하면 이번 주 내 순위를 확인할 수 있어요.</p>
           )}
-          <small>
-            매주 새롭게 시작해요. 오늘의 집중을 차곡차곡 쌓아 보세요.
-          </small>
         </>
       )}
     </section>
