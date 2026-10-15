@@ -49,6 +49,7 @@ export type Snapshot = {
     student_id: string;
     reason: string;
     created_at: string;
+    deleted_at?: string | null;
   }[];
   students: Student[];
   seats: Seat[];

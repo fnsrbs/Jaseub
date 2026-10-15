@@ -149,6 +149,7 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
         "student",
         "student_delete",
         "warning_issue",
+        "warning_delete",
         "student_code",
         "visit_delete",
         "site_copy",

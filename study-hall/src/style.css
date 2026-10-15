@@ -1096,3 +1096,56 @@ blockquote {
   overflow-wrap: anywhere;
   max-width: 440px;
 }
+
+.gender-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 14px 0;
+  font-size: 12px;
+  color: #53635d;
+}
+.gender-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.gender-swatch {
+  width: 14px;
+  height: 14px;
+  border: 1px solid #ccd3cf;
+  border-radius: 4px;
+  background: #fafbf9;
+}
+.gender-swatch.male,
+.seat.gender-male {
+  background-color: #e3efff;
+}
+.gender-swatch.female,
+.seat.gender-female {
+  background-color: #ffe7f0;
+}
+.seat.gender-male b,
+.seat.gender-male small {
+  color: #244e82;
+}
+.seat.gender-female b,
+.seat.gender-female small {
+  color: #863852;
+}
+.seat.gender-male:not(.mine) {
+  border-color: #9cbfe8;
+}
+.seat.gender-female:not(.mine) {
+  border-color: #e8acc3;
+}
+.seat.gender-male.disabled,
+.seat.gender-female.disabled {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 5px,
+    #ffffff66 5px,
+    #ffffff66 10px
+  );
+}

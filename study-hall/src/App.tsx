@@ -21,6 +21,7 @@ import {
 } from "./domain";
 import "./style.css";
 import { SeatPicker } from "./SeatPicker";
+import { GenderLegend } from "./GenderLegend";
 import { WarningCards } from "./WarningCards";
 import { pairLottery, validateDeskPairs } from "./seat-pairs";
 import { defaultSiteCopy, type SiteCopy } from "./site-copy";
@@ -916,6 +917,7 @@ function SeatMap({
   const rows = [...new Set(data.seats.map((s) => s.row))].sort((a, b) => a - b);
   return (
     <div className="panel">
+      <GenderLegend />
       <div className="seat-legend">
         <span>
           <i className="dot" />
@@ -946,7 +948,7 @@ function SeatMap({
                   return (
                     <button
                       style={{ gridColumn: seat.col }}
-                      className={`seat ${inside && teacher ? "occupied" : ""} ${selected && st?.id === selected ? "mine" : ""} ${seat.enabled ? "" : "disabled"}`}
+                      className={`seat ${st?.gender === "male" ? "gender-male" : st?.gender === "female" ? "gender-female" : ""} ${inside && teacher ? "occupied" : ""} ${selected && st?.id === selected ? "mine" : ""} ${seat.enabled ? "" : "disabled"}`}
                       key={seat.id}
                       onClick={() => {
                         if (st) onSelect(st.id);
@@ -965,6 +967,15 @@ function SeatMap({
                               ? "좌석"
                               : "사용 불가"}
                       </small>
+                      {st && (
+                        <small>
+                          {st.gender === "male"
+                            ? "남학생"
+                            : st.gender === "female"
+                              ? "여학생"
+                              : "성별 미확인"}
+                        </small>
+                      )}
                       {teacher && st && (
                         <small>{inside ? "● 입실 중" : "○ 퇴실"}</small>
                       )}

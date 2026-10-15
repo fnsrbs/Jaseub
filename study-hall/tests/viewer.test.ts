@@ -46,6 +46,7 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     await db.exec(migration("_attendance_record_delete.sql"));
     await db.exec(migration("_editable_login_copy.sql"));
     await db.exec(migration("_seat_pairs_warning_cards.sql"));
+    await db.exec(migration("_warning_card_delete.sql"));
     await assert.rejects(db.query("select code_digest('AB12')"), /형식/);
     const admin = crypto.randomUUID(),
       outsider = crypto.randomUUID(),
@@ -436,6 +437,37 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
       ),
     );
     await assert.rejects(snap(outsider), /권한/);
+    const deleteWarning = (
+      who: string | null,
+      card = request,
+      reason = "잘못 발급",
+    ) => db.query("select delete_warning($1,$2,$3)", [who, card, reason]);
+    await assert.rejects(deleteWarning(null), /관리자/);
+    await assert.rejects(deleteWarning(outsider), /관리자/);
+    await assert.rejects(deleteWarning(admin, request, " "), /사유/);
+    await assert.rejects(deleteWarning(admin, crypto.randomUUID()), /찾을/);
+    await deleteWarning(admin);
+    await deleteWarning(admin);
+    assert.equal((await snap(admin)).warnings.length, 2);
+    assert.equal((await snap(null, "f".repeat(64))).warnings.length, 1);
+    assert.equal((await snap(null, null, "e".repeat(64))).warnings.length, 2);
+    assert.equal(
+      (
+        await db.query<{ n: number }>(
+          "select count(*)::int n from audits where kind='warning_delete'",
+        )
+      ).rows[0].n,
+      1,
+    );
+    const removedCard = (
+      await db.query<{ reason: string; deleted_at: string }>(
+        "select reason,deleted_at from warning_cards where id=$1",
+        [request],
+      )
+    ).rows[0];
+    assert.equal(removedCard.reason, "소란");
+    assert.ok(removedCard.deleted_at);
+
     // Atomic pair guard rejects a mixed preview without leaving assignments/history behind.
     await db.exec("update students set seat_id=null");
     const assign = async (who: string | null, pairs: any[]) =>
@@ -467,6 +499,7 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
       /permission denied/,
     );
     await assert.rejects(snap(admin), /permission denied/);
+    await assert.rejects(deleteWarning(admin), /permission denied/);
     await assert.rejects(assign(admin, []), /permission denied/);
     await assert.rejects(
       db.query("select * from warning_cards"),

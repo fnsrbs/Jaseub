@@ -23,8 +23,8 @@ export function WarningCards({
       <div className="panel">
         <h2>학생별 누적 경고카드</h2>
         <p>
-          카드 1회 발급마다 1장이 누적됩니다. 발급 일시와 사유가 계속
-          보관됩니다.
+          카드 1회 발급마다 1장이 누적됩니다. 삭제된 카드는 누적에서 제외됩니다.
+          발급 일시와 사유가 계속 보관됩니다.
         </p>
         <label className="field">
           <span>학생 선택 / 내역 필터</span>
@@ -109,6 +109,7 @@ export function WarningCards({
                 <th>학번</th>
                 <th>발급 일시</th>
                 <th>경고 사유</th>
+                {admin && <th>관리</th>}
               </tr>
             </thead>
             <tbody>
@@ -124,6 +125,30 @@ export function WarningCards({
                       })}
                     </td>
                     <td className="warning-reason">{w.reason}</td>
+                    {admin && (
+                      <td>
+                        <button
+                          disabled={busy}
+                          onClick={() => {
+                            const reason = prompt(
+                              `${s?.name || "학생"} 경고카드 삭제 사유`,
+                            );
+                            if (!reason?.trim()) return;
+                            if (
+                              confirm(
+                                "이 경고카드를 삭제할까요? 누적 장수에서 제외되며 삭제 이력은 보관됩니다.",
+                              )
+                            )
+                              void act("warning_delete", {
+                                id: w.id,
+                                reason: reason.trim(),
+                              }).catch(() => {});
+                          }}
+                        >
+                          삭제
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}

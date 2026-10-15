@@ -167,6 +167,7 @@ export async function demoApi(
         .map((v) => v.student_id),
     ).size;
     data.server_now = now();
+    data.warnings = (data.warnings || []).filter((w) => !w.deleted_at);
     if (viewer) {
       data.audits = [];
     } else if (!teacher) {
@@ -228,6 +229,22 @@ export async function demoApi(
     return {};
   }
   if (!teacher) throw Error("관리자 권한이 필요합니다.");
+  if (action === "warning_delete") {
+    if (!p.reason?.trim() || p.reason.trim().length > 1000)
+      throw Error("삭제 사유를 입력하세요.");
+    const card = (state.warnings || []).find((w) => w.id === p.id);
+    if (!card) throw Error("경고카드를 찾을 수 없습니다.");
+    if (card.deleted_at) return {};
+    state.audits.unshift({
+      kind: "warning_delete",
+      before_value: structuredClone(card),
+      reason: p.reason.trim(),
+      created_at: now(),
+    });
+    card.deleted_at = now();
+    save();
+    return {};
+  }
   if (action === "warning_issue") {
     if (!p.reason?.trim() || p.reason.trim().length > 1000)
       throw Error("경고 사유를 입력하세요.");

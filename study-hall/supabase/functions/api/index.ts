@@ -174,6 +174,15 @@ Deno.serve(async (req) => {
       if (error) throw Error(error.message);
       return reply(data);
     }
+    if (action === "warning_delete") {
+      const { data, error } = await db.rpc("delete_warning", {
+        p_admin: admin,
+        p_card: payload.id,
+        p_reason: payload.reason,
+      });
+      if (error) throw Error(error.message);
+      return reply(data);
+    }
     if (action === "warning_issue") {
       const { data, error } = await db.rpc("issue_warning", {
         p_admin: admin,
