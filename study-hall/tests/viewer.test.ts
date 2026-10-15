@@ -45,6 +45,7 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     await db.exec(migration("_student_code_lookup.sql"));
     await db.exec(migration("_attendance_record_delete.sql"));
     await db.exec(migration("_editable_login_copy.sql"));
+    await db.exec(migration("_seat_pairs_warning_cards.sql"));
     await assert.rejects(db.query("select code_digest('AB12')"), /형식/);
     const admin = crypto.randomUUID(),
       outsider = crypto.randomUUID(),
@@ -368,7 +369,110 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
       ).rows[0].n,
       0,
     );
+    // No live records: verify append-only cards and scoped reads in this private DB.
+    const warningStudent = crypto.randomUUID(),
+      otherStudent = crypto.randomUUID();
+    await db.query(
+      "insert into students(id,name,number,gender) values($1,'경고테스트','W001','male'),($2,'다른학생','W002','female')",
+      [warningStudent, otherStudent],
+    );
+    const warn = async (
+      who: string | null,
+      target: string,
+      reason: string,
+      request = crypto.randomUUID(),
+    ) =>
+      db.query("select issue_warning($1,$2,$3,$4)", [
+        who,
+        target,
+        reason,
+        request,
+      ]);
+    await assert.rejects(warn(null, warningStudent, "테스트"), /관리자/);
+    await assert.rejects(warn(outsider, warningStudent, "테스트"), /관리자/);
+    await assert.rejects(warn(admin, warningStudent, " "), /사유/);
+    const request = crypto.randomUUID();
+    await warn(admin, warningStudent, "소란", request);
+    await warn(admin, warningStudent, "소란", request);
+    await warn(admin, warningStudent, "지각");
+    await warn(admin, otherStudent, "별도 내역");
+    await assert.rejects(
+      warn(admin, otherStudent, "소란", request),
+      /요청 번호/,
+    );
+    const snap = async (
+      who: string | null,
+      session: string | null = null,
+      viewer: string | null = null,
+    ) =>
+      (
+        await db.query<{ r: any }>(
+          "select snapshot_with_warnings($1,$2,$3) r",
+          [who, session, viewer],
+        )
+      ).rows[0].r;
+    assert.equal((await snap(admin)).warnings.length, 3);
+    assert.equal(
+      (await snap(admin)).warnings.filter(
+        (w: any) => w.student_id === warningStudent,
+      ).length,
+      2,
+    );
+    await login((await access(admin)).code, "e".repeat(64));
+    assert.equal((await snap(null, null, "e".repeat(64))).warnings.length, 3);
+    await assert.rejects(snap(null, null, "invalid"), /세션/);
+    await db.query("insert into student_codes values($1,'fixture',1)", [
+      warningStudent,
+    ]);
+    await db.query(
+      "insert into student_sessions values($1,$2,1,now()+interval '1 hour')",
+      ["f".repeat(64), warningStudent],
+    );
+    const privateSnapshot = await snap(null, "f".repeat(64));
+    assert.equal(privateSnapshot.warnings.length, 2);
+    assert.ok(
+      privateSnapshot.warnings.every(
+        (w: any) => w.student_id === warningStudent && !("actor" in w),
+      ),
+    );
+    await assert.rejects(snap(outsider), /권한/);
+    // Atomic pair guard rejects a mixed preview without leaving assignments/history behind.
+    await db.exec("update students set seat_id=null");
+    const assign = async (who: string | null, pairs: any[]) =>
+      db.query("select assign_seats($1,$2)", [
+        who,
+        JSON.stringify({ pairs, same_gender_pairs: true }),
+      ]);
+    const mixed = [
+      { student_id: warningStudent, seat_id: 1 },
+      { student_id: otherStudent, seat_id: 2 },
+    ];
+    await assert.rejects(assign(null, mixed), /관리자/);
+    await assert.rejects(assign(admin, mixed), /같은 성별/);
+    assert.equal(
+      (
+        await db.query<{ n: number }>(
+          "select count(*)::int n from students where seat_id is not null",
+        )
+      ).rows[0].n,
+      0,
+    );
+    await assign(admin, [
+      { student_id: warningStudent, seat_id: 1 },
+      { student_id: otherStudent, seat_id: 4 },
+    ]);
     await db.exec("set role authenticated");
+    await assert.rejects(
+      warn(admin, warningStudent, "위조"),
+      /permission denied/,
+    );
+    await assert.rejects(snap(admin), /permission denied/);
+    await assert.rejects(assign(admin, []), /permission denied/);
+    await assert.rejects(
+      db.query("select * from warning_cards"),
+      /permission denied/,
+    );
+
     await assert.rejects(issue(admin, student), /permission denied/);
     await assert.rejects(remove(admin, student), /permission denied/);
     await assert.rejects(lookup(admin, student), /permission denied/);

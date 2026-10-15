@@ -1061,3 +1061,38 @@ blockquote {
 .qr-controls.actions {
   justify-content: center;
 }
+
+.seat-picker-layout {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+.seat-picker-layout .seat-scroll {
+  margin-top: 20px;
+}
+.pair-option {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-weight: 700;
+  margin-top: 24px;
+}
+.warning-button {
+  background: #eab84f;
+  color: #49360d;
+  font-weight: 700;
+}
+.warning-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+.warning-totals strong {
+  color: #926111;
+  margin-left: 7px;
+}
+.warning-reason {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: 440px;
+}

@@ -5,6 +5,7 @@ import {
   type Snapshot,
   type Student,
 } from "./domain";
+import { validateDeskPairs } from "./seat-pairs";
 const now = () => new Date().toISOString();
 import { classroomSeats } from "./seat-layout";
 import { defaultSiteCopy } from "./site-copy";
@@ -17,6 +18,7 @@ const initial = (): Snapshot => {
     name: `가상학생 ${String(i + 1).padStart(2, "0")}`,
     number: `D${String(i + 1).padStart(3, "0")}`,
     active: true,
+    gender: (i % 4 < 2 ? "male" : "female") as Student["gender"],
     seat_id: i + 1,
   }));
   return {
@@ -171,6 +173,7 @@ export async function demoApi(
       data.students = data.students.filter((s) => s.id === sid);
       data.visits = data.visits.filter((v) => v.student_id === sid);
       data.suggestions = data.suggestions.filter((s) => s.student_id === sid);
+      data.warnings = (data.warnings || []).filter((w) => w.student_id === sid);
       data.audits = [];
       data.operating_days = data.operating_days.map((d) => ({
         ...d,
@@ -225,6 +228,31 @@ export async function demoApi(
     return {};
   }
   if (!teacher) throw Error("관리자 권한이 필요합니다.");
+  if (action === "warning_issue") {
+    if (!p.reason?.trim() || p.reason.trim().length > 1000)
+      throw Error("경고 사유를 입력하세요.");
+    if (!state.students.some((s) => s.id === p.student_id && !s.deleted_at))
+      throw Error("학생을 찾을 수 없습니다.");
+    const warnings = (state.warnings ||= []);
+    const existing = warnings.find((w) => w.id === p.request_id);
+    if (existing) {
+      if (
+        existing.student_id !== p.student_id ||
+        existing.reason !== p.reason.trim()
+      )
+        throw Error("이미 사용한 요청 번호입니다.");
+      return existing;
+    }
+    const card = {
+      id: p.request_id,
+      student_id: p.student_id,
+      reason: p.reason.trim(),
+      created_at: now(),
+    };
+    warnings.unshift(card);
+    save();
+    return card;
+  }
   if (action === "site_copy") {
     localStorage.setItem("study-hall-demo-site-copy", JSON.stringify(p.copy));
     return p.copy;
@@ -341,6 +369,8 @@ export async function demoApi(
     state.settings = p;
   } else if (action === "assign") {
     validateAssignments(state.students, state.seats, p.pairs);
+    if (p.same_gender_pairs)
+      validateDeskPairs(state.students, state.seats, p.pairs);
     const before = structuredClone(state.students);
     for (const pair of p.pairs)
       state.students.find((s) => s.id === pair.student_id)!.seat_id =

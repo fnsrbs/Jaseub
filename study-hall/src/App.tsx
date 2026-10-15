@@ -20,6 +20,9 @@ import {
   type Notice,
 } from "./domain";
 import "./style.css";
+import { SeatPicker } from "./SeatPicker";
+import { WarningCards } from "./WarningCards";
+import { pairLottery, validateDeskPairs } from "./seat-pairs";
 import { defaultSiteCopy, type SiteCopy } from "./site-copy";
 type Role = "teacher" | "student" | "viewer";
 const time = (s: string | null) =>
@@ -216,6 +219,7 @@ export default function App() {
         ["notices", "♧", "공지사항"],
         ["suggestions", "✉", "건의사항"],
         ["stats", "▥", "이용 통계"],
+        ["warnings", "▣", "경고카드"],
         ["settings", "⚙", "운영 설정"],
       ]
     : role === "viewer"
@@ -226,6 +230,7 @@ export default function App() {
           ["notices", "♧", "공지사항"],
           ["suggestions", "✉", "건의사항 조회"],
           ["stats", "▥", "이용 통계"],
+          ["warnings", "▣", "경고카드"],
         ]
       : [
           ["home", "▦", "내 자습실"],
@@ -234,6 +239,7 @@ export default function App() {
           ["notices", "♧", "공지사항"],
           ["suggestions", "✉", "건의사항"],
           ["stats", "▥", "이용 통계"],
+          ["warnings", "▣", "경고카드"],
         ];
   return (
     <div className="layout">
@@ -546,6 +552,9 @@ export default function App() {
               )}
               {page === "students" && admin && (
                 <Students data={data} act={act} busy={busy} />
+              )}
+              {page === "warnings" && (
+                <WarningCards data={data} admin={admin} act={act} busy={busy} />
               )}
               {page === "records" && (
                 <Records
@@ -1391,6 +1400,7 @@ function Students({
               <th>학번</th>
               <th>성별</th>
               <th>좌석</th>
+              <th>누적 경고</th>
               <th>이용 상태</th>
               <th>관리</th>
             </tr>
@@ -1432,6 +1442,16 @@ function Students({
                   </select>
                 </td>
                 <td>{s.seat_id || "미배정"}</td>
+                <td>
+                  <a href="#warnings">
+                    ▣{" "}
+                    {
+                      (data.warnings || []).filter((w) => w.student_id === s.id)
+                        .length
+                    }
+                    장
+                  </a>
+                </td>
                 <td>{s.active ? "이용 가능" : "이용 중지"}</td>
                 <td>
                   <button
@@ -1519,6 +1539,7 @@ function SeatAdmin({
       data.seats.filter((s) => s.enabled).map((s) => s.id),
     ),
     [fixed, setFixed] = useState<string[]>([]),
+    [sameGender, setSameGender] = useState(false),
     [preview, setPreview] = useState<
       { student_id: string; seat_id: number | null }[] | null
     >(null),
@@ -1531,7 +1552,13 @@ function SeatAdmin({
   const draw = () => {
     try {
       setPreview(
-        lottery(data.students, data.seats, selected, available, fixed),
+        (sameGender ? pairLottery : lottery)(
+          data.students,
+          data.seats,
+          selected,
+          available,
+          fixed,
+        ),
       );
       setError("");
     } catch (e) {
@@ -1680,26 +1707,33 @@ function SeatAdmin({
                 ))}
             </div>
           </div>
-          <div>
-            <h3>사용할 좌석</h3>
-            <div className="seat-picks">
-              {data.seats.map((s) => (
-                <label key={s.id}>
-                  <input
-                    type="checkbox"
-                    disabled={!s.enabled}
-                    checked={available.includes(s.id)}
-                    onChange={() => {
-                      setAvailable(toggle(available, s.id));
-                      setPreview(null);
-                    }}
-                  />
-                  {s.id}
-                </label>
-              ))}
-            </div>
-          </div>
+          <SeatPicker
+            data={data}
+            available={available}
+            selected={selected}
+            fixed={fixed}
+            onChange={(ids) => {
+              setAvailable(ids);
+              setPreview(null);
+            }}
+          />
         </div>
+        <label className="pair-option">
+          <input
+            type="checkbox"
+            checked={sameGender}
+            onChange={(e) => {
+              setSameGender(e.target.checked);
+              setPreview(null);
+            }}
+          />{" "}
+          남학생끼리 · 여학생끼리 짝 배정
+        </label>
+        <p>
+          체크하면 두 자리 책상마다 같은 성별로 배정합니다. 홀수 인원은 빈
+          짝자리가 생길 수 있습니다. 성별 미확인 학생은 먼저 학생 관리에서
+          지정하세요.
+        </p>
         <button className="primary" onClick={draw}>
           추첨 미리보기 / 다시 추첨
         </button>
@@ -1750,7 +1784,17 @@ function SeatAdmin({
               disabled={busy}
               className="primary"
               onClick={() => {
-                void act("assign", { pairs: preview })
+                try {
+                  if (sameGender)
+                    validateDeskPairs(data.students, data.seats, preview);
+                } catch (e) {
+                  setError((e as Error).message);
+                  return;
+                }
+                void act("assign", {
+                  pairs: preview,
+                  same_gender_pairs: sameGender,
+                })
                   .then(() => setPreview(null))
                   .catch(() => {});
               }}

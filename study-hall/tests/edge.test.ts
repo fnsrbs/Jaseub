@@ -142,11 +142,13 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
         (await send("snapshot", { p_admin: "teacher-id" }, headers)).status,
         200,
       );
-      assert.equal(calls.at(-1).name, "teacher_viewer_api");
-      assert.deepEqual(calls.at(-1).args.p_payload, {});
+      assert.equal(calls.at(-1).name, "snapshot_with_warnings");
+      assert.match(calls.at(-1).args.p_viewer_session, /^[a-f0-9]{64}$/);
+      assert.equal(calls.at(-1).args.p_admin, undefined);
       for (const action of [
         "student",
         "student_delete",
+        "warning_issue",
         "student_code",
         "visit_delete",
         "site_copy",

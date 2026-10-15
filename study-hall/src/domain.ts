@@ -44,6 +44,12 @@ export type OperatingDay = {
   student_ids: string[];
 };
 export type Snapshot = {
+  warnings?: {
+    id: string;
+    student_id: string;
+    reason: string;
+    created_at: string;
+  }[];
   students: Student[];
   seats: Seat[];
   visits: Visit[];

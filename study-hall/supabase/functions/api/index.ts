@@ -139,11 +139,16 @@ Deno.serve(async (req) => {
       if (!/^[a-f0-9]{64}$/.test(viewerToken)) throw Error("교사 세션 오류");
       if (!["snapshot", "logout"].includes(action))
         return reply({ error: "교사는 조회만 가능합니다." }, 403);
-      const { data, error } = await db.rpc("teacher_viewer_api", {
-        p_action: action,
-        p_payload: {},
-        p_session: await hash(viewerToken),
-      });
+      const { data, error } =
+        action === "snapshot"
+          ? await db.rpc("snapshot_with_warnings", {
+              p_viewer_session: await hash(viewerToken),
+            })
+          : await db.rpc("teacher_viewer_api", {
+              p_action: action,
+              p_payload: {},
+              p_session: await hash(viewerToken),
+            });
       if (error) throw Error(error.message);
       return reply(data);
     }
@@ -160,6 +165,32 @@ Deno.serve(async (req) => {
       if (error || !data.user)
         return reply({ error: "인증이 만료되었습니다." }, 401);
       admin = data.user.id;
+    }
+    if (action === "snapshot") {
+      const { data, error } = await db.rpc("snapshot_with_warnings", {
+        p_admin: admin,
+        p_session: session,
+      });
+      if (error) throw Error(error.message);
+      return reply(data);
+    }
+    if (action === "warning_issue") {
+      const { data, error } = await db.rpc("issue_warning", {
+        p_admin: admin,
+        p_student: payload.student_id,
+        p_reason: payload.reason,
+        p_request: payload.request_id,
+      });
+      if (error) throw Error(error.message);
+      return reply(data);
+    }
+    if (action === "assign") {
+      const { data, error } = await db.rpc("assign_seats", {
+        p_admin: admin,
+        p_payload: payload,
+      });
+      if (error) throw Error(error.message);
+      return reply(data);
     }
     if (action === "site_copy") {
       const { data, error } = await db.rpc("set_site_copy", {
