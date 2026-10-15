@@ -130,8 +130,8 @@ export function SeatArrangement({
                       }}
                     >
                       <b>{String(seat.id).padStart(2, "0")}</b>
-                      <small>{st?.name || "빈자리"}</small>
                       {st && <small>{st.number}</small>}
+                      <small>{st?.name || "빈자리"}</small>
                       <small>
                         {st
                           ? st.gender === "male"
