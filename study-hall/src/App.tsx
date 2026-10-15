@@ -21,6 +21,7 @@ import {
 } from "./domain";
 import "./style.css";
 import { SeatPicker } from "./SeatPicker";
+import { SeatArrangement } from "./SeatArrangement";
 import { GenderLegend } from "./GenderLegend";
 import { WarningCards } from "./WarningCards";
 import { pairLottery, validateDeskPairs } from "./seat-pairs";
@@ -542,12 +543,14 @@ export default function App() {
               )}
               {page === "seats" && (
                 <>
-                  <SeatMap
-                    data={data}
-                    teacher={teacher}
-                    selected={teacher ? selected : me?.id}
-                    onSelect={setSelected}
-                  />
+                  {!admin && (
+                    <SeatMap
+                      data={data}
+                      teacher={teacher}
+                      selected={teacher ? selected : me?.id}
+                      onSelect={setSelected}
+                    />
+                  )}
                   {admin && <SeatAdmin data={data} act={act} busy={busy} />}
                 </>
               )}
@@ -1577,8 +1580,56 @@ function SeatAdmin({
       setPreview(null);
     }
   };
+  const confirmDraft = () => {
+    if (!preview?.length) return;
+    try {
+      if (sameGender) validateDeskPairs(data.students, data.seats, preview);
+    } catch (e) {
+      setError((e as Error).message);
+      return;
+    }
+    void act("assign", { pairs: preview, same_gender_pairs: sameGender })
+      .then(() => {
+        setPreview(null);
+        setError("");
+      })
+      .catch(() => {});
+  };
   return (
     <>
+      <div className="panel">
+        <h2>좌석 배정 · 클릭해서 변경</h2>
+        <SeatArrangement
+          data={data}
+          draft={preview || []}
+          fixed={fixed}
+          onChange={(pairs) => {
+            setPreview(pairs);
+            setError("");
+          }}
+        />
+        {error && (
+          <p role="alert" className="error-text">
+            {error}
+          </p>
+        )}
+        {preview?.length ? (
+          <div className="actions">
+            <button className="primary" disabled={busy} onClick={confirmDraft}>
+              배정 변경 확정
+            </button>
+            <button
+              onClick={() => {
+                setPreview(null);
+                setError("");
+              }}
+            >
+              변경 취소
+            </button>
+            <span>미확정 · {preview.length}명 배정 미리보기</span>
+          </div>
+        ) : null}
+      </div>
       <div className="panel">
         <h2>좌석 번호·위치 관리</h2>
         <form
@@ -1756,119 +1807,26 @@ function SeatAdmin({
         {preview && (
           <>
             <h3>배정 미리보기 · 아직 적용되지 않았습니다</h3>
-            <div className="preview-assign">
-              {preview.map((p) => (
-                <Field
-                  key={p.student_id}
-                  label={data.students.find((s) => s.id === p.student_id)!.name}
-                >
-                  <select
-                    value={p.seat_id ?? ""}
-                    onChange={(e) =>
-                      setPreview(
-                        preview.map((x) =>
-                          x.student_id === p.student_id
-                            ? {
-                                ...x,
-                                seat_id: e.target.value
-                                  ? +e.target.value
-                                  : null,
-                              }
-                            : x,
-                        ),
-                      )
-                    }
-                  >
-                    <option value="">미배정</option>
-                    {data.seats
-                      .filter((s) => s.enabled)
-                      .map((s) => (
-                        <option value={s.id} key={s.id}>
-                          {s.id}번
-                        </option>
-                      ))}
-                  </select>
-                </Field>
-              ))}
-            </div>
+            <p>
+              위의 좌석 배치도에 반영되었습니다. 좌석을 클릭해 학생을 교환하거나
+              빈자리로 수정할 수 있습니다.
+            </p>
             <button
-              disabled={busy}
-              className="primary"
-              onClick={() => {
-                try {
-                  if (sameGender)
-                    validateDeskPairs(data.students, data.seats, preview);
-                } catch (e) {
-                  setError((e as Error).message);
-                  return;
-                }
-                void act("assign", {
-                  pairs: preview,
-                  same_gender_pairs: sameGender,
-                })
-                  .then(() => setPreview(null))
-                  .catch(() => {});
-              }}
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
             >
+              배치도에서 편집하기 ↑
+            </button>
+            <button disabled={busy} className="primary" onClick={confirmDraft}>
               배정 확정
             </button>
             <button onClick={() => setPreview(null)}>미리보기 취소</button>
           </>
         )}
       </div>
-      <div className="panel">
-        <h2>학생 좌석 직접 변경</h2>
-        <DirectSeat data={data} act={act} busy={busy} />
-      </div>
     </>
   );
 }
-function DirectSeat({
-  data,
-  act,
-  busy,
-}: {
-  data: Snapshot;
-  act: (a: string, p: any) => Promise<any>;
-  busy: boolean;
-}) {
-  const [student, setStudent] = useState(data.students[0]?.id || ""),
-    [seat, setSeat] = useState("");
-  return (
-    <form
-      className="form-grid"
-      onSubmit={(e) => {
-        e.preventDefault();
-        void act("assign", {
-          pairs: [{ student_id: student, seat_id: seat ? +seat : null }],
-        }).catch(() => {});
-      }}
-    >
-      <Field label="학생">
-        <select value={student} onChange={(e) => setStudent(e.target.value)}>
-          {data.students.map((s) => (
-            <option value={s.id} key={s.id}>
-              {s.name} · 현재 {s.seat_id || "미배정"}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <Field label="새 좌석">
-        <select value={seat} onChange={(e) => setSeat(e.target.value)}>
-          <option value="">배정 해제</option>
-          {data.seats
-            .filter((s) => s.enabled)
-            .map((s) => (
-              <option value={s.id} key={s.id}>
-                {s.id}번
-              </option>
-            ))}
-        </select>
-      </Field>
-      <button disabled={busy}>변경 확정</button>
-    </form>
-  );
-}
+
 function Records({
   data,
   teacher,

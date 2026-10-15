@@ -1149,3 +1149,18 @@ blockquote {
     #ffffff66 10px
   );
 }
+
+.seat-edit-controls {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  width: min(520px, calc(100vw - 32px));
+  max-height: 80vh;
+  overflow: auto;
+  border: 2px solid #176b58;
+  box-shadow:
+    0 0 0 100vmax #14251d66,
+    0 12px 50px #14251d44;
+}
