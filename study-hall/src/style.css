@@ -418,9 +418,11 @@ header button {
   margin-right: 10px;
 }
 .notice h3 {
+  color: #000;
   margin: 16px 0 9px;
 }
 .notice p {
+  color: #000;
   font-size: 13px;
   margin-bottom: 0;
 }
@@ -1068,6 +1070,26 @@ blockquote {
 }
 .cleaning-generator {
   margin: 16px 0;
+}
+.cleaning-notice {
+  padding: 16px;
+  margin: 16px 0;
+  background: #f4f7f4;
+  border-radius: 10px;
+}
+.cleaning-notice p {
+  white-space: pre-wrap;
+  color: #000;
+}
+.notice {
+  color: #000;
+}
+.notice small,
+.notice time,
+.notice .meta,
+.notice .muted,
+.notice .badge {
+  color: #000;
 }
 .cleaning-generator summary {
   cursor: pointer;

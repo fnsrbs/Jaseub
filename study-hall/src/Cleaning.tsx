@@ -14,6 +14,11 @@ export function Cleaning({
   act: (a: string, p: any) => Promise<any>;
 }) {
   const admin = role === "teacher";
+  const [notice, setNotice] = useState<{
+      body: string;
+      revision: number;
+    } | null>(null),
+    [noticeDraft, setNoticeDraft] = useState<string | null>(null);
   const [rows, setRows] = useState<CleaningSlot[]>([]),
     [draft, setDraft] = useState<CleaningSlot[] | null>(null),
     [edit, setEdit] = useState<CleaningSlot | null>(null);
@@ -28,8 +33,14 @@ export function Cleaning({
     let alive = true;
     const refresh = async () => {
       try {
-        const r = await api("cleaning", {}, role, token);
-        if (alive) setRows(r);
+        const [r, n] = await Promise.all([
+          api("cleaning", {}, role, token),
+          api("cleaning_notice", {}, role, token),
+        ]);
+        if (alive) {
+          setRows(r);
+          setNotice(n);
+        }
       } catch (e) {
         if (alive) setError((e as Error).message);
       } finally {
@@ -72,6 +83,61 @@ export function Cleaning({
   return (
     <div className="panel">
       <h2>{admin ? "청소 당번표 관리" : "청소 당번 순서표"}</h2>
+      {notice && (
+        <section className="cleaning-notice" aria-label="청소 안내">
+          <h3>청소 안내</h3>
+          <p>{notice.body}</p>
+          {admin && noticeDraft === null && (
+            <button
+              disabled={saving}
+              onClick={() => setNoticeDraft(notice.body)}
+            >
+              안내 메시지 수정
+            </button>
+          )}
+          {admin && noticeDraft !== null && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setSaving(true);
+                setError("");
+                void act("cleaning_notice_save", {
+                  body: noticeDraft,
+                  revision: notice.revision,
+                })
+                  .then((n) => {
+                    setNotice(n);
+                    setNoticeDraft(null);
+                  })
+                  .catch((e) => setError(e.message))
+                  .finally(() => setSaving(false));
+              }}
+            >
+              <label className="field">
+                <span>청소 안내 메시지</span>
+                <textarea
+                  required
+                  maxLength={3000}
+                  rows={4}
+                  value={noticeDraft}
+                  disabled={saving}
+                  onChange={(e) => setNoticeDraft(e.target.value)}
+                />
+              </label>
+              <button className="primary" disabled={saving}>
+                안내 저장
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => setNoticeDraft(null)}
+              >
+                취소
+              </button>
+            </form>
+          )}
+        </section>
+      )}
       {admin && (
         <details className="cleaning-generator">
           <summary>당번표 만들기 · 전원 1회씩 균등 배정</summary>

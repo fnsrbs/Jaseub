@@ -1011,7 +1011,7 @@ function SeatMap({
                       onClick={() => {
                         if (st) onSelect(st.id);
                       }}
-                      aria-label={`${seat.id}번 좌석 ${teacher && st ? st.name : st?.id === selected ? "내 좌석" : ""} ${teacher ? (inside ? "입실 중" : "퇴실") : ""} ${!seat.enabled ? "사용 불가" : ""}`}
+                      aria-label={`${seat.id}번 좌석 ${teacher && st ? `${st.number} ${st.name}` : st && st.id === selected ? `${st.number} 내 좌석` : ""} ${teacher ? (inside ? "입실 중" : "퇴실") : ""} ${!seat.enabled ? "사용 불가" : ""}`}
                     >
                       <b>{seat.id.toString().padStart(2, "0")}</b>
                       <small>
@@ -1025,6 +1025,9 @@ function SeatMap({
                               ? "좌석"
                               : "사용 불가"}
                       </small>
+                      {st && (teacher || st.id === selected) && (
+                        <small>{st.number}</small>
+                      )}
                       {st && (
                         <small>
                           {st.gender === "male"

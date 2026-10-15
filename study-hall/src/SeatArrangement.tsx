@@ -122,7 +122,7 @@ export function SeatArrangement({
                       style={{ gridColumn: seat.col }}
                       className={`seat ${st?.gender === "male" ? "gender-male" : st?.gender === "female" ? "gender-female" : ""} ${target === seat.id ? "mine" : ""} ${!seat.enabled ? "disabled" : ""}`}
                       disabled={!seat.enabled}
-                      aria-label={`${seat.id}번 좌석 편집 ${st?.name || "빈자리"}`}
+                      aria-label={`${seat.id}번 좌석 편집 ${st ? `${st.number} ${st.name}` : "빈자리"}`}
                       onClick={() => {
                         setTarget(seat.id);
                         setStudent(st?.id || "");
@@ -131,6 +131,7 @@ export function SeatArrangement({
                     >
                       <b>{String(seat.id).padStart(2, "0")}</b>
                       <small>{st?.name || "빈자리"}</small>
+                      {st && <small>{st.number}</small>}
                       <small>
                         {st
                           ? st.gender === "male"

@@ -54,6 +54,7 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     await db.exec(migration("_seat_sheet_sync.sql"));
     await db.exec(migration("_roster_sheet_import.sql"));
     await db.exec(migration("_cleaning_schedule.sql"));
+    await db.exec(migration("_cleaning_notice.sql"));
     await assert.rejects(db.query("select code_digest('AB12')"), /형식/);
     const admin = crypto.randomUUID(),
       outsider = crypto.randomUUID(),
@@ -985,7 +986,72 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
       cleaningApi("read", {}, null, null, "c".repeat(64)),
       /로그인/,
     );
+    const cleaningNotice = async (
+      action: string,
+      payload: any = {},
+      who: string | null = admin,
+      viewerToken: string | null = null,
+      studentToken: string | null = null,
+    ) =>
+      (
+        await db.query<{ r: any }>(
+          "select cleaning_notice_api($1,$2,$3,$4,$5) r",
+          [action, JSON.stringify(payload), who, viewerToken, studentToken],
+        )
+      ).rows[0].r;
+    await assert.rejects(cleaningNotice("read", {}, null), /로그인/);
+    const initialNotice = await cleaningNotice("read");
+    assert.match(initialNotice.body, /3학년부/);
+    assert.deepEqual(
+      await cleaningNotice("read", {}, null, "d".repeat(64)),
+      initialNotice,
+    );
+    await assert.rejects(
+      cleaningNotice(
+        "save",
+        { body: "위조", revision: 1 },
+        null,
+        "d".repeat(64),
+      ),
+      /관리자/,
+    );
+    await db.exec(
+      "update student_sessions set expires_at=now()+interval '1 hour' where token_hash=repeat('c',64)",
+    );
+    assert.deepEqual(
+      await cleaningNotice("read", {}, null, null, "c".repeat(64)),
+      initialNotice,
+    );
+    await assert.rejects(
+      cleaningNotice(
+        "save",
+        { body: "위조", revision: 1 },
+        null,
+        null,
+        "c".repeat(64),
+      ),
+      /관리자/,
+    );
+    await assert.rejects(
+      cleaningNotice("save", { body: " ", revision: 1 }),
+      /1~3000/,
+    );
+    const changedNotice = await cleaningNotice("save", {
+      body: "수정된 안내\n환기하세요.",
+      revision: 1,
+    });
+    assert.equal(changedNotice.revision, 2);
+    assert.match(changedNotice.body, /환기/);
+    await assert.rejects(
+      cleaningNotice("save", { body: "이전 버전", revision: 1 }),
+      /다른 변경/,
+    );
     await db.exec("set role authenticated");
+    await assert.rejects(cleaningNotice("read"), /permission/i);
+    await assert.rejects(
+      db.query("select * from cleaning_notice"),
+      /permission/i,
+    );
     await assert.rejects(cleaningApi("read"), /permission/i);
     await assert.rejects(
       db.query("select * from cleaning_slots"),

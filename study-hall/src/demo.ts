@@ -11,6 +11,12 @@ import type { CleaningSlot } from "./cleaning-plan";
 let cleaning: CleaningSlot[] = JSON.parse(
   localStorage.getItem("study-hall-fictional-cleaning") || "[]",
 );
+let cleaningNotice = JSON.parse(
+  localStorage.getItem("study-hall-fictional-cleaning-notice") || "null",
+) || {
+  body: "청소 당번은 3학년부에서 청소 도구를 가져와 청소해 주세요. 창문을 열어 환기하고, 청소가 끝나면 도구를 제자리에 반납해 주세요.",
+  revision: 1,
+};
 const now = () => new Date().toISOString();
 import { classroomSeats } from "./seat-layout";
 import { defaultSiteCopy } from "./site-copy";
@@ -227,6 +233,7 @@ export async function demoApi(
     return data;
   }
   if (action === "cleaning") return structuredClone(cleaning);
+  if (action === "cleaning_notice") return structuredClone(cleaningNotice);
   if (action === "supervision") {
     if (!teacher && !viewer) throw Error("교사 또는 관리자 권한이 필요합니다.");
     return structuredClone(supervision);
@@ -320,6 +327,25 @@ export async function demoApi(
     return card;
   }
   if (!teacher) throw Error("관리자 권한이 필요합니다.");
+  if (action === "cleaning_notice_save") {
+    if (p.revision !== cleaningNotice.revision)
+      throw Error("다른 변경이 있습니다. 다시 조회하세요.");
+    if (
+      typeof p.body !== "string" ||
+      !p.body.trim() ||
+      p.body.trim().length > 3000
+    )
+      throw Error("안내 메시지는 1~3000자로 입력하세요.");
+    cleaningNotice = {
+      body: p.body.trim(),
+      revision: cleaningNotice.revision + 1,
+    };
+    localStorage.setItem(
+      "study-hall-fictional-cleaning-notice",
+      JSON.stringify(cleaningNotice),
+    );
+    return structuredClone(cleaningNotice);
+  }
   if (action === "cleaning_save") {
     const next = structuredClone(cleaning);
     for (const s of p.slots) {

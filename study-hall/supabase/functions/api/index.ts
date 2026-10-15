@@ -143,11 +143,14 @@ Deno.serve(async (req) => {
     const viewerToken = req.headers.get("x-teacher-session");
     if (viewerToken) {
       if (!/^[a-f0-9]{64}$/.test(viewerToken)) throw Error("교사 세션 오류");
-      if (action === "cleaning") {
-        const { data, error } = await db.rpc("cleaning_api", {
-          p_action: "read",
-          p_viewer_session: await hash(viewerToken),
-        });
+      if (action === "cleaning" || action === "cleaning_notice") {
+        const { data, error } = await db.rpc(
+          action === "cleaning" ? "cleaning_api" : "cleaning_notice_api",
+          {
+            p_action: "read",
+            p_viewer_session: await hash(viewerToken),
+          },
+        );
         if (error) throw Error(error.message);
         return reply(data);
       }
@@ -281,6 +284,16 @@ Deno.serve(async (req) => {
         ...recorded,
         spreadsheet_url: `https://docs.google.com/spreadsheets/d/${source.spreadsheet_id}/edit#gid=${source.target_sheet_id}`,
       });
+    }
+    if (["cleaning_notice", "cleaning_notice_save"].includes(action)) {
+      const { data, error } = await db.rpc("cleaning_notice_api", {
+        p_action: action === "cleaning_notice" ? "read" : "save",
+        p_payload: action === "cleaning_notice" ? {} : payload,
+        p_admin: admin,
+        p_student_session: session,
+      });
+      if (error) throw Error(error.message);
+      return reply(data);
     }
     if (["cleaning", "cleaning_save", "cleaning_delete"].includes(action)) {
       const { data, error } = await db.rpc("cleaning_api", {
