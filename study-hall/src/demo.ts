@@ -9,6 +9,9 @@ import {
 } from "./domain";
 import { validateDeskPairs } from "./seat-pairs";
 import type { CleaningSlot } from "./cleaning-plan";
+let menuConfig = JSON.parse(
+  localStorage.getItem("study-hall-demo-menu-order") || "null",
+) || { orders: {}, revision: 1 };
 let cleaning: CleaningSlot[] = JSON.parse(
   localStorage.getItem("study-hall-fictional-cleaning") || "[]",
 );
@@ -233,6 +236,7 @@ export async function demoApi(
     }
     return data;
   }
+  if (action === "menu_order") return structuredClone(menuConfig);
   if (action === "weekly_ranking") {
     const rows = state.students
       .filter((s) => s.active && !s.deleted_at)
@@ -375,6 +379,16 @@ export async function demoApi(
     return card;
   }
   if (!teacher) throw Error("관리자 권한이 필요합니다.");
+  if (action === "menu_order_save") {
+    if (p.revision !== menuConfig.revision)
+      throw Error("다른 변경이 있습니다. 변경 취소 후 다시 수정하세요.");
+    menuConfig = { orders: p.orders, revision: menuConfig.revision + 1 };
+    localStorage.setItem(
+      "study-hall-demo-menu-order",
+      JSON.stringify(menuConfig),
+    );
+    return structuredClone(menuConfig);
+  }
   if (action === "cleaning_notice_save") {
     if (p.revision !== cleaningNotice.revision)
       throw Error("다른 변경이 있습니다. 다시 조회하세요.");

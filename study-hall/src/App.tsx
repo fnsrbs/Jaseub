@@ -30,6 +30,8 @@ import { Supervision } from "./Supervision";
 import { Cleaning } from "./Cleaning";
 import { WeeklyRanking } from "./WeeklyRanking";
 import { rememberedLogin, rememberLogin } from "./remembered-login";
+import { orderedMenu, cachedMenuOrders, cacheMenuOrders } from "./menu-order";
+import { MenuOrderEditor, type MenuConfig } from "./MenuOrderEditor";
 import { pairLottery, validateDeskPairs } from "./seat-pairs";
 import {
   defaultSiteCopy,
@@ -82,6 +84,29 @@ export default function App() {
     [scan, setScan] = useState<"in" | "out" | null>(null),
     [selected, setSelected] = useState("");
   const inFlight = useRef(false);
+  const [menuOrders, setMenuOrders] = useState(() => cachedMenuOrders(mode));
+  const [menuConfig, setMenuConfig] = useState<MenuConfig | null>(null);
+  const updateMenuConfig = (next: MenuConfig) => {
+    setMenuConfig(next);
+    setMenuOrders(next.orders);
+    cacheMenuOrders(mode, next.orders);
+  };
+  useEffect(() => {
+    if (!role) return;
+    let alive = true;
+    const load = async () => {
+      try {
+        const next = await api("menu_order", {}, role, token);
+        if (alive) updateMenuConfig(next);
+      } catch {}
+    };
+    void load();
+    const timer = setInterval(load, 30000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [role, token]);
   const [initialCopy] = useState(() => cachedSiteCopy(mode));
   const [copy, setCopy] = useState<SiteCopy>(initialCopy || defaultSiteCopy);
   const [copyReady, setCopyReady] = useState(mode === "demo" || !!initialCopy);
@@ -261,47 +286,7 @@ export default function App() {
         currentNow - Date.parse(v.entered_at) >
           data.settings.missing_hours * 3600000,
     ) || [];
-  const menu = admin
-    ? [
-        ["home", "▦", "운영 대시보드"],
-        ["ranking", "♛", "주간 순위"],
-        ["supervision", "▦", "감독표 관리"],
-        ["cleaning", "♧", "청소 당번 관리"],
-        ["students", "♙", "학생 관리"],
-        ["seats", "▤", "좌석 관리"],
-        ["warnings", "▣", "경고카드"],
-        ["records", "◷", "출결 기록"],
-        ["qr", "▣", "현장 QR"],
-        ["notices", "♧", "공지사항"],
-        ["suggestions", "✉", "건의사항"],
-        ["stats", "▥", "이용 통계"],
-        ["settings", "⚙", "운영 설정"],
-      ]
-    : role === "viewer"
-      ? [
-          ["home", "▦", "운영 현황"],
-          ["ranking", "♛", "주간 순위"],
-          ["supervision", "▦", "감독 조회"],
-          ["cleaning", "♧", "청소 당번표"],
-          ["student-lookup", "♙", "학생 조회"],
-          ["seats", "▤", "좌석 확인"],
-          ["warnings", "▣", "경고카드"],
-          ["records", "◷", "출결 조회"],
-          ["notices", "♧", "공지사항"],
-          ["suggestions", "✉", "건의사항 조회"],
-          ["stats", "▥", "이용 통계"],
-        ]
-      : [
-          ["home", "▦", "내 자습실"],
-          ["ranking", "♛", "내 주간 순위"],
-          ["cleaning", "♧", "청소 당번표"],
-          ["seats", "▤", "좌석 확인"],
-          ["warnings", "▣", "경고카드"],
-          ["records", "◷", "나의 출결"],
-          ["notices", "♧", "공지사항"],
-          ["suggestions", "✉", "건의사항"],
-          ["stats", "▥", "이용 통계"],
-        ];
+  const menu = orderedMenu(role, menuOrders);
   return (
     <div className="layout">
       <aside>
@@ -694,6 +679,12 @@ export default function App() {
               )}
               {page === "settings" && admin && (
                 <>
+                  <MenuOrderEditor
+                    config={menuConfig}
+                    onSaved={updateMenuConfig}
+                    act={act}
+                    busy={busy}
+                  />
                   <TeacherAccess act={act} busy={busy} />
                   <SiteCopyEditor
                     copy={copy}

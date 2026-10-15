@@ -182,6 +182,7 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
         "cleaning_save",
         "cleaning_delete",
         "cleaning_notice_save",
+        "menu_order_save",
         "site_copy",
         "student_gender",
         "code",

@@ -421,6 +421,27 @@ header button {
   color: #000;
   margin: 16px 0 9px;
 }
+.menu-order-list {
+  padding-left: 26px;
+}
+.menu-order-list li {
+  padding: 8px 0;
+  border-bottom: 1px solid #e6ece7;
+}
+.menu-order-list li::marker {
+  color: #65766d;
+}
+.menu-order-list li > span {
+  display: inline-block;
+  min-width: 170px;
+}
+.menu-order-list li > div {
+  display: inline-flex;
+  gap: 8px;
+}
+.menu-order-list button {
+  padding: 6px 14px;
+}
 .remember-login {
   display: grid;
   gap: 8px;

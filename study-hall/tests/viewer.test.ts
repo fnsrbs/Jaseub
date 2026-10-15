@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
+import { defaultMenus } from "../src/menu-order";
 
 test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아웃·만료·성별 관리 권한", async () => {
   const db = new PGlite();
@@ -56,6 +57,7 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     await db.exec(migration("_cleaning_schedule.sql"));
     await db.exec(migration("_cleaning_notice.sql"));
     await db.exec(migration("_student_weekly_rank.sql"));
+    await db.exec(migration("_role_menu_order.sql"));
     await assert.rejects(db.query("select code_digest('AB12')"), /형식/);
     const admin = crypto.randomUUID(),
       outsider = crypto.randomUUID(),
@@ -1047,6 +1049,70 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
       cleaningNotice("save", { body: "이전 버전", revision: 1 }),
       /다른 변경/,
     );
+    const menuApi = async (
+      action: string,
+      payload: any = {},
+      who: string | null = admin,
+      viewerToken: string | null = null,
+      studentToken: string | null = null,
+    ) =>
+      (
+        await db.query<{ r: any }>("select menu_order_api($1,$2,$3,$4,$5) r", [
+          action,
+          JSON.stringify(payload),
+          who,
+          viewerToken,
+          studentToken,
+        ])
+      ).rows[0].r;
+    const orders = Object.fromEntries(
+      Object.entries(defaultMenus).map(([r, items]) => [
+        r,
+        items.map((m) => m[0]).reverse(),
+      ]),
+    );
+    await assert.rejects(menuApi("read", {}, null), /로그인/);
+    await assert.rejects(
+      menuApi("save", { orders, revision: 1 }, null, "d".repeat(64)),
+      /관리자/,
+    );
+    await assert.rejects(
+      menuApi("save", { orders, revision: 1 }, null, null, "c".repeat(64)),
+      /관리자/,
+    );
+    const nav = await menuApi("save", { orders, revision: 1 });
+    assert.deepEqual(nav.orders, orders);
+    assert.equal(nav.revision, 2);
+    assert.deepEqual(
+      await menuApi("read", {}, null, null, "c".repeat(64)),
+      nav,
+    );
+    assert.deepEqual(await menuApi("read", {}, null, "d".repeat(64)), nav);
+    await assert.rejects(menuApi("save", { orders, revision: 1 }), /다른 변경/);
+    await assert.rejects(
+      menuApi("save", {
+        orders: {
+          ...orders,
+          student: [...orders.student.slice(1), "settings"],
+        },
+        revision: 2,
+      }),
+      /허용/,
+    );
+    await assert.rejects(
+      menuApi("save", {
+        orders: { ...orders, student: orders.student.slice(1) },
+        revision: 2,
+      }),
+      /빠짐없이/,
+    );
+    await assert.rejects(
+      menuApi("save", {
+        orders: { ...orders, student: orders.student.map(() => "home") },
+        revision: 2,
+      }),
+      /중복/,
+    );
     // Pin server time only in this fixture to test Friday/Saturday and next-week boundaries.
     const rankMigration = migration("_student_weekly_rank.sql").replace(
       "create function",
@@ -1114,6 +1180,11 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     );
     await assert.rejects(rankRead(null, null, "c".repeat(64)), /로그인/);
     await db.exec("set role authenticated");
+    await assert.rejects(menuApi("read"), /permission/i);
+    await assert.rejects(
+      db.query("select * from role_menu_order"),
+      /permission/i,
+    );
     await assert.rejects(rankRead(), /permission/i);
     await assert.rejects(cleaningNotice("read"), /permission/i);
     await assert.rejects(
