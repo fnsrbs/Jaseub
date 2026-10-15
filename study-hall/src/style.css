@@ -1168,3 +1168,40 @@ blockquote {
 .student-metrics {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
+
+.supervision-table {
+  min-width: 650px;
+  table-layout: fixed;
+  text-align: center;
+}
+.supervision-table th,
+.supervision-table td {
+  text-align: center;
+  padding: 14px 8px;
+}
+.supervision-table th:first-child {
+  width: 65px;
+}
+.supervision-table td button {
+  width: 100%;
+}
+.supervision-table td small {
+  display: block;
+  margin-top: 5px;
+}
+.supervision-muted {
+  background: #f4f5f3;
+  color: #79847c;
+}
+
+.supervision-head {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.supervision-head .field {
+  min-width: 0;
+  max-width: 100%;
+}
+.supervision-head select {
+  max-width: 100%;
+}

@@ -145,6 +145,11 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
       assert.equal(calls.at(-1).name, "snapshot_with_warnings");
       assert.match(calls.at(-1).args.p_viewer_session, /^[a-f0-9]{64}$/);
       assert.equal(calls.at(-1).args.p_admin, undefined);
+      await send("supervision", { p_admin: "spoof" }, headers);
+      assert.equal(calls.at(-1).name, "supervision_api");
+      assert.equal(calls.at(-1).args.p_action, "read");
+      assert.equal(calls.at(-1).args.p_admin, undefined);
+      assert.match(calls.at(-1).args.p_viewer_session, /^[a-f0-9]{64}$/);
       for (const action of ["warning_issue", "warning_delete"]) {
         calls.length = 0;
         assert.equal(
@@ -168,6 +173,7 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
         "student_code",
         "visit_delete",
         "visits_delete",
+        "supervision_save",
         "site_copy",
         "student_gender",
         "code",
@@ -220,6 +226,27 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
         "x-student-session": "a".repeat(64),
       });
       assert.equal(calls.at(-1).args.p_admin, null);
+    },
+  );
+  await t.test(
+    "감독표도 검증 신원만 전달하고 학생·익명 권한 상승 무시",
+    async () => {
+      assert.equal((await send("supervision")).status, 401);
+      await send(
+        "supervision_save",
+        { slots: [], p_admin: "spoof" },
+        { Authorization: "Bearer verified-teacher" },
+      );
+      assert.equal(calls.at(-1).name, "supervision_api");
+      assert.equal(calls.at(-1).args.p_admin, "teacher-id");
+      assert.equal(calls.at(-1).args.p_action, "save");
+      await send(
+        "supervision",
+        { p_admin: "spoof", p_viewer_session: "spoof" },
+        { "x-student-session": "a".repeat(64) },
+      );
+      assert.equal(calls.at(-1).args.p_admin, null);
+      assert.equal(calls.at(-1).args.p_viewer_session, undefined);
     },
   );
   await t.test("JWT 검증한 신원만 DB에 전달", async () => {

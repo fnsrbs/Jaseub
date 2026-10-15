@@ -25,6 +25,7 @@ import { SeatArrangement } from "./SeatArrangement";
 import { GenderLegend } from "./GenderLegend";
 import { WarningCards } from "./WarningCards";
 import { StudentLookup } from "./StudentLookup";
+import { Supervision } from "./Supervision";
 import { pairLottery, validateDeskPairs } from "./seat-pairs";
 import { defaultSiteCopy, type SiteCopy } from "./site-copy";
 type Role = "teacher" | "student" | "viewer";
@@ -215,6 +216,7 @@ export default function App() {
   const menu = admin
     ? [
         ["home", "▦", "운영 대시보드"],
+        ["supervision", "▦", "감독표 관리"],
         ["students", "♙", "학생 관리"],
         ["seats", "▤", "좌석 관리"],
         ["warnings", "▣", "경고카드"],
@@ -228,6 +230,7 @@ export default function App() {
     : role === "viewer"
       ? [
           ["home", "▦", "운영 현황"],
+          ["supervision", "▦", "감독 조회"],
           ["student-lookup", "♙", "학생 조회"],
           ["seats", "▤", "좌석 확인"],
           ["warnings", "▣", "경고카드"],
@@ -303,13 +306,15 @@ export default function App() {
               </p>
               <h1>{menu.find((m) => m[0] === page)?.[2] || "자습실"}</h1>
               <p>
-                {page === "warnings"
-                  ? teacher
-                    ? "학생별 경고 내역을 확인하고 자습실 이용 규칙을 안내해 주세요."
-                    : "경고 사유와 누적 횟수를 확인하고 자습실 이용 규칙을 지켜 주세요."
-                  : teacher
-                    ? "오늘의 학습 공간을 한눈에 살펴보세요."
-                    : "오늘도 나만의 속도로 한 걸음 나아가요."}
+                {page === "supervision"
+                  ? "날짜와 교시별 감독 일정을 확인하세요."
+                  : page === "warnings"
+                    ? teacher
+                      ? "학생별 경고 내역을 확인하고 자습실 이용 규칙을 안내해 주세요."
+                      : "경고 사유와 누적 횟수를 확인하고 자습실 이용 규칙을 지켜 주세요."
+                    : teacher
+                      ? "오늘의 학습 공간을 한눈에 살펴보세요."
+                      : "오늘도 나만의 속도로 한 걸음 나아가요."}
               </p>
             </div>
             <div className="exam">
@@ -556,6 +561,13 @@ export default function App() {
                     <Empty text="등록된 공지가 없습니다." />
                   )}
                 </>
+              )}
+              {page === "supervision" && teacher && (
+                <Supervision
+                  role={admin ? "teacher" : "viewer"}
+                  token={token}
+                  act={act}
+                />
               )}
               {page === "qr" && admin && (
                 <QRDisplay role={role} token={token} />

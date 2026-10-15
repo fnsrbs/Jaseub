@@ -4,6 +4,7 @@ import {
   validQr,
   type Snapshot,
   type Student,
+  type SupervisionSlot,
 } from "./domain";
 import { validateDeskPairs } from "./seat-pairs";
 const now = () => new Date().toISOString();
@@ -107,6 +108,44 @@ const shortCode = () => {
       return value;
   }
 };
+let supervision: SupervisionSlot[];
+try {
+  supervision = JSON.parse(
+    localStorage.getItem("study-hall-fictional-supervision") || "null",
+  );
+} catch {
+  supervision = null!;
+}
+if (!supervision) {
+  supervision = [];
+  const blocks = [
+    ["2026-10-16", "2026-10-23"],
+    ["2026-10-26", "2026-10-30"],
+    ["2026-11-02", "2026-11-06"],
+    ["2026-11-09", "2026-11-13"],
+    ["2026-11-16", "2026-11-17"],
+  ];
+  for (const [i, [start, end]] of blocks.entries())
+    for (
+      let d = Date.parse(`${start}T12:00:00+09:00`);
+      d <= Date.parse(`${end}T12:00:00+09:00`);
+      d += 86400000
+    ) {
+      const day = koreanDay(new Date(d)),
+        weekday = new Date(d).getUTCDay();
+      if (weekday === 0 || weekday === 6) continue;
+      for (let period = 1; period <= 7; period++)
+        supervision.push({
+          day,
+          period,
+          week_label: `${i + 1}주차 (${start.slice(5)}~${end.slice(5)})`,
+          teacher_name: `가상교사 ${((period + i) % 4) + 1}`,
+          status: "assigned",
+          note: "",
+          revision: 1,
+        });
+    }
+}
 const requests = new Map<string, unknown>();
 const save = () =>
   localStorage.setItem("study-hall-fictional-demo", JSON.stringify(state));
@@ -182,6 +221,10 @@ export async function demoApi(
       }));
     }
     return data;
+  }
+  if (action === "supervision") {
+    if (!teacher && !viewer) throw Error("교사 또는 관리자 권한이 필요합니다.");
+    return structuredClone(supervision);
   }
   if (viewer && !["warning_issue", "warning_delete"].includes(action))
     throw Error("교사는 조회 및 경고카드 관리만 가능합니다.");
@@ -272,6 +315,25 @@ export async function demoApi(
     return card;
   }
   if (!teacher) throw Error("관리자 권한이 필요합니다.");
+  if (action === "supervision_save") {
+    const draft = structuredClone(supervision);
+    for (const slot of p.slots) {
+      const index = draft.findIndex(
+        (s) => s.day === slot.day && s.period === slot.period,
+      );
+      if (index < 0 || draft[index].revision !== slot.revision)
+        throw Error("다른 변경이 있습니다. 다시 조회하세요.");
+      if (slot.status === "assigned" && !slot.teacher_name?.trim())
+        throw Error("감독 교사를 입력하세요.");
+      draft[index] = { ...slot, revision: slot.revision + 1 };
+    }
+    supervision = draft;
+    localStorage.setItem(
+      "study-hall-fictional-supervision",
+      JSON.stringify(supervision),
+    );
+    return { saved: p.slots.length };
+  }
   if (action === "site_copy") {
     localStorage.setItem("study-hall-demo-site-copy", JSON.stringify(p.copy));
     return p.copy;

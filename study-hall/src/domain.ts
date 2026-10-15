@@ -226,3 +226,13 @@ export function csv(rows: unknown[][]) {
       .join("\r\n")
   );
 }
+
+export type SupervisionSlot = {
+  day: string;
+  period: number;
+  week_label: string;
+  teacher_name: string;
+  status: "assigned" | "closed" | "event" | "unassigned";
+  note: string;
+  revision: number;
+};

@@ -50,6 +50,7 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     await db.exec(migration("_teacher_warning_permissions.sql"));
     await db.exec(migration("_teacher_seat_gender.sql"));
     await db.exec(migration("_bulk_attendance_delete.sql"));
+    await db.exec(migration("_supervision_schedule.sql"));
     await assert.rejects(db.query("select code_digest('AB12')"), /형식/);
     const admin = crypto.randomUUID(),
       outsider = crypto.randomUUID(),
@@ -661,6 +662,97 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
       { student_id: warningStudent, seat_id: 1 },
       { student_id: otherStudent, seat_id: 4 },
     ]);
+    const supervision = async (
+      action: string,
+      payload: any = {},
+      who: string | null = null,
+      viewer: string | null = null,
+    ) =>
+      (
+        await db.query<{ r: any }>("select supervision_api($1,$2,$3,$4) r", [
+          action,
+          JSON.stringify(payload),
+          who,
+          viewer,
+        ])
+      ).rows[0].r;
+    const schedule = [
+      {
+        day: "2026-10-16",
+        period: 1,
+        week_label: "1주차",
+        teacher_name: "가상교사 A",
+        status: "assigned",
+        note: "",
+        revision: 0,
+      },
+      {
+        day: "2026-10-16",
+        period: 7,
+        week_label: "1주차",
+        teacher_name: "",
+        status: "closed",
+        note: "",
+        revision: 0,
+      },
+    ];
+    await assert.rejects(supervision("read"), /권한/);
+    await assert.rejects(supervision("read", {}, outsider), /권한/);
+    await assert.rejects(supervision("read", {}, null, "f".repeat(64)), /권한/);
+    await supervision("save", { slots: schedule }, admin);
+    await login((await access(admin)).code, "6".repeat(64));
+    assert.equal(
+      (await supervision("read", {}, null, "6".repeat(64))).length,
+      2,
+    );
+    await assert.rejects(
+      supervision("save", { slots: schedule }, null, "6".repeat(64)),
+      /관리자/,
+    );
+    assert.equal("supervision" in (await snap(null, "f".repeat(64))), false);
+    assert.equal(
+      JSON.stringify(await snap(null, "f".repeat(64))).includes("가상교사 A"),
+      false,
+    );
+    const current = (await supervision("read", {}, admin))[0];
+    await supervision(
+      "save",
+      { slots: [{ ...current, teacher_name: "가상교사 B", note: "교체" }] },
+      admin,
+    );
+    await assert.rejects(
+      supervision(
+        "save",
+        { slots: [{ ...current, teacher_name: "과거 화면" }] },
+        admin,
+      ),
+      /다른 변경/,
+    );
+    const latest = (await supervision("read", {}, admin))[0];
+    assert.equal(latest.teacher_name, "가상교사 B");
+    assert.equal(latest.revision, 2);
+    await assert.rejects(
+      supervision(
+        "save",
+        {
+          slots: [
+            { ...latest, teacher_name: "롤백 대상" },
+            { ...schedule[1], period: 8 },
+          ],
+        },
+        admin,
+      ),
+    );
+    assert.equal(
+      (await supervision("read", {}, admin))[0].teacher_name,
+      "가상교사 B",
+    );
+    await assert.rejects(
+      supervision("save", { slots: [latest, latest] }, admin),
+      /중복/,
+    );
+    await api("logout", {}, "6".repeat(64));
+    await assert.rejects(supervision("read", {}, null, "6".repeat(64)), /권한/);
     await db.exec("set role authenticated");
     await assert.rejects(
       warn(admin, warningStudent, "위조"),
@@ -668,6 +760,11 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     );
     await assert.rejects(snap(admin), /permission denied/);
     await assert.rejects(deleteWarning(admin), /permission denied/);
+    await assert.rejects(supervision("read", {}, admin), /permission denied/);
+    await assert.rejects(
+      db.query("select * from supervision_slots"),
+      /permission denied/,
+    );
     await assert.rejects(bulkDelete(admin, [bulkIds[2]]), /permission denied/);
     await assert.rejects(
       teacherWarning("warning_issue", teacherPayload),

@@ -137,6 +137,14 @@ Deno.serve(async (req) => {
     const viewerToken = req.headers.get("x-teacher-session");
     if (viewerToken) {
       if (!/^[a-f0-9]{64}$/.test(viewerToken)) throw Error("교사 세션 오류");
+      if (action === "supervision") {
+        const { data, error } = await db.rpc("supervision_api", {
+          p_action: "read",
+          p_viewer_session: await hash(viewerToken),
+        });
+        if (error) throw Error(error.message);
+        return reply(data);
+      }
       if (["warning_issue", "warning_delete"].includes(action)) {
         const { data, error } = await db.rpc("teacher_warning_api", {
           p_action: action,
@@ -177,6 +185,15 @@ Deno.serve(async (req) => {
       if (error || !data.user)
         return reply({ error: "인증이 만료되었습니다." }, 401);
       admin = data.user.id;
+    }
+    if (action === "supervision" || action === "supervision_save") {
+      const { data, error } = await db.rpc("supervision_api", {
+        p_action: action === "supervision" ? "read" : "save",
+        p_payload: action === "supervision_save" ? payload : {},
+        p_admin: admin,
+      });
+      if (error) throw Error(error.message);
+      return reply(data);
     }
     if (action === "snapshot") {
       const { data, error } = await db.rpc("snapshot_with_warnings", {
