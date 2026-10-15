@@ -1093,7 +1093,6 @@ function QRDisplay({ role, token }: { role: Role; token: string | null }) {
         ) : (
           <p>고정 QR을 불러오고 있습니다…</p>
         )}
-        <h3>인쇄해서 교실에 붙여 주세요</h3>
         <p className="qr-site">
           {mode === "production"
             ? "https://fnsrbs.github.io/Jaseub/"
