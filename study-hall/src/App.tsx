@@ -31,7 +31,12 @@ import { Cleaning } from "./Cleaning";
 import { WeeklyRanking } from "./WeeklyRanking";
 import { rememberedLogin, rememberLogin } from "./remembered-login";
 import { pairLottery, validateDeskPairs } from "./seat-pairs";
-import { defaultSiteCopy, type SiteCopy } from "./site-copy";
+import {
+  defaultSiteCopy,
+  cachedSiteCopy,
+  cacheSiteCopy,
+  type SiteCopy,
+} from "./site-copy";
 type Role = "teacher" | "student" | "viewer";
 const time = (s: string | null) =>
   s
@@ -77,11 +82,34 @@ export default function App() {
     [scan, setScan] = useState<"in" | "out" | null>(null),
     [selected, setSelected] = useState("");
   const inFlight = useRef(false);
-  const [copy, setCopy] = useState<SiteCopy>(defaultSiteCopy);
+  const [initialCopy] = useState(() => cachedSiteCopy(mode));
+  const [copy, setCopy] = useState<SiteCopy>(initialCopy || defaultSiteCopy);
+  const [copyReady, setCopyReady] = useState(mode === "demo" || !!initialCopy);
+  const updateCopy = (next: SiteCopy) => {
+    setCopy(next);
+    cacheSiteCopy(mode, next);
+    setCopyReady(true);
+  };
   useEffect(() => {
+    let alive = true;
     void api("public_copy")
-      .then(setCopy)
-      .catch(() => {});
+      .then((next) => {
+        if (alive) updateCopy(next);
+      })
+      .catch(() => {
+        if (!alive) return;
+        if (!initialCopy && mode !== "demo")
+          setCopy({
+            ...defaultSiteCopy,
+            hero_eyebrow: "",
+            hero_title: "용인고 온실",
+            hero_description: "",
+          });
+        setCopyReady(true);
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
   const admin = role === "teacher";
   const teacher = admin || role === "viewer";
@@ -210,7 +238,15 @@ export default function App() {
     }
   }
   if (!role)
-    return <Login onLogin={login} busy={busy} error={error} copy={copy} />;
+    return (
+      <Login
+        onLogin={login}
+        busy={busy}
+        error={error}
+        copy={copy}
+        copyReady={copyReady}
+      />
+    );
   const currentNow = now + offset;
   const today = koreanDay(new Date(currentNow));
   const me = data?.students[0];
@@ -661,7 +697,7 @@ export default function App() {
                   <TeacherAccess act={act} busy={busy} />
                   <SiteCopyEditor
                     copy={copy}
-                    onSaved={setCopy}
+                    onSaved={updateCopy}
                     act={act}
                     busy={busy}
                   />
@@ -814,6 +850,7 @@ function Login({
   busy,
   error,
   copy,
+  copyReady,
 }: {
   onLogin: (
     r: Role,
@@ -825,6 +862,7 @@ function Login({
   busy: boolean;
   error: string;
   copy: SiteCopy;
+  copyReady: boolean;
 }) {
   const [saved] = useState(() => rememberedLogin(mode));
   const [role, setRole] = useState<Role>(saved.role),
@@ -848,9 +886,23 @@ function Login({
             온실<small>STUDY ROOM</small>
           </span>
         </a>
-        <p className="eyebrow">{copy.hero_eyebrow}</p>
-        <h1 style={{ whiteSpace: "pre-line" }}>{copy.hero_title}</h1>
-        <p style={{ whiteSpace: "pre-line" }}>{copy.hero_description}</p>
+        {copyReady ? (
+          <>
+            <p className="eyebrow">{copy.hero_eyebrow}</p>
+            <h1 style={{ whiteSpace: "pre-line" }}>{copy.hero_title}</h1>
+            <p style={{ whiteSpace: "pre-line" }}>{copy.hero_description}</p>
+          </>
+        ) : (
+          <div
+            className="login-copy-loading"
+            aria-busy="true"
+            aria-label="화면 문구를 불러오는 중"
+          >
+            <div />
+            <div />
+            <div />
+          </div>
+        )}
         <div className="illustration">
           <div>01</div>
           <div>02</div>

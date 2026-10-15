@@ -426,6 +426,21 @@ header button {
   gap: 8px;
   margin: 12px 0 18px;
 }
+.login-copy-loading {
+  padding: 24px 0;
+  min-height: 240px;
+}
+.login-copy-loading div {
+  height: 24px;
+  background: #e8eeea;
+  border-radius: 6px;
+  margin-bottom: 24px;
+  width: 75%;
+}
+.login-copy-loading div:nth-child(2) {
+  height: 72px;
+  width: 90%;
+}
 .remember-login label {
   display: flex;
   align-items: center;

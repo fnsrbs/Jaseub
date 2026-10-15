@@ -8,4 +8,27 @@ export const defaultSiteCopy = {
   production_badge: "용인고등학교",
 };
 export type SiteCopy = typeof defaultSiteCopy;
-
+export function cachedSiteCopy(mode: string): SiteCopy | null {
+  try {
+    const value = JSON.parse(
+      localStorage.getItem(`sh-public-copy-${mode}`) || "null",
+    );
+    if (
+      !value ||
+      Object.keys(defaultSiteCopy).some(
+        (key) => typeof value[key] !== "string" || value[key].length > 2000,
+      )
+    )
+      return null;
+    return Object.fromEntries(
+      Object.keys(defaultSiteCopy).map((key) => [key, value[key]]),
+    ) as SiteCopy;
+  } catch {
+    return null;
+  }
+}
+export function cacheSiteCopy(mode: string, copy: SiteCopy) {
+  try {
+    localStorage.setItem(`sh-public-copy-${mode}`, JSON.stringify(copy));
+  } catch {}
+}
