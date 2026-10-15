@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Snapshot, Student } from "./domain";
 export function StudentLookup({
   data,
@@ -9,6 +9,12 @@ export function StudentLookup({
 }) {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState("");
+  const listScroll = useRef(0);
+  const detailHeading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    window.scrollTo({ top: selected ? 0 : listScroll.current });
+    if (selected) detailHeading.current?.focus({ preventScroll: true });
+  }, [selected]);
   const students = data.students
     .filter(
       (s) => !s.deleted_at && `${s.name} ${s.number}`.includes(search.trim()),
@@ -21,80 +27,89 @@ export function StudentLookup({
   const student = data.students.find((s) => s.id === selected && !s.deleted_at);
   return (
     <>
-      <div className="panel">
-        <h2>학생 조회</h2>
-        <p>
-          이름을 누르면 학생별 이용 통계와 최근 출결·경고 내역을 확인할 수
-          있습니다.
-        </p>
-        <label className="field">
-          <span>이름·학번 검색</span>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="학생 검색"
-          />
-        </label>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>학번</th>
-                <th>이름</th>
-                <th>성별</th>
-                <th>좌석</th>
-                <th>이용 상태</th>
-                <th>현재 출결</th>
-                <th>누적 경고</th>
-              </tr>
-            </thead>
-            <tbody>
-              {students.map((s) => (
-                <tr key={s.id}>
-                  <td>{s.number}</td>
-                  <td>
-                    <button
-                      type="button"
-                      aria-pressed={selected === s.id}
-                      onClick={() => setSelected(s.id)}
-                    >
-                      {s.name} · 상세 보기
-                    </button>
-                  </td>
-                  <td>
-                    {s.gender === "male"
-                      ? "남자"
-                      : s.gender === "female"
-                        ? "여자"
-                        : "미확인"}
-                  </td>
-                  <td>{s.seat_id ? `${s.seat_id}번` : "미배정"}</td>
-                  <td>{s.active ? "이용 가능" : "이용 중지"}</td>
-                  <td>
-                    {data.visits.some(
-                      (v) => v.student_id === s.id && !v.exited_at,
-                    )
-                      ? "입실 중"
-                      : "퇴실"}
-                  </td>
-                  <td>
-                    {
-                      (data.warnings || []).filter((w) => w.student_id === s.id)
-                        .length
-                    }
-                    장
-                  </td>
+      {!student && (
+        <div className="panel">
+          <h2>학생 조회</h2>
+          <p>
+            이름을 누르면 학생별 이용 통계와 최근 출결·경고 내역을 확인할 수
+            있습니다.
+          </p>
+          <label className="field">
+            <span>이름·학번 검색</span>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="학생 검색"
+            />
+          </label>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>학번</th>
+                  <th>이름</th>
+                  <th>성별</th>
+                  <th>좌석</th>
+                  <th>이용 상태</th>
+                  <th>현재 출결</th>
+                  <th>누적 경고</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          {!students.length && <p>검색 결과가 없습니다.</p>}
+              </thead>
+              <tbody>
+                {students.map((s) => (
+                  <tr key={s.id}>
+                    <td>{s.number}</td>
+                    <td>
+                      <button
+                        type="button"
+                        aria-pressed={selected === s.id}
+                        onClick={() => {
+                          listScroll.current = window.scrollY;
+                          setSelected(s.id);
+                        }}
+                      >
+                        {s.name} · 상세 보기
+                      </button>
+                    </td>
+                    <td>
+                      {s.gender === "male"
+                        ? "남자"
+                        : s.gender === "female"
+                          ? "여자"
+                          : "미확인"}
+                    </td>
+                    <td>{s.seat_id ? `${s.seat_id}번` : "미배정"}</td>
+                    <td>{s.active ? "이용 가능" : "이용 중지"}</td>
+                    <td>
+                      {data.visits.some(
+                        (v) => v.student_id === s.id && !v.exited_at,
+                      )
+                        ? "입실 중"
+                        : "퇴실"}
+                    </td>
+                    <td>
+                      {
+                        (data.warnings || []).filter(
+                          (w) => w.student_id === s.id,
+                        ).length
+                      }
+                      장
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!students.length && <p>검색 결과가 없습니다.</p>}
+          </div>
         </div>
-      </div>
+      )}
       {student && (
         <section aria-label={`${student.name} 학생 상세`}>
           <div className="panel">
-            <h2>
+            <button type="button" onClick={() => setSelected("")}>
+              ← 학생 목록으로
+            </button>
+            <h2 ref={detailHeading} tabIndex={-1}>
               {student.number} · {student.name}
             </h2>
             <p>
