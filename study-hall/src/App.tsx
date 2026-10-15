@@ -219,6 +219,7 @@ export default function App() {
   const menu = admin
     ? [
         ["home", "▦", "운영 대시보드"],
+        ["ranking", "♛", "주간 순위"],
         ["supervision", "▦", "감독표 관리"],
         ["cleaning", "♧", "청소 당번 관리"],
         ["students", "♙", "학생 관리"],
@@ -234,6 +235,7 @@ export default function App() {
     : role === "viewer"
       ? [
           ["home", "▦", "운영 현황"],
+          ["ranking", "♛", "주간 순위"],
           ["supervision", "▦", "감독 조회"],
           ["cleaning", "♧", "청소 당번표"],
           ["student-lookup", "♙", "학생 조회"],
@@ -246,6 +248,7 @@ export default function App() {
         ]
       : [
           ["home", "▦", "내 자습실"],
+          ["ranking", "♛", "내 주간 순위"],
           ["cleaning", "♧", "청소 당번표"],
           ["seats", "▤", "좌석 확인"],
           ["warnings", "▣", "경고카드"],
@@ -558,11 +561,6 @@ export default function App() {
                       />
                     </>
                   )}
-                  <WeeklyRanking
-                    role={role}
-                    token={token}
-                    visits={data.visits}
-                  />
                   <div className="section-head">
                     <h2>자습실 소식</h2>
                     <a href="#notices">모두 보기 →</a>
@@ -574,6 +572,9 @@ export default function App() {
                     <Empty text="등록된 공지가 없습니다." />
                   )}
                 </>
+              )}
+              {page === "ranking" && (
+                <WeeklyRanking role={role} token={token} visits={data.visits} />
               )}
               {page === "supervision" && teacher && (
                 <Supervision
