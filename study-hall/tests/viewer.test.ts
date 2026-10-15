@@ -52,6 +52,7 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     await db.exec(migration("_bulk_attendance_delete.sql"));
     await db.exec(migration("_supervision_schedule.sql"));
     await db.exec(migration("_seat_sheet_sync.sql"));
+    await db.exec(migration("_roster_sheet_import.sql"));
     await assert.rejects(db.query("select code_digest('AB12')"), /형식/);
     const admin = crypto.randomUUID(),
       outsider = crypto.randomUUID(),
@@ -815,7 +816,72 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
       JSON.stringify(syncAudit).includes(syncCredentials.secret),
       false,
     );
+    const importRows = async (who: string | null, rows: any[]) =>
+      (
+        await db.query<{ r: any }>("select import_roster_students($1,$2) r", [
+          who,
+          JSON.stringify(rows),
+        ])
+      ).rows[0].r;
+    await assert.rejects(
+      importRows(null, [{ number: "39901", name: "신규" }]),
+      /관리자/,
+    );
+    await assert.rejects(
+      importRows(admin, [{ number: "39901", name: "" }]),
+      /학번/,
+    );
+    await assert.rejects(
+      importRows(admin, [
+        { number: "39901", name: "신규" },
+        { number: "39901", name: "중복" },
+      ]),
+      /중복/,
+    );
+    const created = await importRows(admin, [
+      { number: "39901", name: "신규" },
+    ]);
+    assert.equal(created.added, 1);
+    const saved = (
+      await db.query<any>("select * from students where number='39901'")
+    ).rows[0];
+    const codeBefore = (
+      await db.query<any>("select * from student_codes where student_id=$1", [
+        saved.id,
+      ])
+    ).rows[0];
+    assert.equal(saved.seat_id, null);
+    assert.equal(saved.gender, "unknown");
+    const repeated = await importRows(admin, [
+      { number: "39901", name: "덮어쓰면 안됨" },
+    ]);
+    assert.equal(repeated.added, 0);
+    assert.equal(repeated.skipped, 1);
+    assert.equal(
+      (await db.query<any>("select name from students where id=$1", [saved.id]))
+        .rows[0].name,
+      "신규",
+    );
+    assert.deepEqual(
+      (
+        await db.query<any>("select * from student_codes where student_id=$1", [
+          saved.id,
+        ])
+      ).rows[0],
+      codeBefore,
+    );
+    await db.exec(
+      "update students set deleted_at=now(),active=false where number='39901'",
+    );
+    assert.equal(
+      (await importRows(admin, [{ number: "39901", name: "복원 금지" }])).added,
+      0,
+    );
     await db.exec("set role authenticated");
+    await assert.rejects(
+      importRows(admin, [{ number: "39902", name: "권한" }]),
+      /permission/i,
+    );
     await assert.rejects(
       warn(admin, warningStudent, "위조"),
       /permission denied/,

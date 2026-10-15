@@ -1320,6 +1320,7 @@ function Students({
     [edit, setEdit] = useState<Partial<Student>>({ name: "", number: "" }),
     [code, setCode] = useState("");
   const [codeOwner, setCodeOwner] = useState("");
+  const [importMessage, setImportMessage] = useState("");
   const [genderFilter, setGenderFilter] = useState("all"),
     [picked, setPicked] = useState<string[]>([]),
     [bulkGender, setBulkGender] = useState("unknown");
@@ -1345,6 +1346,33 @@ function Students({
     <>
       <div className="panel">
         <h2>{edit.id ? "학생 정보 수정" : "학생 등록"}</h2>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            if (
+              !confirm(
+                "구글 출석부에서 앱에 없는 학생만 추가할까요? 기존 학생 정보와 삭제한 학생은 유지합니다.",
+              )
+            )
+              return;
+            setImportMessage("");
+            void act("roster_import", {})
+              .then((r) =>
+                setImportMessage(
+                  `신규 ${r.added}명 추가 · 기존 ${r.skipped}명 유지. 새 학생의 코드는 학생 목록에서 확인하세요.`,
+                ),
+              )
+              .catch(() => {});
+          }}
+        >
+          구글 출석부에서 새 학생 불러오기
+        </button>
+        <p>
+          최초 연결은 좌석 관리의 구글 시트 연결 설정에서 진행하세요. 새 학생은
+          성별 미확인·좌석 미배정으로 등록됩니다.
+        </p>
+        {importMessage && <p role="status">{importMessage}</p>}
         <form
           className="form-grid"
           onSubmit={(e) => {

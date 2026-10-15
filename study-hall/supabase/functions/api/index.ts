@@ -198,6 +198,7 @@ Deno.serve(async (req) => {
         "sheet_sync_setup",
         "sheet_sync_configure",
         "sheet_sync",
+        "roster_import",
       ].includes(action)
     ) {
       const config = async (operation: string, input: unknown = {}) => {
@@ -228,6 +229,23 @@ Deno.serve(async (req) => {
           credentials.spreadsheet_id,
         );
         return reply(await config("configure", { endpoint }));
+      }
+      if (action === "roster_import") {
+        const credentials = await config("credentials");
+        if (!credentials.endpoint)
+          throw Error("좌석 관리에서 구글 시트 연결을 먼저 완료하세요.");
+        const result = await callSeatSheet(
+          credentials.endpoint,
+          credentials.secret,
+          "roster",
+          credentials.spreadsheet_id,
+        );
+        const { data, error } = await db.rpc("import_roster_students", {
+          p_admin: admin,
+          p_students: result.students,
+        });
+        if (error) throw Error(error.message);
+        return reply(data);
       }
       const source = await config("payload");
       const rows = seatSheetRows(source.seats, source.students);

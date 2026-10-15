@@ -22,6 +22,11 @@ function fixture(failOnce = false) {
     });
   }
   const original = JSON.stringify([...values]);
+  const roster = [
+    ["연번", "학번", "이름"],
+    ["1", "30101", "가상학생"],
+    ["2", "", ""],
+  ];
   let writes = 0,
     opened = 0;
   const cache = new Map<string, string>();
@@ -62,7 +67,18 @@ function fixture(failOnce = false) {
       openById: (id: string) => {
         assert.equal(id, workbook);
         opened++;
-        return { getSheets: () => [sheet] };
+        return {
+          getSheets: () => [sheet],
+          getSheetByName: (name: string) => {
+            assert.equal(name, "출석부(확정)");
+            return {
+              getRange: (r: number, c: number, h: number, w: number) => {
+                assert.deepEqual([r, c, h, w], [5, 1, 996, 3]);
+                return { getDisplayValues: () => roster };
+              },
+            };
+          },
+        };
       },
       newRichTextValue: () => ({
         setText: (text: string) => ({ build: () => ({ text }) }),
@@ -116,11 +132,23 @@ function fixture(failOnce = false) {
     values,
     original,
     labels,
+    roster,
     seats,
     writes: () => writes,
     opened: () => opened,
   };
 }
+test("출석부 읽기는 학번·이름만 반환하고 중복·잘못된 열은 거부", () => {
+  const f = fixture();
+  assert.deepEqual(f.call({ action: "roster" }).students, [
+    { number: "30101", name: "가상학생" },
+  ]);
+  assert.equal(f.writes(), 0);
+  f.roster.push(["3", "30101", "중복"]);
+  assert.equal(f.call({ action: "roster" }).ok, false);
+  f.roster[0][1] = "다른 열";
+  assert.equal(f.call({ action: "roster" }).ok, false);
+});
 test("시트 반영은 유효 서명·시각·고정 대상일 때만 허용", () => {
   const f = fixture();
   assert.equal(f.call({}, true).ok, false);

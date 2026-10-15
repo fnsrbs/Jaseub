@@ -178,6 +178,7 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
         "sheet_sync_status",
         "sheet_sync_setup",
         "sheet_sync_configure",
+        "roster_import",
         "site_copy",
         "student_gender",
         "code",

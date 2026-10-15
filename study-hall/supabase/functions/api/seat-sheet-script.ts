@@ -15,8 +15,23 @@ function doPost(e) {
     if (diff !== 0) throw new Error("인증 오류");
     var data = JSON.parse(envelope.payload);
     if (data.spreadsheetId !== JASEUB_SPREADSHEET || !Number.isFinite(data.issuedAt) || Math.abs(Date.now() - data.issuedAt) > 300000 || !/^[a-f0-9-]{36}$/.test(data.requestId || "")) throw new Error("요청 확인 필요");
-    if (data.action !== "check" && data.action !== "sync") throw new Error("지원하지 않는 요청");
+    if (data.action !== "check" && data.action !== "sync" && data.action !== "roster") throw new Error("지원하지 않는 요청");
     lock = LockService.getScriptLock(); lock.waitLock(20000); locked = true;
+    if (data.action === "roster") {
+      var roster = SpreadsheetApp.openById(JASEUB_SPREADSHEET).getSheetByName("출석부(확정)");
+      if (!roster) throw new Error("출석부(확정) 시트를 찾을 수 없습니다.");
+      var values = roster.getRange(5,1,996,3).getDisplayValues();
+      if (values[0][1] !== "학번" || values[0][2] !== "이름") throw new Error("출석부 학번·이름 열을 확인하세요.");
+      var students = [], numbers = {};
+      values.slice(1).forEach(function(row) {
+        var number = String(row[1] || "").trim(), name = String(row[2] || "").trim();
+        if (!number && !name) return;
+        if (!/^\d{5}$/.test(number) || !name || name.length > 80 || numbers[number]) throw new Error("출석부의 빈 이름·잘못된 학번·중복 학번을 확인하세요.");
+        numbers[number] = true; students.push({number:number,name:name});
+      });
+      if (!students.length) throw new Error("출석부에 학생이 없습니다.");
+      return jaseubJson({ok:true,students:students});
+    }
     var sheet = SpreadsheetApp.openById(JASEUB_SPREADSHEET).getSheets().filter(function(s) { return s.getSheetId() === JASEUB_SEAT_SHEET; })[0];
     if (!sheet) throw new Error("좌석배치 시트를 찾을 수 없습니다.");
     var labels = sheet.getRange(1,1,40,23).getDisplayValues();

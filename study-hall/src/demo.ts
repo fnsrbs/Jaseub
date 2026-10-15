@@ -334,6 +334,8 @@ export async function demoApi(
     );
     return { saved: p.slots.length };
   }
+  if (action === "roster_import")
+    throw Error("데모에서는 구글 출석부를 불러올 수 없습니다.");
   if (action === "sheet_sync_status")
     return {
       configured: true,

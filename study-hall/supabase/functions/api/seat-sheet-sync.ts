@@ -38,7 +38,7 @@ export function seatSheetRows(
 export async function callSeatSheet(
   endpoint: string,
   secret: string,
-  action: "check" | "sync",
+  action: "check" | "sync" | "roster",
   spreadsheetId: string,
   seats?: { id: number; number: string; name: string }[],
 ) {
@@ -84,6 +84,7 @@ export async function callSeatSheet(
     updated?: number;
     error?: string;
     before?: unknown;
+    students?: { number: string; name: string }[];
   };
   try {
     result = await response.json();
@@ -94,7 +95,13 @@ export async function callSeatSheet(
   }
   if (!response.ok || !result.ok)
     throw Error(result.error || "구글 시트 연결 실패");
-  if (action === "check" ? result.ready !== true : result.updated !== 72)
+  if (
+    action === "check"
+      ? result.ready !== true
+      : action === "sync"
+        ? result.updated !== 72
+        : !Array.isArray(result.students)
+  )
     throw Error("구글 시트 응답을 확인하세요.");
   return { ...result, requestId };
 }
