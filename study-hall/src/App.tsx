@@ -24,6 +24,7 @@ import { SeatPicker } from "./SeatPicker";
 import { SeatArrangement } from "./SeatArrangement";
 import { GenderLegend } from "./GenderLegend";
 import { WarningCards } from "./WarningCards";
+import { StudentLookup } from "./StudentLookup";
 import { pairLottery, validateDeskPairs } from "./seat-pairs";
 import { defaultSiteCopy, type SiteCopy } from "./site-copy";
 type Role = "teacher" | "student" | "viewer";
@@ -227,12 +228,13 @@ export default function App() {
     : role === "viewer"
       ? [
           ["home", "▦", "운영 현황"],
+          ["student-lookup", "♙", "학생 조회"],
           ["seats", "▤", "좌석 확인"],
           ["records", "◷", "출결 조회"],
           ["notices", "♧", "공지사항"],
+          ["warnings", "▣", "경고카드"],
           ["suggestions", "✉", "건의사항 조회"],
           ["stats", "▥", "이용 통계"],
-          ["warnings", "▣", "경고카드"],
         ]
       : [
           ["home", "▦", "내 자습실"],
@@ -553,6 +555,14 @@ export default function App() {
                   )}
                   {admin && <SeatAdmin data={data} act={act} busy={busy} />}
                 </>
+              )}
+              {page === "student-lookup" && teacher && (
+                <StudentLookup
+                  data={data}
+                  renderDetails={(s) => (
+                    <Stats data={data} studentId={s.id} now={currentNow} />
+                  )}
+                />
               )}
               {page === "students" && admin && (
                 <Students data={data} act={act} busy={busy} />
@@ -2430,28 +2440,58 @@ function Statistics({
 }) {
   const [from, setFrom] = useState(""),
     [to, setTo] = useState("");
+  const [sortOrder, setSortOrder] = useState("number-asc");
   if (!teacher)
     return <Stats data={data} studentId={data.students[0].id} now={now} />;
-  const rows = data.students.map((s) => {
-    const days = dailyUsage(
-      data.visits.filter((v) => v.student_id === s.id),
-      now,
-      data.settings.missing_hours,
-    );
-    const chosen = Object.entries(days).filter(
-      ([d]) => (!from || d >= from) && (!to || d <= to),
-    );
-    return {
-      s,
-      seconds: chosen.reduce((a, [, v]) => a + v.confirmed, 0),
-      count: chosen.filter(([, v]) => v.confirmed > 0).length,
-      ongoing: chosen.reduce((a, [, v]) => a + v.ongoing, 0),
-      review: chosen.reduce((a, [, v]) => a + v.review, 0),
-    };
-  });
+  const rows = data.students
+    .map((s) => {
+      const days = dailyUsage(
+        data.visits.filter((v) => v.student_id === s.id),
+        now,
+        data.settings.missing_hours,
+      );
+      const chosen = Object.entries(days).filter(
+        ([d]) => (!from || d >= from) && (!to || d <= to),
+      );
+      return {
+        s,
+        seconds: chosen.reduce((a, [, v]) => a + v.confirmed, 0),
+        count: chosen.filter(([, v]) => v.confirmed > 0).length,
+        ongoing: chosen.reduce((a, [, v]) => a + v.ongoing, 0),
+        review: chosen.reduce((a, [, v]) => a + v.review, 0),
+      };
+    })
+    .sort((a, b) => {
+      if (sortOrder === "time-desc")
+        return (
+          b.seconds - a.seconds ||
+          a.s.number.localeCompare(b.s.number, "ko", { numeric: true })
+        );
+      if (sortOrder === "name")
+        return (
+          a.s.name.localeCompare(b.s.name, "ko") ||
+          a.s.number.localeCompare(b.s.number, "ko", { numeric: true })
+        );
+      return (
+        (sortOrder === "number-desc" ? -1 : 1) *
+        (a.s.number.localeCompare(b.s.number, "ko", { numeric: true }) ||
+          a.s.name.localeCompare(b.s.name, "ko"))
+      );
+    });
   return (
     <>
       <div className="panel form-grid">
+        <Field label="통계 정렬">
+          <select
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value)}
+          >
+            <option value="number-asc">학번 오름차순</option>
+            <option value="number-desc">학번 내림차순</option>
+            <option value="name">이름순</option>
+            <option value="time-desc">이용 시간 많은 순</option>
+          </select>
+        </Field>
         <Field label="시작일">
           <input
             type="date"
@@ -2512,6 +2552,7 @@ function Statistics({
         <table>
           <thead>
             <tr>
+              <th>학번</th>
               <th>학생</th>
               <th>확정 이용 시간</th>
               <th>이용 일수</th>
@@ -2521,6 +2562,7 @@ function Statistics({
           <tbody>
             {rows.map((r) => (
               <tr key={r.s.id}>
+                <td>{r.s.number}</td>
                 <td>{r.s.name}</td>
                 <td>{duration(r.seconds)}</td>
                 <td>{r.count}일</td>
