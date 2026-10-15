@@ -2527,13 +2527,13 @@ function Stats({
           label="이번 주 확정"
           value={duration(t.week)}
           unit=""
-          caption="월요일부터 일요일까지"
+          caption="월요일부터 금요일까지"
         />
         <Metric
           label="이번 달 확정"
           value={duration(t.month)}
           unit=""
-          caption="한국 날짜 기준"
+          caption=""
         />
         {!compact && (
           <Metric
@@ -2561,10 +2561,7 @@ function Stats({
             </div>
           ))}
           {!days.length && <p>이용 기록이 없습니다.</p>}
-          <small>
-            자정이 넘어간 이용은 한국 날짜별로 나눕니다. 확인 필요 기록은
-            합계에서 제외합니다.
-          </small>
+          <small>확인 필요 기록은 합계에서 제외합니다.</small>
         </div>
       )}
     </>

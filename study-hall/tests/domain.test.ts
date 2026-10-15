@@ -52,6 +52,20 @@ test("주간 통계는 월요일 시작", () => {
     3600,
   );
 });
+test("주간 확정은 월~금만 합산하고 주말·다음 주 월요일 경계를 구분", () => {
+  const visits = [
+    visit("2026-10-12T10:00:00+09:00", "2026-10-12T11:00:00+09:00"),
+    visit("2026-10-16T23:30:00+09:00", "2026-10-17T00:30:00+09:00", "fri"),
+    visit("2026-10-17T10:00:00+09:00", "2026-10-17T11:00:00+09:00", "sat"),
+    visit("2026-10-18T10:00:00+09:00", "2026-10-18T11:00:00+09:00", "sun"),
+  ];
+  for (const day of ["17", "18"]) {
+    const t = totals(visits, Date.parse(`2026-10-${day}T23:00:00+09:00`));
+    assert.equal(t.week, 5400);
+    assert.equal(t.month, 14400);
+  }
+  assert.equal(totals(visits, Date.parse("2026-10-19T00:00:00+09:00")).week, 0);
+});
 test("좌석 중복과 선택하지 않은 학생 좌석 침범 거부", () => {
   assert.throws(() =>
     validateAssignments(students, seats, [

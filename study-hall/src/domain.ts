@@ -109,13 +109,14 @@ export function totals(visits: Visit[], now = Date.now(), missingHours = 16) {
   const monday = koreanDay(
     new Date(dayStart(today) - ((wd + 6) % 7) * 86400000),
   );
+  const friday = koreanDay(new Date(dayStart(monday) + 4 * 86400000));
   const entries = Object.entries(days);
   const sum = (test: (d: string) => boolean) =>
     entries.filter(([d]) => test(d)).reduce((a, [, v]) => a + v.confirmed, 0);
   return {
     days,
     today: sum((d) => d === today),
-    week: sum((d) => d >= monday && d <= today),
+    week: sum((d) => d >= monday && d <= friday && d <= today),
     month: sum((d) => d.slice(0, 7) === today.slice(0, 7)),
     all: sum(() => true),
     count: entries.filter(([, v]) => v.confirmed > 0).length,
