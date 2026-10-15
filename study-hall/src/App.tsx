@@ -283,7 +283,7 @@ export default function App() {
           </span>
           <div>
             <span className={"mode " + (mode === "demo" ? "demo" : "")}>
-              {mode === "demo" ? "가상 데이터 · 데모" : "Supabase · 운영"}
+              {mode === "demo" ? "가상 데이터 · 데모" : copy.production_badge}
             </span>
             <button onClick={logout}>로그아웃</button>
           </div>
