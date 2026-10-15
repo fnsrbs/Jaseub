@@ -1,4 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { seatSheetScript } from "./seat-sheet-script.ts";
+import {
+  callSeatSheet,
+  seatSheetRows,
+  validateSheetEndpoint,
+} from "./seat-sheet-sync.ts";
 const db = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -185,6 +191,70 @@ Deno.serve(async (req) => {
       if (error || !data.user)
         return reply({ error: "인증이 만료되었습니다." }, 401);
       admin = data.user.id;
+    }
+    if (
+      [
+        "sheet_sync_status",
+        "sheet_sync_setup",
+        "sheet_sync_configure",
+        "sheet_sync",
+      ].includes(action)
+    ) {
+      const config = async (operation: string, input: unknown = {}) => {
+        const { data, error } = await db.rpc("seat_sheet_sync", {
+          p_admin: admin,
+          p_action: operation,
+          p_payload: input,
+        });
+        if (error) throw Error(error.message);
+        return data;
+      };
+      if (action === "sheet_sync_status") return reply(await config("status"));
+      if (action === "sheet_sync_setup") {
+        const credentials = await config("prepare");
+        const script = seatSheetScript
+          .replace("__SHARED_SECRET__", credentials.secret)
+          .replace("__SPREADSHEET_ID__", credentials.spreadsheet_id)
+          .replace("__SEAT_SHEET_ID__", String(credentials.target_sheet_id));
+        return reply({ script });
+      }
+      if (action === "sheet_sync_configure") {
+        const credentials = await config("credentials");
+        const endpoint = validateSheetEndpoint(payload.endpoint);
+        await callSeatSheet(
+          endpoint,
+          credentials.secret,
+          "check",
+          credentials.spreadsheet_id,
+        );
+        return reply(await config("configure", { endpoint }));
+      }
+      const source = await config("payload");
+      const rows = seatSheetRows(source.seats, source.students);
+      const result = await callSeatSheet(
+        source.endpoint,
+        source.secret,
+        "sync",
+        source.spreadsheet_id,
+        rows,
+      );
+      let recorded;
+      try {
+        recorded = await config("record", {
+          updated: result.updated,
+          request_id: result.requestId,
+          before: result.before,
+          seats: rows,
+        });
+      } catch {
+        throw Error(
+          "구글 시트는 반영됐지만 앱 이력 저장에 실패했습니다. 시트 상태를 확인하세요.",
+        );
+      }
+      return reply({
+        ...recorded,
+        spreadsheet_url: `https://docs.google.com/spreadsheets/d/${source.spreadsheet_id}/edit#gid=${source.target_sheet_id}`,
+      });
     }
     if (action === "supervision" || action === "supervision_save") {
       const { data, error } = await db.rpc("supervision_api", {

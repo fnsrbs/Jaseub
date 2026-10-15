@@ -174,6 +174,10 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
         "visit_delete",
         "visits_delete",
         "supervision_save",
+        "sheet_sync",
+        "sheet_sync_status",
+        "sheet_sync_setup",
+        "sheet_sync_configure",
         "site_copy",
         "student_gender",
         "code",
@@ -249,6 +253,23 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
       assert.equal(calls.at(-1).args.p_viewer_session, undefined);
     },
   );
+  await t.test("구글 시트 연결 정보 요청도 서버 검증 신원만 전달", async () => {
+    assert.equal((await send("sheet_sync_status")).status, 401);
+    await send(
+      "sheet_sync_status",
+      { p_admin: "spoof" },
+      { Authorization: "Bearer verified-teacher" },
+    );
+    assert.equal(calls.at(-1).name, "seat_sheet_sync");
+    assert.equal(calls.at(-1).args.p_admin, "teacher-id");
+    assert.equal(calls.at(-1).args.p_action, "status");
+    await send(
+      "sheet_sync_setup",
+      { p_admin: "spoof" },
+      { "x-student-session": "a".repeat(64) },
+    );
+    assert.equal(calls.at(-1).args.p_admin, null);
+  });
   await t.test("JWT 검증한 신원만 DB에 전달", async () => {
     await send(
       "snapshot",

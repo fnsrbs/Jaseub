@@ -334,6 +334,20 @@ export async function demoApi(
     );
     return { saved: p.slots.length };
   }
+  if (action === "sheet_sync_status")
+    return {
+      configured: true,
+      endpoint: "",
+      last_synced_at: localStorage.getItem("study-hall-demo-sheet-sync"),
+    };
+  if (action === "sheet_sync_setup")
+    return { script: "// 데모에서는 실제 구글 시트에 연결하지 않습니다." };
+  if (action === "sheet_sync_configure") return { configured: true };
+  if (action === "sheet_sync") {
+    const date = now();
+    localStorage.setItem("study-hall-demo-sheet-sync", date);
+    return { updated: 72, last_synced_at: date, demo: true };
+  }
   if (action === "site_copy") {
     localStorage.setItem("study-hall-demo-site-copy", JSON.stringify(p.copy));
     return p.copy;

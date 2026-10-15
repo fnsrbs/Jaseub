@@ -22,6 +22,7 @@ import {
 import "./style.css";
 import { SeatPicker } from "./SeatPicker";
 import { SeatArrangement } from "./SeatArrangement";
+import { SeatSheetSync } from "./SeatSheetSync";
 import { GenderLegend } from "./GenderLegend";
 import { WarningCards } from "./WarningCards";
 import { StudentLookup } from "./StudentLookup";
@@ -1666,6 +1667,7 @@ function SeatAdmin({
     <>
       <div className="panel">
         <h2>좌석 배정 · 클릭해서 변경</h2>
+        <SeatSheetSync hasDraft={!!preview?.length} busy={busy} act={act} />
         <SeatArrangement
           data={data}
           draft={preview || []}

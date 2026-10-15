@@ -51,6 +51,7 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     await db.exec(migration("_teacher_seat_gender.sql"));
     await db.exec(migration("_bulk_attendance_delete.sql"));
     await db.exec(migration("_supervision_schedule.sql"));
+    await db.exec(migration("_seat_sheet_sync.sql"));
     await assert.rejects(db.query("select code_digest('AB12')"), /형식/);
     const admin = crypto.randomUUID(),
       outsider = crypto.randomUUID(),
@@ -753,6 +754,67 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     );
     await api("logout", {}, "6".repeat(64));
     await assert.rejects(supervision("read", {}, null, "6".repeat(64)), /권한/);
+    const sheetSync = async (
+      who: string | null,
+      action: string,
+      payload: any = {},
+    ) =>
+      (
+        await db.query<{ r: any }>("select seat_sheet_sync($1,$2,$3) r", [
+          who,
+          action,
+          JSON.stringify(payload),
+        ])
+      ).rows[0].r;
+    await assert.rejects(sheetSync(null, "status"), /관리자/);
+    await assert.rejects(sheetSync(outsider, "prepare"), /관리자/);
+    assert.equal((await sheetSync(admin, "status")).configured, false);
+    await db.exec(
+      "insert into seat_sheet_sync_config(id,spreadsheet_id,target_sheet_id) values(true,'fixture-workbook',123)",
+    );
+    const syncCredentials = await sheetSync(admin, "prepare");
+    assert.match(syncCredentials.secret, /^[a-f0-9]{64}$/);
+    assert.equal(
+      (await sheetSync(admin, "prepare")).secret,
+      syncCredentials.secret,
+    );
+    assert.equal(
+      JSON.stringify(await sheetSync(admin, "status")).includes(
+        syncCredentials.secret,
+      ),
+      false,
+    );
+    await assert.rejects(
+      sheetSync(admin, "configure", { endpoint: "https://evil.test/exec" }),
+      /올바른/,
+    );
+    await sheetSync(admin, "configure", {
+      endpoint: "https://script.google.com/macros/s/fixture/exec",
+    });
+    assert.equal((await sheetSync(admin, "status")).configured, true);
+    const syncSource = await sheetSync(admin, "payload");
+    assert.equal(syncSource.seats.length, 72);
+    assert.equal(JSON.stringify(syncSource).includes("code_hash"), false);
+    await assert.rejects(
+      sheetSync(admin, "record", { updated: 0 }),
+      /반영 결과/,
+    );
+    await sheetSync(admin, "record", {
+      updated: 72,
+      before: [{ seat_id: 1, formula: "=fixture" }],
+      request_id: crypto.randomUUID(),
+    });
+    assert.ok((await sheetSync(admin, "status")).last_synced_at);
+    const syncAudit = (
+      await db.query<{ before_value: any; after_value: any }>(
+        "select before_value,after_value from audits where kind='sheet_seat_sync'",
+      )
+    ).rows[0];
+    assert.equal(syncAudit.before_value[0].formula, "=fixture");
+    assert.equal(
+      JSON.stringify(syncAudit).includes(syncCredentials.secret),
+      false,
+    );
     await db.exec("set role authenticated");
     await assert.rejects(
       warn(admin, warningStudent, "위조"),
@@ -760,6 +822,11 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     );
     await assert.rejects(snap(admin), /permission denied/);
     await assert.rejects(deleteWarning(admin), /permission denied/);
+    await assert.rejects(sheetSync(admin, "status"), /permission denied/);
+    await assert.rejects(
+      db.query("select * from seat_sheet_sync_config"),
+      /permission denied/,
+    );
     await assert.rejects(supervision("read", {}, admin), /permission denied/);
     await assert.rejects(
       db.query("select * from supervision_slots"),
