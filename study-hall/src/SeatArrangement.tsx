@@ -47,6 +47,11 @@ export function SeatArrangement({
               <option value="">빈자리로 변경</option>
               {students
                 .filter((s) => s.active && !s.deleted_at)
+                .sort(
+                  (a, b) =>
+                    a.number.localeCompare(b.number, "ko", { numeric: true }) ||
+                    a.name.localeCompare(b.name, "ko"),
+                )
                 .map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name} · {s.number} ·{" "}
