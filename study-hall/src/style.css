@@ -1164,3 +1164,7 @@ blockquote {
     0 0 0 100vmax #14251d66,
     0 12px 50px #14251d44;
 }
+
+.student-metrics {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}

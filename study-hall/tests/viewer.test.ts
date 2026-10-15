@@ -48,6 +48,7 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     await db.exec(migration("_seat_pairs_warning_cards.sql"));
     await db.exec(migration("_warning_card_delete.sql"));
     await db.exec(migration("_teacher_warning_permissions.sql"));
+    await db.exec(migration("_teacher_seat_gender.sql"));
     await assert.rejects(db.query("select code_digest('AB12')"), /형식/);
     const admin = crypto.randomUUID(),
       outsider = crypto.randomUUID(),
@@ -121,6 +122,8 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     await login(code, "a".repeat(64));
     const data = await api("snapshot", {}, "a".repeat(64));
     assert.equal(data.students.length, 1);
+    assert.equal(data.students[0].gender, "unknown");
+    assert.equal(data.students[0].deleted_at, null);
     assert.equal(data.seats.length, 72);
     assert.equal(data.suggestions.length, 1);
     assert.deepEqual(data.audits, []);
@@ -173,6 +176,11 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     assert.equal(
       (await db.query<{ gender: string }>("select gender from students"))
         .rows[0].gender,
+      "male",
+    );
+    await login((await access(admin)).code, "d".repeat(64));
+    assert.equal(
+      (await api("snapshot", {}, "d".repeat(64))).students[0].gender,
       "male",
     );
     const save = async (who: string | null, payload: any) =>

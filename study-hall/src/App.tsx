@@ -217,12 +217,12 @@ export default function App() {
         ["home", "▦", "운영 대시보드"],
         ["students", "♙", "학생 관리"],
         ["seats", "▤", "좌석 관리"],
+        ["warnings", "▣", "경고카드"],
         ["records", "◷", "출결 기록"],
         ["qr", "▣", "현장 QR"],
         ["notices", "♧", "공지사항"],
         ["suggestions", "✉", "건의사항"],
         ["stats", "▥", "이용 통계"],
-        ["warnings", "▣", "경고카드"],
         ["settings", "⚙", "운영 설정"],
       ]
     : role === "viewer"
@@ -230,20 +230,20 @@ export default function App() {
           ["home", "▦", "운영 현황"],
           ["student-lookup", "♙", "학생 조회"],
           ["seats", "▤", "좌석 확인"],
+          ["warnings", "▣", "경고카드"],
           ["records", "◷", "출결 조회"],
           ["notices", "♧", "공지사항"],
-          ["warnings", "▣", "경고카드"],
           ["suggestions", "✉", "건의사항 조회"],
           ["stats", "▥", "이용 통계"],
         ]
       : [
           ["home", "▦", "내 자습실"],
           ["seats", "▤", "좌석 확인"],
+          ["warnings", "▣", "경고카드"],
           ["records", "◷", "나의 출결"],
           ["notices", "♧", "공지사항"],
           ["suggestions", "✉", "건의사항"],
           ["stats", "▥", "이용 통계"],
-          ["warnings", "▣", "경고카드"],
         ];
   return (
     <div className="layout">
@@ -270,7 +270,6 @@ export default function App() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <span className="dot" /> Asia/Seoul 기준
           <small>차분하게, 꾸준하게 성장하는 공간</small>
         </div>
       </aside>
@@ -304,9 +303,13 @@ export default function App() {
               </p>
               <h1>{menu.find((m) => m[0] === page)?.[2] || "자습실"}</h1>
               <p>
-                {teacher
-                  ? "오늘의 학습 공간을 한눈에 살펴보세요."
-                  : "오늘도 나만의 속도로 한 걸음 나아가요."}
+                {page === "warnings"
+                  ? teacher
+                    ? "학생별 경고 내역을 확인하고 자습실 이용 규칙을 안내해 주세요."
+                    : "경고 사유와 누적 횟수를 확인하고 자습실 이용 규칙을 지켜 주세요."
+                  : teacher
+                    ? "오늘의 학습 공간을 한눈에 살펴보세요."
+                    : "오늘도 나만의 속도로 한 걸음 나아가요."}
               </p>
             </div>
             <div className="exam">
@@ -348,7 +351,9 @@ export default function App() {
             <>
               {page === "home" && (
                 <>
-                  <div className="metrics">
+                  <div
+                    className={teacher ? "metrics" : "metrics student-metrics"}
+                  >
                     <Metric
                       label="현재 입실 인원"
                       value={`${data.current}`}
@@ -375,6 +380,18 @@ export default function App() {
                           : "고정 좌석 · 좌석 배치도에서 확인"
                       }
                     />
+                    {!teacher && (
+                      <Metric
+                        label="누적 경고카드"
+                        value={String(
+                          (data.warnings || []).filter(
+                            (w) => w.student_id === me?.id && !w.deleted_at,
+                          ).length,
+                        )}
+                        unit="회"
+                        caption="삭제된 경고는 제외됩니다."
+                      />
+                    )}
                   </div>
                   {teacher ? (
                     <>
@@ -571,6 +588,7 @@ export default function App() {
                 <WarningCards
                   data={data}
                   canManage={teacher}
+                  studentId={teacher ? undefined : me?.id}
                   act={act}
                   busy={busy}
                 />

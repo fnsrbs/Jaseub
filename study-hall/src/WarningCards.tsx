@@ -3,49 +3,61 @@ import type { Snapshot } from "./domain";
 export function WarningCards({
   data,
   canManage,
+  studentId,
   busy,
   act,
 }: {
   data: Snapshot;
   canManage: boolean;
+  studentId?: string;
   busy: boolean;
   act: (a: string, p: any) => Promise<any>;
 }) {
   const [student, setStudent] = useState("");
   const [reason, setReason] = useState("");
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
-  const warnings = data.warnings || [];
+  const students = data.students.filter(
+    (s) => !s.deleted_at && (canManage || s.id === studentId),
+  );
+  const warnings = (data.warnings || []).filter(
+    (w) => !w.deleted_at && (canManage || w.student_id === studentId),
+  );
   const history = warnings
     .filter((w) => !student || w.student_id === student)
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
   return (
     <>
       <div className="panel">
-        <h2>학생별 누적 경고카드</h2>
+        <h2>{canManage ? "학생별 누적 경고카드" : "나의 경고카드"}</h2>
+        {!canManage && (
+          <p>
+            <strong>누적 경고 {warnings.length}회</strong>
+          </p>
+        )}
         <p>
           카드 1회 발급마다 1장이 누적됩니다. 삭제된 카드는 누적에서 제외됩니다.
           발급 일시와 사유가 계속 보관됩니다.
         </p>
-        <label className="field">
-          <span>학생 선택 / 내역 필터</span>
-          <select
-            value={student}
-            onChange={(e) => {
-              setStudent(e.target.value);
-              setRequestId(crypto.randomUUID());
-            }}
-          >
-            <option value="">전체 학생</option>
-            {data.students
-              .filter((s) => !s.deleted_at)
-              .map((s) => (
+        {canManage && (
+          <label className="field">
+            <span>학생 선택 / 내역 필터</span>
+            <select
+              value={student}
+              onChange={(e) => {
+                setStudent(e.target.value);
+                setRequestId(crypto.randomUUID());
+              }}
+            >
+              <option value="">전체 학생</option>
+              {students.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name} · {s.number} · 누적{" "}
                   {warnings.filter((w) => w.student_id === s.id).length}장
                 </option>
               ))}
-          </select>
-        </label>
+            </select>
+          </label>
+        )}
         {canManage && (
           <form
             className="form-grid"
@@ -84,18 +96,20 @@ export function WarningCards({
             </button>
           </form>
         )}
-        <div className="warning-totals">
-          {data.students
-            .filter((s) => !s.deleted_at && (!student || s.id === student))
-            .map((s) => (
-              <button key={s.id} onClick={() => setStudent(s.id)}>
-                {s.name}{" "}
-                <strong>
-                  ▣ {warnings.filter((w) => w.student_id === s.id).length}장
-                </strong>
-              </button>
-            ))}
-        </div>
+        {canManage && (
+          <div className="warning-totals">
+            {students
+              .filter((s) => !s.deleted_at && (!student || s.id === student))
+              .map((s) => (
+                <button key={s.id} onClick={() => setStudent(s.id)}>
+                  {s.name}{" "}
+                  <strong>
+                    ▣ {warnings.filter((w) => w.student_id === s.id).length}장
+                  </strong>
+                </button>
+              ))}
+          </div>
+        )}
       </div>
       <div className="panel table-wrap">
         <h2>발급 내역 · {history.length}장</h2>
