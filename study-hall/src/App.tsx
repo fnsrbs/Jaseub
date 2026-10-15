@@ -1696,6 +1696,49 @@ function SeatAdmin({
       <div className="panel">
         <h2>좌석 배정 · 클릭해서 변경</h2>
         <SeatSheetSync hasDraft={!!preview?.length} busy={busy} act={act} />
+        <label className="pair-option">
+          <input
+            type="checkbox"
+            checked={sameGender}
+            onChange={(e) => {
+              setSameGender(e.target.checked);
+              setPreview(null);
+            }}
+          />{" "}
+          남학생끼리 · 여학생끼리 짝 배정
+        </label>
+        <small>
+          같은 성별끼리 짝을 배정합니다. 홀수 인원은 빈 짝자리가 생길 수
+          있습니다.
+        </small>
+        <div className="actions seat-draft-actions">
+          <button className="primary" disabled={busy} onClick={draw}>
+            추첨 미리보기 / 다시 추첨
+          </button>
+          {!!preview?.length && (
+            <>
+              <button
+                className="primary"
+                disabled={busy}
+                onClick={confirmDraft}
+              >
+                배정 확정
+              </button>
+              <button
+                disabled={busy}
+                onClick={() => {
+                  setPreview(null);
+                  setError("");
+                }}
+              >
+                미리보기 취소
+              </button>
+              <span role="status">
+                미확정 · {preview.length}명 배정 미리보기
+              </span>
+            </>
+          )}
+        </div>
         <SeatArrangement
           data={data}
           draft={preview || []}
@@ -1710,22 +1753,6 @@ function SeatAdmin({
             {error}
           </p>
         )}
-        {preview?.length ? (
-          <div className="actions">
-            <button className="primary" disabled={busy} onClick={confirmDraft}>
-              배정 변경 확정
-            </button>
-            <button
-              onClick={() => {
-                setPreview(null);
-                setError("");
-              }}
-            >
-              변경 취소
-            </button>
-            <span>미확정 · {preview.length}명 배정 미리보기</span>
-          </div>
-        ) : null}
       </div>
       <div className="panel">
         <h2>좌석 번호·위치 관리</h2>
@@ -1877,48 +1904,6 @@ function SeatAdmin({
             }}
           />
         </div>
-        <label className="pair-option">
-          <input
-            type="checkbox"
-            checked={sameGender}
-            onChange={(e) => {
-              setSameGender(e.target.checked);
-              setPreview(null);
-            }}
-          />{" "}
-          남학생끼리 · 여학생끼리 짝 배정
-        </label>
-        <p>
-          체크하면 두 자리 책상마다 같은 성별로 배정합니다. 홀수 인원은 빈
-          짝자리가 생길 수 있습니다. 성별 미확인 학생은 먼저 학생 관리에서
-          지정하세요.
-        </p>
-        <button className="primary" onClick={draw}>
-          추첨 미리보기 / 다시 추첨
-        </button>
-        {error && (
-          <p role="alert" className="error-text">
-            {error}
-          </p>
-        )}
-        {preview && (
-          <>
-            <h3>배정 미리보기 · 아직 적용되지 않았습니다</h3>
-            <p>
-              위의 좌석 배치도에 반영되었습니다. 좌석을 클릭해 학생을 교환하거나
-              빈자리로 수정할 수 있습니다.
-            </p>
-            <button
-              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            >
-              배치도에서 편집하기 ↑
-            </button>
-            <button disabled={busy} className="primary" onClick={confirmDraft}>
-              배정 확정
-            </button>
-            <button onClick={() => setPreview(null)}>미리보기 취소</button>
-          </>
-        )}
       </div>
     </>
   );
