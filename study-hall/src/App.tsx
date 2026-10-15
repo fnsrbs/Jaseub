@@ -29,6 +29,7 @@ import { StudentLookup } from "./StudentLookup";
 import { Supervision } from "./Supervision";
 import { Cleaning } from "./Cleaning";
 import { WeeklyRanking } from "./WeeklyRanking";
+import { rememberedLogin, rememberLogin } from "./remembered-login";
 import { pairLottery, validateDeskPairs } from "./seat-pairs";
 import { defaultSiteCopy, type SiteCopy } from "./site-copy";
 type Role = "teacher" | "student" | "viewer";
@@ -169,7 +170,13 @@ export default function App() {
     setMessage("");
     navigate("home");
   }
-  async function login(r: Role, code: string, email: string, password: string) {
+  async function login(
+    r: Role,
+    code: string,
+    email: string,
+    password: string,
+    remember = false,
+  ) {
     setBusy(true);
     setError("");
     try {
@@ -188,6 +195,8 @@ export default function App() {
         if (error) throw error;
         await api("snapshot", {}, r, null);
       }
+      if (r === "student" || r === "viewer")
+        rememberLogin(mode, r, code, remember);
       sessionStorage.setItem("sh-role", r);
       if (t) sessionStorage.setItem("sh-token", t);
       else sessionStorage.removeItem("sh-token");
@@ -806,15 +815,30 @@ function Login({
   error,
   copy,
 }: {
-  onLogin: (r: Role, c: string, e: string, p: string) => void;
+  onLogin: (
+    r: Role,
+    c: string,
+    e: string,
+    p: string,
+    remember: boolean,
+  ) => void;
   busy: boolean;
   error: string;
   copy: SiteCopy;
 }) {
-  const [role, setRole] = useState<Role>("student"),
-    [code, setCode] = useState(""),
+  const [saved] = useState(() => rememberedLogin(mode));
+  const [role, setRole] = useState<Role>(saved.role),
+    [code, setCode] = useState(saved.codes[saved.role] || ""),
     [email, setEmail] = useState(""),
     [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(!!saved.codes[saved.role]);
+  const chooseRole = (next: Role) => {
+    setRole(next);
+    const value =
+      next === "teacher" ? "" : rememberedLogin(mode).codes[next] || "";
+    setCode(value);
+    setRemember(!!value);
+  };
   return (
     <div className="login">
       <section className="login-story">
@@ -846,19 +870,19 @@ function Login({
         <div className="tabs">
           <button
             className={role === "student" ? "active" : ""}
-            onClick={() => setRole("student")}
+            onClick={() => chooseRole("student")}
           >
             학생
           </button>
           <button
             className={role === "viewer" ? "active" : ""}
-            onClick={() => setRole("viewer")}
+            onClick={() => chooseRole("viewer")}
           >
             교사
           </button>
           <button
             className={role === "teacher" ? "active" : ""}
-            onClick={() => setRole("teacher")}
+            onClick={() => chooseRole("teacher")}
           >
             관리자
           </button>
@@ -866,7 +890,7 @@ function Login({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            onLogin(role, code, email, password);
+            onLogin(role, code, email, password, remember);
           }}
         >
           {role === "student" || role === "viewer" ? (
@@ -874,7 +898,10 @@ function Login({
               label={role === "viewer" ? "교사용 접속 코드" : "개인 접속 코드"}
             >
               <input
-                autoComplete="off"
+                name={role === "viewer" ? "teacher-code" : "student-code"}
+                autoComplete="username"
+                spellCheck={false}
+                enterKeyHint="go"
                 autoCapitalize="characters"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
@@ -906,6 +933,39 @@ function Login({
             </>
           ) : (
             <p>관리자 데모는 가상 학생 72명을 관리합니다.</p>
+          )}
+          {(role === "student" || role === "viewer") && (
+            <div className="remember-login">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e) => {
+                    setRemember(e.target.checked);
+                    if (!e.target.checked) rememberLogin(mode, role, "", false);
+                  }}
+                />{" "}
+                이 기기에서 코드 기억하기
+              </label>
+              {remember && (
+                <small>
+                  개인 기기에서만 사용하세요. 다음 방문 때 코드가 자동으로
+                  채워집니다.
+                </small>
+              )}
+              {!!rememberedLogin(mode).codes[role] && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    rememberLogin(mode, role, "", false);
+                    setCode("");
+                    setRemember(false);
+                  }}
+                >
+                  저장한 코드 지우기
+                </button>
+              )}
+            </div>
           )}
           {error && (
             <p role="alert" className="error-text">
