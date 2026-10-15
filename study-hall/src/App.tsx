@@ -399,7 +399,7 @@ export default function App() {
                               {chosen.name} <small>{chosen.number}</small>
                             </h3>
                             <p>
-                              오늘 판정:{" "}
+                              오늘 출석 상태:{" "}
                               {attendanceVerdict(
                                 chosen.id,
                                 data.operating_days.find(
@@ -491,7 +491,7 @@ export default function App() {
                                 : `현재 이용 ${duration((currentNow - Date.parse(active.entered_at)) / 1000)}`)}
                           </p>
                           <p>
-                            오늘 판정:{" "}
+                            오늘 출석 상태:{" "}
                             {attendanceVerdict(
                               me!.id,
                               data.operating_days.find((d) => d.day === today),

@@ -140,7 +140,7 @@ export function attendanceVerdict(
       : "출석";
   return now >= Date.parse(`${day.day}T${day.end_time}+09:00`)
     ? "결석"
-    : "대기";
+    : "입실 전";
 }
 export function validateAssignments(
   students: Student[],
