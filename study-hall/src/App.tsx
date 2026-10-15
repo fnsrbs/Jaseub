@@ -2273,9 +2273,6 @@ function NoticeCard({ n }: { n: Notice }) {
     <article className="panel notice">
       <div>
         {n.important && <span className="badge">중요 공지</span>}
-        <span className="muted">
-          작성 {time(n.created_at)} · 수정 {time(n.updated_at)}
-        </span>
       </div>
       <h3>{n.title}</h3>
       <p className="text-body">{n.body}</p>
