@@ -47,6 +47,7 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     await db.exec(migration("_editable_login_copy.sql"));
     await db.exec(migration("_seat_pairs_warning_cards.sql"));
     await db.exec(migration("_warning_card_delete.sql"));
+    await db.exec(migration("_teacher_warning_permissions.sql"));
     await assert.rejects(db.query("select code_digest('AB12')"), /형식/);
     const admin = crypto.randomUUID(),
       outsider = crypto.randomUUID(),
@@ -468,6 +469,94 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     assert.equal(removedCard.reason, "소란");
     assert.ok(removedCard.deleted_at);
 
+    const teacherWarning = async (
+      action: string,
+      payload: any,
+      session = "e".repeat(64),
+    ) =>
+      db.query("select teacher_warning_api($1,$2,$3)", [
+        action,
+        JSON.stringify(payload),
+        session,
+      ]);
+    const teacherRequest = crypto.randomUUID();
+    const teacherPayload = {
+      student_id: warningStudent,
+      request_id: teacherRequest,
+      reason: "교사 발급",
+    };
+    await assert.rejects(
+      teacherWarning("warning_issue", teacherPayload, "f".repeat(64)),
+      /세션/,
+    );
+    await assert.rejects(
+      teacherWarning("warning_issue", teacherPayload, "invalid"),
+      /세션/,
+    );
+    await assert.rejects(teacherWarning("assign", teacherPayload), /경고카드/);
+    await assert.rejects(
+      teacherWarning("warning_issue", { ...teacherPayload, reason: " " }),
+      /사유/,
+    );
+    await teacherWarning("warning_issue", teacherPayload);
+    await teacherWarning("warning_issue", teacherPayload);
+    assert.equal((await snap(admin)).warnings.length, 3);
+    const teacherCard = (
+      await db.query<{ actor: string | null; actor_role: string }>(
+        "select actor,actor_role from warning_cards where id=$1",
+        [teacherRequest],
+      )
+    ).rows[0];
+    assert.equal(teacherCard.actor, null);
+    assert.equal(teacherCard.actor_role, "teacher");
+    await teacherWarning("warning_delete", {
+      id: teacherRequest,
+      reason: "교사 삭제",
+    });
+    await teacherWarning("warning_delete", {
+      id: teacherRequest,
+      reason: "교사 삭제",
+    });
+    assert.equal((await snap(admin)).warnings.length, 2);
+    assert.equal(
+      (
+        await db.query<{ n: number }>(
+          "select count(*)::int n from teacher_warning_events where card_id=$1",
+          [teacherRequest],
+        )
+      ).rows[0].n,
+      2,
+    );
+    const adminCard = (
+      await db.query<{ id: string }>(
+        "select id from warning_cards where student_id=$1 and deleted_at is null",
+        [warningStudent],
+      )
+    ).rows[0].id;
+    await teacherWarning("warning_delete", {
+      id: adminCard,
+      reason: "관리자 발급 카드 정정",
+    });
+    assert.equal((await snap(null, "f".repeat(64))).warnings.length, 0);
+    await db.exec(
+      "update teacher_viewer_sessions set expires_at=now()-interval '1 minute'",
+    );
+    await assert.rejects(
+      teacherWarning("warning_issue", {
+        ...teacherPayload,
+        request_id: crypto.randomUUID(),
+      }),
+      /세션/,
+    );
+    await db.exec(
+      "update teacher_viewer_sessions set expires_at=now()+interval '1 hour'",
+    );
+    await access(admin, true);
+    await assert.rejects(
+      teacherWarning("warning_issue", teacherPayload),
+      /세션/,
+    );
+
     // Atomic pair guard rejects a mixed preview without leaving assignments/history behind.
     await db.exec("update students set seat_id=null");
     const assign = async (who: string | null, pairs: any[]) =>
@@ -500,6 +589,14 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     );
     await assert.rejects(snap(admin), /permission denied/);
     await assert.rejects(deleteWarning(admin), /permission denied/);
+    await assert.rejects(
+      teacherWarning("warning_issue", teacherPayload),
+      /permission denied/,
+    );
+    await assert.rejects(
+      db.query("select * from teacher_warning_events"),
+      /permission denied/,
+    );
     await assert.rejects(assign(admin, []), /permission denied/);
     await assert.rejects(
       db.query("select * from warning_cards"),

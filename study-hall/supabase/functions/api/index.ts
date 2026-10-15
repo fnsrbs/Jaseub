@@ -137,8 +137,20 @@ Deno.serve(async (req) => {
     const viewerToken = req.headers.get("x-teacher-session");
     if (viewerToken) {
       if (!/^[a-f0-9]{64}$/.test(viewerToken)) throw Error("교사 세션 오류");
+      if (["warning_issue", "warning_delete"].includes(action)) {
+        const { data, error } = await db.rpc("teacher_warning_api", {
+          p_action: action,
+          p_payload: payload,
+          p_session: await hash(viewerToken),
+        });
+        if (error) throw Error(error.message);
+        return reply(data);
+      }
       if (!["snapshot", "logout"].includes(action))
-        return reply({ error: "교사는 조회만 가능합니다." }, 403);
+        return reply(
+          { error: "교사는 조회 및 경고카드 관리만 가능합니다." },
+          403,
+        );
       const { data, error } =
         action === "snapshot"
           ? await db.rpc("snapshot_with_warnings", {

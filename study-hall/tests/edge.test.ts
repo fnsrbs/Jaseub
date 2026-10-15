@@ -126,7 +126,7 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
     );
   });
   await t.test(
-    "교사 뷰어는 읽기만 전달하고 모든 쓰기를 RPC 전에 차단",
+    "교사는 경고카드만 관리하고 다른 쓰기는 RPC 전에 차단",
     async () => {
       const login = await send("teacher_login", {
         code: "TV-" + "A".repeat(32),
@@ -145,11 +145,26 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
       assert.equal(calls.at(-1).name, "snapshot_with_warnings");
       assert.match(calls.at(-1).args.p_viewer_session, /^[a-f0-9]{64}$/);
       assert.equal(calls.at(-1).args.p_admin, undefined);
+      for (const action of ["warning_issue", "warning_delete"]) {
+        calls.length = 0;
+        assert.equal(
+          (await send(action, { p_admin: "spoof", reason: "fixture" }, headers))
+            .status,
+          200,
+        );
+        assert.equal(calls.at(-1).name, "teacher_warning_api");
+        assert.equal(calls.at(-1).args.p_action, action);
+        assert.match(calls.at(-1).args.p_session, /^[a-f0-9]{64}$/);
+        assert.notEqual(
+          calls.at(-1).args.p_session,
+          headers["x-teacher-session"],
+        );
+        assert.equal(calls.at(-1).args.p_admin, undefined);
+      }
       for (const action of [
         "student",
         "student_delete",
-        "warning_issue",
-        "warning_delete",
+
         "student_code",
         "visit_delete",
         "site_copy",

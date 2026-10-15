@@ -278,7 +278,7 @@ export default function App() {
             {admin
               ? "관리자 공간"
               : teacher
-                ? "교사 조회 전용 공간"
+                ? "교사 공간 · 조회 및 경고카드 관리"
                 : "학생 전용 공간"}
           </span>
           <div>
@@ -558,7 +558,12 @@ export default function App() {
                 <Students data={data} act={act} busy={busy} />
               )}
               {page === "warnings" && (
-                <WarningCards data={data} admin={admin} act={act} busy={busy} />
+                <WarningCards
+                  data={data}
+                  canManage={teacher}
+                  act={act}
+                  busy={busy}
+                />
               )}
               {page === "records" && (
                 <Records
@@ -636,11 +641,11 @@ function TeacherAccess({
   const [code, setCode] = useState("");
   return (
     <div className="panel">
-      <h2>교사 조회 전용 코드</h2>
+      <h2>교사 접속 코드</h2>
       <p>
         다른 선생님은 로그인 화면의 ‘교사’에서 이 코드를 입력합니다.
-        출결·좌석·공지·건의사항·통계를 조회하며 학생 정보나 기록을 수정할 수
-        없습니다.
+        출결·좌석·공지·건의사항·통계를 조회하고 경고카드를 발급·삭제할 수
+        있습니다. 학생 정보와 출결·좌석 수정은 관리자만 가능합니다.
       </p>
       {code && (
         <p>
@@ -809,7 +814,7 @@ function Login({
         >
           {role === "student" || role === "viewer" ? (
             <Field
-              label={role === "viewer" ? "교사용 조회 코드" : "개인 접속 코드"}
+              label={role === "viewer" ? "교사용 접속 코드" : "개인 접속 코드"}
             >
               <input
                 autoComplete="off"
@@ -1270,6 +1275,7 @@ function Students({
   act: (a: string, p: any) => Promise<any>;
   busy: boolean;
 }) {
+  const [sortOrder, setSortOrder] = useState("number-asc");
   const [search, setSearch] = useState(""),
     [edit, setEdit] = useState<Partial<Student>>({ name: "", number: "" }),
     [code, setCode] = useState("");
@@ -1277,12 +1283,24 @@ function Students({
   const [genderFilter, setGenderFilter] = useState("all"),
     [picked, setPicked] = useState<string[]>([]),
     [bulkGender, setBulkGender] = useState("unknown");
-  const visible = data.students.filter(
-    (s) =>
-      !s.deleted_at &&
-      `${s.name} ${s.number}`.includes(search) &&
-      (genderFilter === "all" || (s.gender || "unknown") === genderFilter),
-  );
+  const visible = data.students
+    .filter(
+      (s) =>
+        !s.deleted_at &&
+        `${s.name} ${s.number}`.includes(search) &&
+        (genderFilter === "all" || (s.gender || "unknown") === genderFilter),
+    )
+    .sort((a, b) => {
+      const compare = new Intl.Collator("ko", { numeric: true });
+      if (sortOrder === "name")
+        return (
+          compare.compare(a.name, b.name) || compare.compare(a.number, b.number)
+        );
+      return (
+        (sortOrder === "number-desc" ? -1 : 1) *
+        (compare.compare(a.number, b.number) || compare.compare(a.name, b.name))
+      );
+    });
   return (
     <>
       <div className="panel">
@@ -1369,6 +1387,16 @@ function Students({
         />
       </Field>
       <div className="panel form-grid">
+        <Field label="학생 정렬">
+          <select
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value)}
+          >
+            <option value="number-asc">학번 오름차순</option>
+            <option value="number-desc">학번 내림차순</option>
+            <option value="name">이름순</option>
+          </select>
+        </Field>
         <Field label="성별 필터">
           <select
             value={genderFilter}

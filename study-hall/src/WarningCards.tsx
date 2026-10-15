@@ -2,12 +2,12 @@ import { useState } from "react";
 import type { Snapshot } from "./domain";
 export function WarningCards({
   data,
-  admin,
+  canManage,
   busy,
   act,
 }: {
   data: Snapshot;
-  admin: boolean;
+  canManage: boolean;
   busy: boolean;
   act: (a: string, p: any) => Promise<any>;
 }) {
@@ -46,7 +46,7 @@ export function WarningCards({
               ))}
           </select>
         </label>
-        {admin && (
+        {canManage && (
           <form
             className="form-grid"
             onSubmit={(e) => {
@@ -109,7 +109,7 @@ export function WarningCards({
                 <th>학번</th>
                 <th>발급 일시</th>
                 <th>경고 사유</th>
-                {admin && <th>관리</th>}
+                {canManage && <th>관리</th>}
               </tr>
             </thead>
             <tbody>
@@ -125,7 +125,7 @@ export function WarningCards({
                       })}
                     </td>
                     <td className="warning-reason">{w.reason}</td>
-                    {admin && (
+                    {canManage && (
                       <td>
                         <button
                           disabled={busy}

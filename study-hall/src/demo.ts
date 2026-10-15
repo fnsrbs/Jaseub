@@ -183,7 +183,8 @@ export async function demoApi(
     }
     return data;
   }
-  if (viewer) throw Error("교사는 조회만 가능합니다.");
+  if (viewer && !["warning_issue", "warning_delete"].includes(action))
+    throw Error("교사는 조회 및 경고카드 관리만 가능합니다.");
   if (action === "suggest" && !teacher) {
     state.suggestions.unshift({
       id: id(),
@@ -228,7 +229,7 @@ export async function demoApi(
     save();
     return {};
   }
-  if (!teacher) throw Error("관리자 권한이 필요합니다.");
+  if (!teacher && !viewer) throw Error("교사 또는 관리자 권한이 필요합니다.");
   if (action === "warning_delete") {
     if (!p.reason?.trim() || p.reason.trim().length > 1000)
       throw Error("삭제 사유를 입력하세요.");
@@ -270,6 +271,7 @@ export async function demoApi(
     save();
     return card;
   }
+  if (!teacher) throw Error("관리자 권한이 필요합니다.");
   if (action === "site_copy") {
     localStorage.setItem("study-hall-demo-site-copy", JSON.stringify(p.copy));
     return p.copy;
