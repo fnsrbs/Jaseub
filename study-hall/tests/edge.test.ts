@@ -167,6 +167,7 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
 
         "student_code",
         "visit_delete",
+        "visits_delete",
         "site_copy",
         "student_gender",
         "code",
@@ -201,6 +202,26 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
     assert.match(call.args.p_session, /^[a-f0-9]{64}$/);
     assert.notEqual(call.args.p_session, "a".repeat(64));
   });
+  await t.test(
+    "일괄 삭제도 JWT 검증 신원만 사용하고 학생 권한 상승 주장을 무시",
+    async () => {
+      const payload = {
+        ids: ["fixture-record"],
+        reason: "테스트",
+        p_admin: "spoof",
+      };
+      await send("visits_delete", payload, {
+        Authorization: "Bearer verified-teacher",
+      });
+      assert.equal(calls.at(-1).name, "delete_visits");
+      assert.equal(calls.at(-1).args.p_admin, "teacher-id");
+      assert.deepEqual(calls.at(-1).args.p_visits, payload.ids);
+      await send("visits_delete", payload, {
+        "x-student-session": "a".repeat(64),
+      });
+      assert.equal(calls.at(-1).args.p_admin, null);
+    },
+  );
   await t.test("JWT 검증한 신원만 DB에 전달", async () => {
     await send(
       "snapshot",

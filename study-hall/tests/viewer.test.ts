@@ -49,6 +49,7 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     await db.exec(migration("_warning_card_delete.sql"));
     await db.exec(migration("_teacher_warning_permissions.sql"));
     await db.exec(migration("_teacher_seat_gender.sql"));
+    await db.exec(migration("_bulk_attendance_delete.sql"));
     await assert.rejects(db.query("select code_digest('AB12')"), /형식/);
     const admin = crypto.randomUUID(),
       outsider = crypto.randomUUID(),
@@ -379,6 +380,76 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
       ).rows[0].n,
       0,
     );
+    // Batch delete must validate the whole selection before deleting anything.
+    const bulkIds = [
+      crypto.randomUUID(),
+      crypto.randomUUID(),
+      crypto.randomUUID(),
+    ];
+    await db.query(
+      "insert into visits(id,student_id,entered_at,exited_at) values($1,$4,'2026-10-14T09:00:00Z','2026-10-14T10:00:00Z'),($2,$5,'2026-10-14T09:00:00Z',null),($3,$4,'2026-10-14T11:00:00Z','2026-10-14T12:00:00Z')",
+      [...bulkIds, student, another],
+    );
+    const bulkDelete = (
+      who: string | null,
+      ids: (string | null)[],
+      reason = "선택 정리",
+    ) =>
+      db.query<{ r: any }>("select delete_visits($1,$2,$3) r", [
+        who,
+        ids,
+        reason,
+      ]);
+    await assert.rejects(bulkDelete(null, bulkIds), /관리자/);
+    await assert.rejects(bulkDelete(outsider, bulkIds), /관리자/);
+    await assert.rejects(bulkDelete(admin, bulkIds, " "), /사유/);
+    await assert.rejects(bulkDelete(admin, []), /선택/);
+    await assert.rejects(bulkDelete(admin, [null]), /선택/);
+    await assert.rejects(bulkDelete(admin, [bulkIds[0], bulkIds[0]]), /선택/);
+    await assert.rejects(
+      bulkDelete(admin, Array(1001).fill(bulkIds[0])),
+      /선택/,
+    );
+    await assert.rejects(
+      bulkDelete(admin, [bulkIds[0], crypto.randomUUID()]),
+      /없는 기록/,
+    );
+    assert.equal(
+      (
+        await db.query<{ n: number }>(
+          "select count(*)::int n from visits where id=any($1)",
+          [bulkIds],
+        )
+      ).rows[0].n,
+      3,
+    );
+    assert.equal(
+      (await bulkDelete(admin, bulkIds.slice(0, 2))).rows[0].r.deleted,
+      2,
+    );
+    assert.equal(
+      (
+        await db.query<{ n: number }>(
+          "select count(*)::int n from visits where id=any($1)",
+          [bulkIds],
+        )
+      ).rows[0].n,
+      1,
+    );
+    const bulkAudits = (
+      await db.query<{ before_value: any; reason: string }>(
+        "select before_value,reason from audits where kind='visit_delete_bulk'",
+      )
+    ).rows;
+    assert.equal(bulkAudits.length, 2);
+    assert.ok(
+      bulkAudits.every(
+        (a) =>
+          a.reason.includes("선택 정리") &&
+          bulkIds.slice(0, 2).includes(a.before_value.id),
+      ),
+    );
+    assert.ok(bulkAudits.some((a) => a.before_value.exited_at === null));
     // No live records: verify append-only cards and scoped reads in this private DB.
     const warningStudent = crypto.randomUUID(),
       otherStudent = crypto.randomUUID();
@@ -597,6 +668,7 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     );
     await assert.rejects(snap(admin), /permission denied/);
     await assert.rejects(deleteWarning(admin), /permission denied/);
+    await assert.rejects(bulkDelete(admin, [bulkIds[2]]), /permission denied/);
     await assert.rejects(
       teacherWarning("warning_issue", teacherPayload),
       /permission denied/,

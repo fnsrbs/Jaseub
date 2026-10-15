@@ -1897,6 +1897,7 @@ function Records({
   now: number;
   busy: boolean;
 }) {
+  const [picked, setPicked] = useState<string[]>([]);
   const [student, setStudent] = useState(""),
     [from, setFrom] = useState(""),
     [to, setTo] = useState(""),
@@ -1904,12 +1905,17 @@ function Records({
     [entered, setEntered] = useState(""),
     [exited, setExited] = useState(""),
     [reason, setReason] = useState("");
+  useEffect(() => setPicked([]), [student, from, to]);
   const visits = data.visits.filter(
     (v) =>
       (!student || v.student_id === student) &&
       (!from || koreanDay(v.entered_at) >= from) &&
       (!to || koreanDay(v.entered_at) <= to),
   );
+  const chosen = visits.filter((v) => picked.includes(v.id));
+  const selectable = visits.slice(0, 1000);
+  const allPicked =
+    selectable.length > 0 && selectable.every((v) => picked.includes(v.id));
   return (
     <>
       <div className="panel form-grid">
@@ -2029,10 +2035,79 @@ function Records({
           </form>
         </div>
       )}
+      {canEdit && (
+        <div className="panel actions">
+          <span>
+            선택 {chosen.length}건 / 조회 {visits.length}건
+          </span>
+          <button
+            type="button"
+            disabled={busy || !visits.length}
+            onClick={() => setPicked(selectable.map((v) => v.id))}
+          >
+            조회 기록 전체 선택{visits.length > 1000 ? " (최대 1000건)" : ""}
+          </button>
+          <button
+            type="button"
+            disabled={busy || !picked.length}
+            onClick={() => setPicked([])}
+          >
+            선택 해제
+          </button>
+          <button
+            type="button"
+            disabled={busy || !chosen.length}
+            onClick={() => {
+              const reason = prompt(
+                `선택한 출결 기록 ${chosen.length}건의 삭제 사유를 입력하세요. 삭제 전 기록은 관리자 변경 이력에 남습니다.`,
+              );
+              if (!reason?.trim()) return;
+              const ongoing = chosen.filter((v) => !v.exited_at).length;
+              if (
+                !confirm(
+                  `출결 기록 ${chosen.length}건을 삭제할까요?${ongoing ? ` 입실 중인 기록 ${ongoing}건도 포함됩니다.` : ""} 삭제하면 출결 현황과 이용 통계에 반영됩니다.`,
+                )
+              )
+                return;
+              void act("visits_delete", {
+                ids: chosen.map((v) => v.id),
+                reason: reason.trim(),
+              })
+                .then(() => {
+                  setPicked([]);
+                  if (edit && chosen.some((v) => v.id === edit.id))
+                    setEdit(null);
+                })
+                .catch(() => {});
+            }}
+          >
+            선택 기록 삭제
+          </button>
+        </div>
+      )}
       <div className="panel table-wrap">
         <table>
           <thead>
             <tr>
+              {canEdit && (
+                <th>
+                  <input
+                    type="checkbox"
+                    aria-label="조회 기록 전체 선택"
+                    disabled={busy || !visits.length}
+                    checked={allPicked}
+                    ref={(el) => {
+                      if (el)
+                        el.indeterminate = chosen.length > 0 && !allPicked;
+                    }}
+                    onChange={(e) =>
+                      setPicked(
+                        e.target.checked ? selectable.map((v) => v.id) : [],
+                      )
+                    }
+                  />
+                </th>
+              )}
               {teacher && <th>학생</th>}
               <th>입실</th>
               <th>퇴실</th>
@@ -2049,6 +2124,26 @@ function Records({
                   data.settings.missing_hours * 3600000;
               return (
                 <tr key={v.id}>
+                  {canEdit && (
+                    <td>
+                      <input
+                        type="checkbox"
+                        aria-label={`${data.students.find((s) => s.id === v.student_id)?.name || "학생"} ${time(v.entered_at)} 출결 기록 선택`}
+                        disabled={
+                          busy ||
+                          (!picked.includes(v.id) && chosen.length >= 1000)
+                        }
+                        checked={picked.includes(v.id)}
+                        onChange={(e) =>
+                          setPicked(
+                            e.target.checked
+                              ? [...picked, v.id]
+                              : picked.filter((id) => id !== v.id),
+                          )
+                        }
+                      />
+                    </td>
+                  )}
                   {teacher && (
                     <td>
                       {data.students.find((s) => s.id === v.student_id)?.name}

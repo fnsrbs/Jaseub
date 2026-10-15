@@ -221,6 +221,15 @@ Deno.serve(async (req) => {
       if (error) throw Error(error.message);
       return reply(data);
     }
+    if (action === "visits_delete") {
+      const { data, error } = await db.rpc("delete_visits", {
+        p_admin: admin,
+        p_visits: payload.ids,
+        p_reason: payload.reason,
+      });
+      if (error) throw Error(error.message);
+      return reply(data);
+    }
     if (action === "visit_delete") {
       const { data, error } = await db.rpc("delete_visit", {
         p_admin: admin,

@@ -276,6 +276,32 @@ export async function demoApi(
     localStorage.setItem("study-hall-demo-site-copy", JSON.stringify(p.copy));
     return p.copy;
   }
+  if (action === "visits_delete") {
+    if (!p.reason?.trim() || p.reason.length > 1000)
+      throw Error("삭제 사유를 입력하세요.");
+    if (
+      !Array.isArray(p.ids) ||
+      !p.ids.length ||
+      p.ids.length > 1000 ||
+      new Set(p.ids).size !== p.ids.length
+    )
+      throw Error("삭제할 기록을 1~1000건 선택하세요.");
+    const records = state.visits.filter((v) => p.ids.includes(v.id));
+    if (records.length !== p.ids.length)
+      throw Error(
+        "선택한 기록 중 이미 삭제되었거나 없는 기록이 있습니다. 다시 조회하세요.",
+      );
+    for (const record of records)
+      state.audits.unshift({
+        kind: "visit_delete_bulk",
+        before_value: record,
+        reason: p.reason.trim(),
+        created_at: now(),
+      });
+    state.visits = state.visits.filter((v) => !p.ids.includes(v.id));
+    save();
+    return { deleted: records.length };
+  }
   if (action === "visit_delete") {
     if (!String(p.reason || "").trim()) throw Error("삭제 사유를 입력하세요.");
     const vi = state.visits.find((v) => v.id === p.id);
