@@ -143,6 +143,14 @@ Deno.serve(async (req) => {
     const viewerToken = req.headers.get("x-teacher-session");
     if (viewerToken) {
       if (!/^[a-f0-9]{64}$/.test(viewerToken)) throw Error("교사 세션 오류");
+      if (action === "cleaning") {
+        const { data, error } = await db.rpc("cleaning_api", {
+          p_action: "read",
+          p_viewer_session: await hash(viewerToken),
+        });
+        if (error) throw Error(error.message);
+        return reply(data);
+      }
       if (action === "supervision") {
         const { data, error } = await db.rpc("supervision_api", {
           p_action: "read",
@@ -273,6 +281,21 @@ Deno.serve(async (req) => {
         ...recorded,
         spreadsheet_url: `https://docs.google.com/spreadsheets/d/${source.spreadsheet_id}/edit#gid=${source.target_sheet_id}`,
       });
+    }
+    if (["cleaning", "cleaning_save", "cleaning_delete"].includes(action)) {
+      const { data, error } = await db.rpc("cleaning_api", {
+        p_action:
+          action === "cleaning"
+            ? "read"
+            : action === "cleaning_save"
+              ? "save"
+              : "delete",
+        p_payload: action === "cleaning" ? {} : payload,
+        p_admin: admin,
+        p_student_session: session,
+      });
+      if (error) throw Error(error.message);
+      return reply(data);
     }
     if (action === "supervision" || action === "supervision_save") {
       const { data, error } = await db.rpc("supervision_api", {

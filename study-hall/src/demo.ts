@@ -7,6 +7,10 @@ import {
   type SupervisionSlot,
 } from "./domain";
 import { validateDeskPairs } from "./seat-pairs";
+import type { CleaningSlot } from "./cleaning-plan";
+let cleaning: CleaningSlot[] = JSON.parse(
+  localStorage.getItem("study-hall-fictional-cleaning") || "[]",
+);
 const now = () => new Date().toISOString();
 import { classroomSeats } from "./seat-layout";
 import { defaultSiteCopy } from "./site-copy";
@@ -222,6 +226,7 @@ export async function demoApi(
     }
     return data;
   }
+  if (action === "cleaning") return structuredClone(cleaning);
   if (action === "supervision") {
     if (!teacher && !viewer) throw Error("교사 또는 관리자 권한이 필요합니다.");
     return structuredClone(supervision);
@@ -315,6 +320,44 @@ export async function demoApi(
     return card;
   }
   if (!teacher) throw Error("관리자 권한이 필요합니다.");
+  if (action === "cleaning_save") {
+    const next = structuredClone(cleaning);
+    for (const s of p.slots) {
+      const i = next.findIndex((c) => c.day === s.day);
+      if ((i < 0 ? 0 : next[i].revision) !== s.revision)
+        throw Error("다른 변경이 있습니다. 다시 조회하세요.");
+      const row = {
+        day: s.day,
+        note: s.note,
+        revision: s.revision + 1,
+        students: s.student_ids.map((id: string) => {
+          const st = state.students.find(
+            (st) => st.id === id && st.active && !st.deleted_at,
+          );
+          if (!st) throw Error("학생을 확인하세요.");
+          return { id: st.id, name: st.name, number: st.number };
+        }),
+      };
+      if (i < 0) next.push(row);
+      else next[i] = row;
+    }
+    cleaning = next.sort((a, b) => a.day.localeCompare(b.day));
+    localStorage.setItem(
+      "study-hall-fictional-cleaning",
+      JSON.stringify(cleaning),
+    );
+    return { saved: p.slots.length };
+  }
+  if (action === "cleaning_delete") {
+    if (!cleaning.some((c) => c.day === p.day && c.revision === p.revision))
+      throw Error("다른 변경이 있습니다. 다시 조회하세요.");
+    cleaning = cleaning.filter((c) => c.day !== p.day);
+    localStorage.setItem(
+      "study-hall-fictional-cleaning",
+      JSON.stringify(cleaning),
+    );
+    return {};
+  }
   if (action === "supervision_save") {
     const draft = structuredClone(supervision);
     for (const slot of p.slots) {

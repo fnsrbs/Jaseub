@@ -53,6 +53,7 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     await db.exec(migration("_supervision_schedule.sql"));
     await db.exec(migration("_seat_sheet_sync.sql"));
     await db.exec(migration("_roster_sheet_import.sql"));
+    await db.exec(migration("_cleaning_schedule.sql"));
     await assert.rejects(db.query("select code_digest('AB12')"), /형식/);
     const admin = crypto.randomUUID(),
       outsider = crypto.randomUUID(),
@@ -877,7 +878,119 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
       (await importRows(admin, [{ number: "39901", name: "복원 금지" }])).added,
       0,
     );
+    const cleaningApi = async (
+      action: string,
+      payload: any = {},
+      who: string | null = admin,
+      viewerToken: string | null = null,
+      studentToken: string | null = null,
+    ) =>
+      (
+        await db.query<{ r: any }>("select cleaning_api($1,$2,$3,$4,$5) r", [
+          action,
+          JSON.stringify(payload),
+          who,
+          viewerToken,
+          studentToken,
+        ])
+      ).rows[0].r;
+    await assert.rejects(cleaningApi("read", {}, null), /로그인/);
+    await assert.rejects(cleaningApi("read", {}, outsider), /로그인/);
+    const cleaner = crypto.randomUUID();
+    await db.query(
+      "insert into students(id,number,name) values($1,'39801','청소 테스트')",
+      [cleaner],
+    );
+    await db.query("select issue_student_code($1,$2)", [admin, cleaner]);
+    await db.query(
+      "insert into student_sessions(token_hash,student_id,version,expires_at) select $1,student_id,version,now()+interval '1 hour' from student_codes where student_id=$2",
+      ["c".repeat(64), cleaner],
+    );
+    assert.deepEqual(await cleaningApi("read"), []);
+    const freshViewerCode = (await access(admin)).code;
+    await login(freshViewerCode, "d".repeat(64));
+    assert.deepEqual(await cleaningApi("read", {}, null, "d".repeat(64)), []);
+    await assert.rejects(
+      cleaningApi("save", { slots: [] }, null, "d".repeat(64)),
+      /관리자/,
+    );
+    const slot = {
+      day: "2026-10-21",
+      student_ids: [cleaner],
+      note: "바닥 정리",
+      revision: 0,
+    };
+    await cleaningApi("save", { slots: [slot] });
+    const read = await cleaningApi("read", {}, null, null, "c".repeat(64));
+    assert.equal(read[0].students[0].number, "39801");
+    assert.deepEqual(Object.keys(read[0].students[0]).sort(), [
+      "id",
+      "name",
+      "number",
+    ]);
+    await assert.rejects(
+      cleaningApi("save", { slots: [slot] }, null, null, "c".repeat(64)),
+      /관리자/,
+    );
+    await assert.rejects(
+      cleaningApi(
+        "delete",
+        { day: slot.day, revision: 1 },
+        null,
+        null,
+        "c".repeat(64),
+      ),
+      /관리자/,
+    );
+    await assert.rejects(cleaningApi("save", { slots: [slot] }), /다른 변경/);
+    await assert.rejects(
+      cleaningApi("save", {
+        slots: [
+          { ...slot, day: "2026-10-23", student_ids: [cleaner, cleaner] },
+        ],
+      }),
+      /중복/,
+    );
+    await assert.rejects(
+      cleaningApi("save", {
+        slots: [
+          { ...slot, day: "2026-10-23", student_ids: [crypto.randomUUID()] },
+        ],
+      }),
+      /학생/,
+    );
+    await assert.rejects(
+      cleaningApi("save", {
+        slots: [
+          { ...slot, day: "2026-10-23" },
+          { ...slot, day: "2026-10-28", student_ids: [crypto.randomUUID()] },
+        ],
+      }),
+      /학생/,
+    );
+    assert.equal((await cleaningApi("read")).length, 1);
+    await cleaningApi("save", {
+      slots: [{ ...slot, revision: 1, note: "수정" }],
+    });
+    await assert.rejects(
+      cleaningApi("delete", { day: slot.day, revision: 1 }),
+      /다른 변경/,
+    );
+    await cleaningApi("delete", { day: slot.day, revision: 2 });
+    assert.deepEqual(await cleaningApi("read"), []);
+    await db.exec(
+      "update student_sessions set expires_at=now()-interval '1 second' where token_hash=repeat('c',64)",
+    );
+    await assert.rejects(
+      cleaningApi("read", {}, null, null, "c".repeat(64)),
+      /로그인/,
+    );
     await db.exec("set role authenticated");
+    await assert.rejects(cleaningApi("read"), /permission/i);
+    await assert.rejects(
+      db.query("select * from cleaning_slots"),
+      /permission/i,
+    );
     await assert.rejects(
       importRows(admin, [{ number: "39902", name: "권한" }]),
       /permission/i,

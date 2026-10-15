@@ -1066,6 +1066,36 @@ blockquote {
   grid-column: 1 / -1;
   min-width: 0;
 }
+.cleaning-generator {
+  margin: 16px 0;
+}
+.cleaning-generator summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+.cleaning-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  min-width: 220px;
+}
+.cleaning-members span {
+  white-space: nowrap;
+}
+.cleaning-mine {
+  background: #eef7f1;
+}
+.cleaning-me {
+  font-weight: 700;
+  color: #176b55;
+}
+.cleaning-student-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+}
 .compact-seat-picker {
   border: 1px solid #d5dfd8;
   border-radius: 10px;

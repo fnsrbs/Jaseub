@@ -27,6 +27,7 @@ import { GenderLegend } from "./GenderLegend";
 import { WarningCards } from "./WarningCards";
 import { StudentLookup } from "./StudentLookup";
 import { Supervision } from "./Supervision";
+import { Cleaning } from "./Cleaning";
 import { pairLottery, validateDeskPairs } from "./seat-pairs";
 import { defaultSiteCopy, type SiteCopy } from "./site-copy";
 type Role = "teacher" | "student" | "viewer";
@@ -218,6 +219,7 @@ export default function App() {
     ? [
         ["home", "▦", "운영 대시보드"],
         ["supervision", "▦", "감독표 관리"],
+        ["cleaning", "♧", "청소 당번 관리"],
         ["students", "♙", "학생 관리"],
         ["seats", "▤", "좌석 관리"],
         ["warnings", "▣", "경고카드"],
@@ -232,6 +234,7 @@ export default function App() {
       ? [
           ["home", "▦", "운영 현황"],
           ["supervision", "▦", "감독 조회"],
+          ["cleaning", "♧", "청소 당번표"],
           ["student-lookup", "♙", "학생 조회"],
           ["seats", "▤", "좌석 확인"],
           ["warnings", "▣", "경고카드"],
@@ -242,6 +245,7 @@ export default function App() {
         ]
       : [
           ["home", "▦", "내 자습실"],
+          ["cleaning", "♧", "청소 당번표"],
           ["seats", "▤", "좌석 확인"],
           ["warnings", "▣", "경고카드"],
           ["records", "◷", "나의 출결"],
@@ -309,13 +313,15 @@ export default function App() {
               <p>
                 {page === "supervision"
                   ? "날짜와 교시별 감독 일정을 확인하세요."
-                  : page === "warnings"
-                    ? teacher
-                      ? "학생별 경고 내역을 확인하고 자습실 이용 규칙을 안내해 주세요."
-                      : "경고 사유와 누적 횟수를 확인하고 자습실 이용 규칙을 지켜 주세요."
-                    : teacher
-                      ? "오늘의 학습 공간을 한눈에 살펴보세요."
-                      : "오늘도 나만의 속도로 한 걸음 나아가요."}
+                  : page === "cleaning"
+                    ? "청소 날짜와 당번 순서를 확인하세요."
+                    : page === "warnings"
+                      ? teacher
+                        ? "학생별 경고 내역을 확인하고 자습실 이용 규칙을 안내해 주세요."
+                        : "경고 사유와 누적 횟수를 확인하고 자습실 이용 규칙을 지켜 주세요."
+                      : teacher
+                        ? "오늘의 학습 공간을 한눈에 살펴보세요."
+                        : "오늘도 나만의 속도로 한 걸음 나아가요."}
               </p>
             </div>
             <div className="exam">
@@ -569,6 +575,9 @@ export default function App() {
                   token={token}
                   act={act}
                 />
+              )}
+              {page === "cleaning" && (
+                <Cleaning role={role} token={token} data={data} act={act} />
               )}
               {page === "qr" && admin && (
                 <QRDisplay role={role} token={token} />

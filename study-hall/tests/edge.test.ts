@@ -179,6 +179,8 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
         "sheet_sync_setup",
         "sheet_sync_configure",
         "roster_import",
+        "cleaning_save",
+        "cleaning_delete",
         "site_copy",
         "student_gender",
         "code",
@@ -252,6 +254,35 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
       );
       assert.equal(calls.at(-1).args.p_admin, null);
       assert.equal(calls.at(-1).args.p_viewer_session, undefined);
+    },
+  );
+  await t.test(
+    "청소표 학생·교사 조회와 관리자 수정은 서버 인증 신원만 사용",
+    async () => {
+      assert.equal((await send("cleaning")).status, 401);
+      await send(
+        "cleaning",
+        { p_admin: "spoof" },
+        { "x-student-session": "a".repeat(64) },
+      );
+      assert.equal(calls.at(-1).name, "cleaning_api");
+      assert.equal(calls.at(-1).args.p_admin, null);
+      assert.equal(calls.at(-1).args.p_action, "read");
+      assert.equal(calls.at(-1).args.p_student_session.length, 64);
+      await send(
+        "cleaning",
+        { p_admin: "spoof" },
+        { "x-teacher-session": "b".repeat(64) },
+      );
+      assert.equal(calls.at(-1).args.p_viewer_session.length, 64);
+      assert.equal(calls.at(-1).args.p_admin, undefined);
+      await send(
+        "cleaning_save",
+        { slots: [], p_admin: "spoof" },
+        { Authorization: "Bearer verified-teacher" },
+      );
+      assert.equal(calls.at(-1).args.p_admin, "teacher-id");
+      assert.equal(calls.at(-1).args.p_action, "save");
     },
   );
   await t.test("구글 시트 연결 정보 요청도 서버 검증 신원만 전달", async () => {
