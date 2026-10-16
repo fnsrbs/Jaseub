@@ -1,5 +1,50 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Snapshot, Student } from "./domain";
+import { api } from "./api";
+import type { CollectionCounts } from "./CollectedRecords";
+function StudentCollectionSummary({ studentId }: { studentId: string }) {
+  const [counts, setCounts] = useState<CollectionCounts | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let alive = true;
+    const role = sessionStorage.getItem("sh-role") as "teacher" | "viewer";
+    const token = sessionStorage.getItem("sh-token");
+    api("weekly_ranking", { scope: "day" }, role, token)
+      .then((ranking) => {
+        if (!alive) return;
+        const collection = ranking.rows?.find(
+          (r: { id: string }) => r.id === studentId,
+        )?.collection;
+        if (collection) setCounts(collection);
+        else setError("현재 수집 기록 집계 대상이 아닙니다.");
+      })
+      .catch(() => {
+        if (alive) setError("수집 개수를 불러오지 못했습니다.");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [studentId]);
+  return (
+    <p className="student-collection-summary" aria-label="학생 누적 수집 개수">
+      {counts ? (
+        <>
+          <span>
+            👑 왕관 <strong>{counts.crowns}개</strong>
+          </span>
+          <span>
+            ⭐ 별 <strong>{counts.stars}개</strong>
+          </span>
+          <span>
+            🍀 클로버 <strong>{counts.clovers}개</strong>
+          </span>
+        </>
+      ) : (
+        error || "수집 개수를 불러오는 중입니다."
+      )}
+    </p>
+  );
+}
 export function StudentLookup({
   data,
   renderDetails,
@@ -129,6 +174,7 @@ export function StudentLookup({
               }
               장
             </p>
+            <StudentCollectionSummary key={student.id} studentId={student.id} />
           </div>
           {renderDetails(student)}
           <div className="panel table-wrap">

@@ -36,7 +36,7 @@ import { StudentLookup } from "./StudentLookup";
 import { Supervision } from "./Supervision";
 import { Cleaning } from "./Cleaning";
 import { WeeklyRanking } from "./WeeklyRanking";
-import { CollectedRecords } from "./CollectedRecords";
+import { HomeCollectedRecords } from "./CollectedRecords";
 import { rememberedLogin, rememberLogin } from "./remembered-login";
 import { orderedMenu, cachedMenuOrders, cacheMenuOrders } from "./menu-order";
 import { MenuOrderEditor, type MenuConfig } from "./MenuOrderEditor";
@@ -514,14 +514,9 @@ export default function App() {
                         <div>
                           <span className="eyebrow">MY DAILY STUDY</span>
                           <h2>{me?.name} 님, 오늘도 파이팅!</h2>
-                          <CollectedRecords
-                            onlyClovers
-                            value={{
-                              crowns: 0,
-                              stars: 0,
-                              clovers: data.clovers ?? 0,
-                            }}
-                            role={role!}
+                          <HomeCollectedRecords
+                            clovers={data.clovers ?? 0}
+                            visits={data.visits}
                             token={token}
                           />
                           <p>

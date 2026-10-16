@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import { rankingTime } from "./study-ranking";
+import type { Visit } from "./domain";
 
 export type CollectionCounts = {
   crowns: number;
@@ -13,6 +14,41 @@ type History = {
   total: number;
   records: { day: string; rank: number | null; seconds: number | null }[];
 };
+export function HomeCollectedRecords({
+  clovers,
+  token,
+  visits,
+}: {
+  clovers: number;
+  token: string | null;
+  visits: Visit[];
+}) {
+  const [counts, setCounts] = useState<CollectionCounts | null>(null);
+  const revision = visits.map((v) => `${v.id}:${v.exited_at ?? ""}`).join("|");
+  useEffect(() => {
+    let alive = true;
+    api("weekly_ranking", { scope: "day" }, "student", token)
+      .then((r) => {
+        if (alive) setCounts(r.mine?.collection ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [token, revision, clovers]);
+  return (
+    <CollectedRecords
+      onlyClovers
+      value={{
+        crowns: counts?.crowns ?? 0,
+        stars: counts?.stars ?? 0,
+        clovers,
+      }}
+      role="student"
+      token={token}
+    />
+  );
+}
 export function CollectedRecords({
   value,
   role,
@@ -34,7 +70,11 @@ export function CollectedRecords({
         aria-label={onlyClovers ? "출석 클로버" : "누적 수집 개수"}
       >
         {(onlyClovers
-          ? (["clovers"] as Kind[])
+          ? ([
+              "clovers",
+              ...(value?.crowns ? ["crowns"] : []),
+              ...(value?.stars ? ["stars"] : []),
+            ] as Kind[])
           : (Object.keys(labels) as Kind[])
         ).map((k) => (
           <button
@@ -43,13 +83,13 @@ export function CollectedRecords({
             onClick={() => setKind(k)}
             aria-label={`${labels[k]} ${value?.[k] ?? 0}개 획득 기록 보기`}
           >
-            {onlyClovers ? "🍀 출석 클로버" : labels[k]}{" "}
+            {onlyClovers && k === "clovers" ? "🍀 출석 클로버" : labels[k]}{" "}
             <strong>{value?.[k] ?? 0}개</strong>
           </button>
         ))}
         {onlyClovers && (
           <small>
-            출석한 날마다 하루 1개씩 쌓여요. 눌러서 기록을 확인하세요.
+            출석 클로버는 하루 1개씩 쌓여요. 눌러서 언제 모았는지 확인하세요.
           </small>
         )}
       </div>
