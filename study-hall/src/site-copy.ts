@@ -6,13 +6,18 @@ export const defaultSiteCopy = {
   login_title: "자습실에 들어가기",
   login_greeting: "안녕하세요. 오늘의 집중을 시작해 볼까요?",
   production_badge: "용인고등학교",
+  ranking_encouragement:
+    "자신의 속도에 맞춰 꾸준히 공부해 주세요.\n\n조급해하지 않고 나아가다 보면, 어느새 목표에 가까워져 있을 거예요.\n\n꾸준히 나아가는 여러분의 모든 걸음을 응원합니다!",
 };
 export type SiteCopy = typeof defaultSiteCopy;
 export function cachedSiteCopy(mode: string): SiteCopy | null {
   try {
-    const value = JSON.parse(
+    const stored = JSON.parse(
       localStorage.getItem(`sh-public-copy-${mode}`) || "null",
     );
+    if (!stored || typeof stored !== "object" || Array.isArray(stored))
+      return null;
+    const value = { ...defaultSiteCopy, ...stored };
     if (
       !value ||
       Object.keys(defaultSiteCopy).some(

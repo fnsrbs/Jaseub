@@ -1,4 +1,4 @@
-import { demoStudyRanking } from "./study-ranking";
+import { demoStudyRanking, demoCollections } from "./study-ranking";
 import {
   koreanDay,
   totals,
@@ -30,6 +30,16 @@ let cleaningNotice = JSON.parse(
   body: "청소 당번은 3학년부에서 청소 도구를 가져와 청소해 주세요. 창문을 열어 환기하고, 청소가 끝나면 도구를 제자리에 반납해 주세요.",
   revision: 1,
 };
+function readDemoCopy() {
+  try {
+    return {
+      ...defaultSiteCopy,
+      ...JSON.parse(localStorage.getItem("study-hall-demo-site-copy") || "{}"),
+    };
+  } catch {
+    return { ...defaultSiteCopy };
+  }
+}
 const now = () => new Date().toISOString();
 import { classroomSeats } from "./seat-layout";
 import { defaultSiteCopy } from "./site-copy";
@@ -189,17 +199,7 @@ export async function demoApi(
   role: "student" | "teacher" | "viewer" | null,
   session: string | null,
 ): Promise<any> {
-  if (action === "public_copy") {
-    try {
-      return (
-        JSON.parse(
-          localStorage.getItem("study-hall-demo-site-copy") || "null",
-        ) || defaultSiteCopy
-      );
-    } catch {
-      return defaultSiteCopy;
-    }
-  }
+  if (action === "public_copy") return readDemoCopy();
   if (action === "teacher_login") {
     if (
       p.code !==
@@ -229,6 +229,19 @@ export async function demoApi(
   }
   if (action === "snapshot") {
     const data = structuredClone(state);
+    if (!teacher && !viewer)
+      data.clovers =
+        demoCollections(
+          state.students,
+          state.visits,
+          Date.now(),
+          Object.values(
+            JSON.parse(
+              localStorage.getItem("study-hall-period-attendance") || "{}",
+            ),
+          ).flatMap((d: any) => d.sessions),
+        )[sid!]?.clovers ?? 0;
+    data.settings.site_copy = readDemoCopy();
     data.current = data.visits.filter((v) => !v.exited_at).length;
     data.today = new Set(
       data.visits
@@ -495,9 +508,23 @@ export async function demoApi(
       scope,
       Date.now(),
     );
-    if (teacher || viewer) return ranking;
-    const r = ranking.rows.find((r) => r.id === sid);
-    const { rows, ...shared } = ranking;
+    const collections = demoCollections(
+      state.students,
+      state.visits,
+      Date.now(),
+      Object.values(
+        JSON.parse(
+          localStorage.getItem("study-hall-period-attendance") || "{}",
+        ),
+      ).flatMap((d: any) => d.sessions),
+    );
+    const collectedRanking = {
+      ...ranking,
+      rows: ranking.rows.map((r) => ({ ...r, collection: collections[r.id] })),
+    };
+    if (teacher || viewer) return collectedRanking;
+    const r = collectedRanking.rows.find((r) => r.id === sid);
+    const { rows, ...shared } = collectedRanking;
     return {
       ...shared,
       mine: r
@@ -507,6 +534,7 @@ export async function demoApi(
             tied: r.tied,
             tied_count: r.tied_count,
             leader_gap_seconds: r.leader_gap_seconds,
+            collection: r.collection,
           }
         : null,
     };
@@ -719,8 +747,16 @@ export async function demoApi(
     return { updated: 72, last_synced_at: date, demo: true };
   }
   if (action === "site_copy") {
-    localStorage.setItem("study-hall-demo-site-copy", JSON.stringify(p.copy));
-    return p.copy;
+    const copy = { ...readDemoCopy(), ...p.copy };
+    if (
+      Object.keys(copy).some((k) => !Object.hasOwn(defaultSiteCopy, k)) ||
+      Object.keys(defaultSiteCopy).some(
+        (k) => typeof copy[k] !== "string" || copy[k].length > 2000,
+      )
+    )
+      throw Error("문구는 2000자 이내의 글자로 입력하세요.");
+    localStorage.setItem("study-hall-demo-site-copy", JSON.stringify(copy));
+    return copy;
   }
   if (action === "visits_delete") {
     if (!p.reason?.trim() || p.reason.length > 1000)

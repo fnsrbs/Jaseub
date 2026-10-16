@@ -12,6 +12,7 @@ type Entry = {
   tied: boolean;
   tied_count: number;
   leader_gap_seconds: number | null;
+  collection?: { crowns: number; stars: number; clovers: number };
 };
 type Ranking = {
   participants: number;
@@ -31,14 +32,31 @@ function RankAward({ rank }: { rank: number | null | undefined }) {
     </span>
   );
 }
+function Collection({ value }: { value: Entry["collection"] }) {
+  return (
+    <div className="ranking-collection" aria-label="누적 수집 개수">
+      <span>
+        👑 왕관 <strong>{value?.crowns ?? 0}개</strong>
+      </span>
+      <span>
+        ⭐ 별 <strong>{value?.stars ?? 0}개</strong>
+      </span>
+      <span>
+        🍀 클로버 <strong>{value?.clovers ?? 0}개</strong>
+      </span>
+    </div>
+  );
+}
 export function WeeklyRanking({
   role,
   token,
   visits,
+  encouragement,
 }: {
   role: "teacher" | "viewer" | "student";
   token: string | null;
   visits: Visit[];
+  encouragement: string;
 }) {
   const [scope, setScope] = useState<"day" | "week">("week");
   const period = scope === "day" ? "오늘" : "이번 주";
@@ -93,12 +111,9 @@ export function WeeklyRanking({
         같은 공부시간은 공동 순위입니다.
       </p>
       <p>월·화 16:30 / 수·목·금 15:30에 자동으로 퇴실 처리됩니다.</p>
-      <p className="ranking-encouragement">
-        자신의 속도에 맞춰 꾸준히 공부해 주세요. 조급해하지 않고 나아가다 보면,
-        어느새 목표에 가까워져 있을 거예요.
-        <br />
-        꾸준히 나아가는 여러분의 모든 걸음을 응원합니다.
-      </p>
+      {encouragement.trim() && (
+        <p className="ranking-encouragement">{encouragement}</p>
+      )}
       {error ? (
         <p role="alert" className="error-text">
           {error}
@@ -121,6 +136,7 @@ export function WeeklyRanking({
                   <th>이름</th>
                   <th>{period} 공부시간</th>
                   <th>1등과의 차이</th>
+                  <th>누적 수집</th>
                 </tr>
               </thead>
               <tbody>
@@ -142,6 +158,9 @@ export function WeeklyRanking({
                           ? "차이 없음"
                           : rankingTime(r.leader_gap_seconds)}
                     </td>
+                    <td>
+                      <Collection value={r.collection} />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -151,6 +170,13 @@ export function WeeklyRanking({
         </>
       ) : (
         <>
+          <h3>내가 모은 보상</h3>
+          <Collection value={ranking.mine?.collection} />
+          <p className="ranking-collection-note">
+            하루 집계 후 1위 👑 · 2~5위 ⭐ · 출석한 날마다 🍀 1개. 공동 순위도
+            같은 보상을 받아요. 기존 기록을 포함한 누적 개수이며, 출결 기록을
+            수정하면 함께 반영됩니다.
+          </p>
           <strong className="my-weekly-rank">
             <RankAward rank={ranking.mine?.rank} />
             {ranking.mine?.rank

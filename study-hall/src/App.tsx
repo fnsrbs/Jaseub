@@ -118,8 +118,9 @@ export default function App() {
   const [copy, setCopy] = useState<SiteCopy>(initialCopy || defaultSiteCopy);
   const [copyReady, setCopyReady] = useState(mode === "demo" || !!initialCopy);
   const updateCopy = (next: SiteCopy) => {
-    setCopy(next);
-    cacheSiteCopy(mode, next);
+    const merged = { ...defaultSiteCopy, ...next };
+    setCopy(merged);
+    cacheSiteCopy(mode, merged);
     setCopyReady(true);
   };
   useEffect(() => {
@@ -143,6 +144,16 @@ export default function App() {
       alive = false;
     };
   }, []);
+  useEffect(() => {
+    if (!data?.settings.site_copy) return;
+    const next = { ...defaultSiteCopy, ...data.settings.site_copy };
+    if (
+      (Object.keys(defaultSiteCopy) as (keyof SiteCopy)[]).some(
+        (key) => copy[key] !== next[key],
+      )
+    )
+      updateCopy(next);
+  }, [data?.settings.site_copy]);
   const admin = role === "teacher";
   const teacher = admin || role === "viewer";
   const navigate = (p: string) => {
@@ -502,6 +513,11 @@ export default function App() {
                         <div>
                           <span className="eyebrow">MY DAILY STUDY</span>
                           <h2>{me?.name} 님, 오늘도 파이팅!</h2>
+                          <p className="home-clovers">
+                            🍀 출석 클로버{" "}
+                            <strong>{data.clovers ?? 0}개</strong>
+                            <small>출석한 날마다 하루 1개씩 쌓여요.</small>
+                          </p>
                           <p>
                             <span className={"status " + (active ? "in" : "")}>
                               {active ? "● 입실 중" : "○ 퇴실"}
@@ -565,7 +581,12 @@ export default function App() {
                 </>
               )}
               {page === "ranking" && (
-                <WeeklyRanking role={role} token={token} visits={data.visits} />
+                <WeeklyRanking
+                  role={role}
+                  token={token}
+                  visits={data.visits}
+                  encouragement={copy.ranking_encouragement}
+                />
               )}
               {page === "attendance" && !teacher && (
                 <AttendanceSummary
@@ -779,13 +800,14 @@ function SiteCopyEditor({
     login_title: "로그인 영역 제목",
     login_greeting: "로그인 안내 문구",
     production_badge: "운영 모드 표시 문구",
+    ranking_encouragement: "순위 응원 문구",
   };
   return (
     <div className="panel">
-      <h2>로그인 화면 문구 편집</h2>
+      <h2>화면 문구 편집</h2>
       <p>
-        저장하면 접속 화면에 반영됩니다. 제목과 설명은 줄바꿈을 사용할 수
-        있습니다.
+        로그인 화면과 순위 화면의 문구를 수정할 수 있습니다. 줄바꿈도 그대로
+        반영됩니다.
       </p>
       <form
         onSubmit={(e) => {
@@ -798,7 +820,14 @@ function SiteCopyEditor({
         {(Object.keys(labels) as (keyof SiteCopy)[]).map((key) => (
           <Field key={key} label={labels[key]}>
             <textarea
-              rows={key === "hero_title" || key === "hero_description" ? 3 : 2}
+              aria-label={labels[key]}
+              rows={
+                key === "ranking_encouragement"
+                  ? 6
+                  : key === "hero_title" || key === "hero_description"
+                    ? 3
+                    : 2
+              }
               maxLength={2000}
               value={draft[key]}
               onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}

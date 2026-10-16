@@ -60,6 +60,7 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     await db.exec(migration("_role_menu_order.sql"));
     await db.exec(migration("_period_attendance.sql"));
     await db.exec(migration("_attendance_summary.sql"));
+    await db.exec(migration("_ranking_collections.sql"));
     await assert.rejects(db.query("select code_digest('AB12')"), /형식/);
     const admin = crypto.randomUUID(),
       outsider = crypto.randomUUID(),
@@ -89,6 +90,34 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     });
     assert.equal((await getCopy()).hero_title, "테스트 제목\n다음 줄");
     assert.equal((await getCopy()).production_badge, "");
+    await db.exec(migration("_editable_ranking_message.sql"));
+    const upgradedCopy = await getCopy();
+    assert.equal(upgradedCopy.hero_title, "테스트 제목\n다음 줄");
+    assert.match(upgradedCopy.ranking_encouragement, /\n\n조급해/);
+    assert.ok(upgradedCopy.ranking_encouragement.endsWith("응원합니다!"));
+    await assert.rejects(setCopy(outsider, upgradedCopy), /관리자/);
+    await assert.rejects(
+      setCopy(admin, { ...upgradedCopy, ranking_encouragement: 42 }),
+      /응원 문구/,
+    );
+    await assert.rejects(
+      setCopy(admin, {
+        ...upgradedCopy,
+        ranking_encouragement: "가".repeat(2001),
+      }),
+      /2000/,
+    );
+    await setCopy(admin, {
+      ...upgradedCopy,
+      ranking_encouragement: "첫 문단\n\n둘째 문단!",
+    });
+    await setCopy(admin, originalCopy);
+    assert.equal(
+      (await getCopy()).ranking_encouragement,
+      "첫 문단\n\n둘째 문단!",
+    );
+    await setCopy(admin, { ...upgradedCopy, ranking_encouragement: "" });
+    assert.equal((await getCopy()).ranking_encouragement, "");
     await db.query(
       "insert into students(id,name,number,seat_id) values($1,'가상학생','D001',1)",
       [student],

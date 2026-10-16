@@ -5,6 +5,84 @@ import {
   type Student,
   type Visit,
 } from "./domain";
+import type { AttendanceSession } from "./period-attendance";
+export function demoCollections(
+  students: Student[],
+  visits: Visit[],
+  now: number,
+  sessions: AttendanceSession[] = [],
+) {
+  const eligible = students.filter((s) => s.active && !s.deleted_at);
+  const result: Record<
+    string,
+    { crowns: number; stars: number; clovers: number }
+  > = {};
+  const days = new Map<string, Map<string, number>>();
+  for (const s of eligible) {
+    const attended = new Set(
+      visits
+        .filter((v) => v.student_id === s.id && Date.parse(v.entered_at) <= now)
+        .map((v) => koreanDay(v.entered_at)),
+    );
+    for (const session of sessions)
+      if (
+        session.confirmed &&
+        session.day <= koreanDay(new Date(now)) &&
+        session.entries.some(
+          (e) =>
+            e.student_id === s.id && ["present", "late"].includes(e.status),
+        )
+      )
+        attended.add(session.day);
+    result[s.id] = { crowns: 0, stars: 0, clovers: attended.size };
+    for (const v of visits.filter(
+      (v) =>
+        v.student_id === s.id && v.exited_at && Date.parse(v.exited_at) <= now,
+    )) {
+      const end = Date.parse(v.exited_at!);
+      for (let t = Date.parse(v.entered_at); t < end;) {
+        const day = koreanDay(new Date(t)),
+          start = dayStart(day),
+          next = Math.min(end, start + 86400000),
+          weekday = new Date(start + 9 * 3600000).getUTCDay();
+        const cutoff = Date.parse(
+          day + (weekday <= 2 ? "T16:30:00+09:00" : "T15:30:00+09:00"),
+        );
+        if (
+          weekday >= 1 &&
+          weekday <= 5 &&
+          now >= cutoff &&
+          !visits.some(
+            (o) =>
+              !o.exited_at &&
+              resultEligible(o.student_id) &&
+              Date.parse(o.entered_at) < start + 86400000,
+          )
+        ) {
+          const scores = days.get(day) ?? new Map<string, number>();
+          scores.set(s.id, (scores.get(s.id) ?? 0) + (next - t) / 1000);
+          days.set(day, scores);
+        }
+        t = next;
+      }
+    }
+  }
+  function resultEligible(id: string) {
+    return eligible.some((s) => s.id === id);
+  }
+  for (const scores of days.values()) {
+    const values = [...scores]
+      .map(([id, seconds]) => ({ id, seconds: Math.floor(seconds) }))
+      .filter((x) => x.seconds > 0)
+      .sort((a, b) => b.seconds - a.seconds);
+    for (const x of values) {
+      const rank = values.findIndex((v) => v.seconds === x.seconds) + 1;
+      if (rank === 1) result[x.id].crowns++;
+      else if (rank <= 5) result[x.id].stars++;
+    }
+  }
+  return result;
+}
 export function rankingTime(seconds: number) {
   const n = Math.max(0, Math.floor(seconds)),
     h = Math.floor(n / 3600),

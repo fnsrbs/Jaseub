@@ -33,6 +33,7 @@ export type Suggestion = {
   updated_at: string;
 };
 export type Settings = {
+  site_copy?: Record<string, string>;
   capacity: number;
   exam_date: string | null;
   missing_hours: number;
@@ -44,6 +45,7 @@ export type OperatingDay = {
   student_ids: string[];
 };
 export type Snapshot = {
+  clovers?: number;
   warnings?: {
     id: string;
     student_id: string;
