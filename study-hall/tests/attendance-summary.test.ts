@@ -24,6 +24,15 @@ test("출결 집계: 본인만 조회, 만료 차단, 확정만 집계, 수정·
       "utf8",
     ),
   );
+  await db.exec(
+    await readFile(
+      new URL(
+        "../supabase/migrations/20261016083447_daily_attendance_summary.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
   const query = async (
     payload: any = {},
     student: string | null = "own",
@@ -49,14 +58,20 @@ test("출결 집계: 본인만 조회, 만료 차단, 확정만 집계, 수정·
   r = await query({}, null, "viewer");
   assert.equal(r.summaries.length, 2);
   assert.equal(r.records.length, 0);
+  await db.exec(`update period_attendance_sessions set confirmed=true where period=2;
+    insert into period_attendance_sessions values('2026-10-16',3,'[{"student_id":"00000000-0000-0000-0000-000000000001","status":"present"}]',true),('2026-10-15',1,'[{"student_id":"00000000-0000-0000-0000-000000000001","status":"present"}]',true);`);
+  r = await query();
+  assert.equal(r.summaries[0].present, 2);
+  assert.equal(r.total, 1);
+  assert.ok(r.records.every((v: any) => v.status !== "present"));
   await db.exec(
-    `update period_attendance_sessions set entries=jsonb_set(entries,'{0,status}','"late"') where period=1`,
+    `update period_attendance_sessions set entries=jsonb_set(entries,'{0,status}','"late"') where period=1 and day='2026-10-16'`,
   );
   r = await query();
   assert.equal(r.summaries[0].absent, 0);
   assert.equal(r.summaries[0].late, 1);
   await db.exec(
-    `update period_attendance_sessions set confirmed=false where period=1`,
+    `update period_attendance_sessions set confirmed=false where period=1 and day='2026-10-16'`,
   );
   r = await query();
   assert.equal(r.total, 0);

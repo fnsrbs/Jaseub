@@ -1069,6 +1069,17 @@ footer span {
   grid-column: 1/-1;
   font-size: 10px;
 }
+.checkout-guide,
+.camera-guide {
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.check-buttons .checkout-guide,
+.check-buttons .camera-guide {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 12px;
+}
 .field {
   display: flex;
   flex-direction: column;

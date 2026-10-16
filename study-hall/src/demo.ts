@@ -268,6 +268,7 @@ export async function demoApi(
         ),
     );
     const summaries: any = {};
+    const presentDays = new Set<string>();
     for (const r of records as any[]) {
       summaries[r.student_id] ||= {
         student_id: r.student_id,
@@ -276,16 +277,20 @@ export async function demoApi(
         absent: 0,
         excused: 0,
       };
-      summaries[r.student_id][r.status]++;
+      const key = r.student_id + ":" + r.day;
+      if (r.status !== "present" || !presentDays.has(key))
+        summaries[r.student_id][r.status]++;
+      if (r.status === "present") presentDays.add(key);
     }
-    records.sort(
+    const exceptions = records.filter((r: any) => r.status !== "present");
+    exceptions.sort(
       (a: any, b: any) => b.day.localeCompare(a.day) || b.period - a.period,
     );
     return {
       summaries: Object.values(summaries),
-      total: selected ? records.length : 0,
+      total: selected ? exceptions.length : 0,
       records: selected
-        ? records.slice(p.offset || 0, (p.offset || 0) + 100)
+        ? exceptions.slice(p.offset || 0, (p.offset || 0) + 100)
         : [],
     };
   }

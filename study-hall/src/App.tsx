@@ -1,4 +1,5 @@
 import { AttendanceSummary } from "./AttendanceSummary";
+import { CheckoutGuide, CameraGuide } from "./AttendanceGuide";
 import { pollWhileVisible } from "./visible-polling";
 import React, { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
@@ -605,6 +606,8 @@ export default function App() {
                           <small>
                             출결은 서버 저장이 완료된 후 반영됩니다.
                           </small>
+                          <CheckoutGuide />
+                          <CameraGuide />
                         </div>
                       </div>
                       <h2>오늘의 이용 시간</h2>
@@ -1473,6 +1476,7 @@ function QRDisplay({ role, token }: { role: Role; token: string | null }) {
       <div className="qr-poster">
         <p className="qr-brand">온실 · 자습실</p>
         <h2>입실·퇴실 현장 QR</h2>
+        <CheckoutGuide />
         <p>
           ① 내 코드로 로그인
           <br />② 입실 또는 퇴실 버튼 선택
@@ -1607,7 +1611,7 @@ function Scanner({
       setStatus("현장 QR을 화면 안에 맞춰 주세요.");
     } catch (e) {
       setError(
-        `카메라를 사용할 수 없습니다. 권한과 카메라 연결을 확인하세요. 교사에게 수동 처리를 요청할 수 있습니다. (${(e as Error).message || e})`,
+        `카메라를 사용할 수 없습니다. 새로고침한 뒤 카메라 권한을 ‘허용’하고 다시 시도하세요. 계속 안 되면 교사에게 수동 처리를 요청하세요. (${(e as Error).message || e})`,
       );
     }
   }
@@ -1642,6 +1646,8 @@ function Scanner({
         }}
       >
         <h2 id="scan-title">{direction === "in" ? "입실" : "퇴실"} QR 스캔</h2>
+        {direction === "out" && <CheckoutGuide />}
+        <CameraGuide />
         <div id="camera-reader" />
         <p role="status">{status}</p>
         {error && (
@@ -1652,6 +1658,16 @@ function Scanner({
         <div className="actions">
           <button autoFocus onClick={() => void start()} disabled={busy}>
             카메라 시작 / 재시도
+          </button>
+          <button
+            disabled={busy}
+            onClick={() =>
+              void stop()
+                .catch(() => {})
+                .finally(() => location.reload())
+            }
+          >
+            새로고침
           </button>
           <button
             onClick={() => {
@@ -3151,9 +3167,9 @@ function SettingsPanel({
       <div className="panel">
         <h2>기본 운영 설정</h2>
         <p>
-          자동 일괄 퇴실: 월·화 오후 5시 처리 → 4시 30분 퇴실 기록 / 수·목·금
-          오후 4시 처리 → 3시 30분 퇴실 기록 (한국 시간). 그때까지 입실 중인
-          학생만 처리합니다.
+          자동 일괄 퇴실: 월·화 오후 4시 30분 / 수·목·금 오후 3시 30분 (한국
+          시간). 입실 중인 학생은 정규 종료 시각에 자동 퇴실되며, 조퇴 등 중간
+          퇴실만 QR로 기록합니다.
         </p>
         <p className="muted">
           전체 학생 인원수를 저장하면 운영현황의 현재 입실·오늘 출석 인원에

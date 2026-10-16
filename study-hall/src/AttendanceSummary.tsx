@@ -80,9 +80,10 @@ export function AttendanceSummary({
   );
   return (
     <section className="panel attendance-summary" aria-label="교시별 출결 조회">
-      <h2>{own ? "내 교시별 출결" : "학생별 교시 출결"}</h2>
+      <h2>{own ? "내 출결" : "학생별 출결"}</h2>
       <p>
-        확인 완료한 교시만 집계합니다. 1교시 = 1회 · 미확인·초기화 기록 제외
+        출석은 하루 1일로, 지각·결석·인정결석은 교시별 1회로 집계합니다. 확인
+        완료한 기록만 포함합니다.
       </p>
       <div className="form-grid">
         <label className="field">
@@ -162,13 +163,13 @@ export function AttendanceSummary({
                       <small>{attendanceLabels[status]}</small>
                       <strong>
                         {counts?.[status] || 0}
-                        <small>회</small>
+                        <small>{status === "present" ? "일" : "회"}</small>
                       </strong>
                     </span>
                   ),
                 )}
               </div>
-              <h3>상세 기록 · {result.total}건</h3>
+              <h3>지각·결석·인정결석 기록 · {result.total}건</h3>
               <div className="table-wrap">
                 <table>
                   <thead>
@@ -199,7 +200,7 @@ export function AttendanceSummary({
                 </table>
               </div>
               {!result.total && (
-                <p>이 기간에 확인 완료된 출결 기록이 없습니다.</p>
+                <p>이 기간에 지각·결석·인정결석 기록이 없습니다.</p>
               )}
               {result.total > 100 && (
                 <div className="form-grid">
@@ -255,7 +256,10 @@ export function AttendanceSummary({
                         {(
                           Object.keys(attendanceLabels) as AttendanceStatus[]
                         ).map((status) => (
-                          <td key={status}>{c?.[status] || 0}회</td>
+                          <td key={status}>
+                            {c?.[status] || 0}
+                            {status === "present" ? "일" : "회"}
+                          </td>
                         ))}
                       </tr>
                     );
