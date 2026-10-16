@@ -3,16 +3,20 @@ import type { Snapshot, Student } from "./domain";
 export function StudentLookup({
   data,
   renderDetails,
+  initialSelectedId = "",
+  onClose,
 }: {
   data: Snapshot;
   renderDetails: (student: Student) => ReactNode;
+  initialSelectedId?: string;
+  onClose?: () => void;
 }) {
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState("");
+  const [selected, setSelected] = useState(initialSelectedId);
   const listScroll = useRef(0);
   const detailHeading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
-    window.scrollTo({ top: selected ? 0 : listScroll.current });
+    if (!onClose) window.scrollTo({ top: selected ? 0 : listScroll.current });
     if (selected) detailHeading.current?.focus({ preventScroll: true });
   }, [selected]);
   const students = data.students
@@ -106,8 +110,11 @@ export function StudentLookup({
       {student && (
         <section aria-label={`${student.name} 학생 상세`}>
           <div className="panel">
-            <button type="button" onClick={() => setSelected("")}>
-              ← 학생 목록으로
+            <button
+              type="button"
+              onClick={() => (onClose ? onClose() : setSelected(""))}
+            >
+              {onClose ? "← 운영현황으로 돌아가기" : "← 학생 목록으로"}
             </button>
             <h2 ref={detailHeading} tabIndex={-1}>
               {student.number} · {student.name}

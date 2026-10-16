@@ -107,6 +107,30 @@
   font-synthesis: none;
   font-size: 14px;
 }
+.seat-student-details {
+  width: min(1040px, calc(100% - 24px));
+  max-height: 90dvh;
+  padding: 20px;
+  border: 1px solid #d4ddd7;
+  border-radius: 16px;
+  background: #f5f7f5;
+  color: #24382f;
+  overscroll-behavior: contain;
+}
+.seat-student-details::backdrop {
+  background: #102c3077;
+}
+.seat-student-details .panel {
+  min-width: 0;
+}
+@media (max-width: 600px) {
+  .seat-student-details {
+    padding: 12px;
+  }
+  .seat-student-details .panel {
+    padding: 16px;
+  }
+}
 * {
   box-sizing: border-box;
 }

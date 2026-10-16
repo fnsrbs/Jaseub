@@ -86,6 +86,7 @@ export default function App() {
     [scan, setScan] = useState<"in" | "out" | null>(null),
     [selected, setSelected] = useState("");
   const inFlight = useRef(false);
+  const [detailStudent, setDetailStudent] = useState("");
   const [menuOrders, setMenuOrders] = useState(() => cachedMenuOrders(mode));
   const [menuConfig, setMenuConfig] = useState<MenuConfig | null>(null);
   const updateMenuConfig = (next: MenuConfig) => {
@@ -376,6 +377,14 @@ export default function App() {
               </strong>
             </div>
           </div>
+          {teacher && data && detailStudent && (
+            <SeatStudentDetails
+              data={data}
+              studentId={detailStudent}
+              now={currentNow}
+              close={() => setDetailStudent("")}
+            />
+          )}
           {error && (
             <div role="alert" className="alert error">
               {error} <button onClick={() => safe(refresh())}>다시 조회</button>
@@ -456,7 +465,15 @@ export default function App() {
                         data={data}
                         teacher
                         selected={selected}
-                        onSelect={setSelected}
+                        onSelect={(id) => {
+                          setSelected(id);
+                          if (
+                            data.students.some(
+                              (s) => s.id === id && !s.deleted_at,
+                            )
+                          )
+                            setDetailStudent(id);
+                        }}
                       />
                       {chosen && (
                         <div className="panel selected-card">
@@ -1047,6 +1064,50 @@ function Login({
         <small>개인 접속 코드는 다른 사람과 공유하지 마세요.</small>
       </section>
     </div>
+  );
+}
+function SeatStudentDetails({
+  data,
+  studentId,
+  now,
+  close,
+}: {
+  data: Snapshot;
+  studentId: string;
+  now: number;
+  close: () => void;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    dialog.current?.showModal();
+    return () => dialog.current?.close();
+  }, []);
+  const student = data.students.find(
+    (s) => s.id === studentId && !s.deleted_at,
+  );
+  return (
+    <dialog
+      ref={dialog}
+      className="seat-student-details"
+      aria-label={student ? `${student.name} 학생 상세` : "학생 상세"}
+      onClose={close}
+    >
+      {student ? (
+        <StudentLookup
+          data={data}
+          initialSelectedId={studentId}
+          onClose={() => dialog.current?.close()}
+          renderDetails={(s) => (
+            <Stats data={data} studentId={s.id} now={now} />
+          )}
+        />
+      ) : (
+        <div className="panel">
+          <p>학생 정보를 찾을 수 없습니다.</p>
+          <button onClick={() => dialog.current?.close()}>닫기</button>
+        </div>
+      )}
+    </dialog>
   );
 }
 function Metric({
