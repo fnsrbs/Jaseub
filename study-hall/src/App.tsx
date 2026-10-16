@@ -3011,20 +3011,47 @@ function SettingsPanel({
     [targets, setTargets] = useState(
       data.students.filter((s) => s.active).map((s) => s.id),
     );
+  const [settingsResult, setSettingsResult] = useState("");
+  const [settingsError, setSettingsError] = useState("");
+  const activeCount = data.students.filter(
+    (s) => s.active && !s.deleted_at,
+  ).length;
+  useEffect(() => {
+    setSettings(data.settings);
+  }, [
+    data.settings.capacity,
+    data.settings.exam_date,
+    data.settings.missing_hours,
+  ]);
   return (
     <>
       <div className="panel">
         <h2>기본 운영 설정</h2>
         <p className="muted">
           전체 학생 인원수를 저장하면 운영현황의 현재 입실·오늘 출석 인원에
-          표시되는 전체 인원(/○명)이 변경됩니다. 활동 학생 수보다 작게 설정할
-          수 없습니다.
+          표시되는 전체 인원(/○명)이 변경됩니다. 활동 학생 수보다 작게 설정할 수
+          없습니다.
         </p>
         <form
           className="form-grid"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
-            void act("settings", settings).catch(() => {});
+            setSettingsResult("");
+            setSettingsError("");
+            if (settings.capacity < activeCount) {
+              setSettingsError(
+                `활동 학생이 ${activeCount}명이므로 ${activeCount}명 이상으로 입력해 주세요.`,
+              );
+              return;
+            }
+            try {
+              await act("settings", settings);
+              setSettingsResult(
+                `전체 학생 인원수 ${settings.capacity}명 저장 완료. 운영현황에 /${settings.capacity}명으로 반영됩니다.`,
+              );
+            } catch (error) {
+              setSettingsError((error as Error).message);
+            }
           }}
         >
           <Field label="전체 학생 인원수">
@@ -3061,9 +3088,19 @@ function SettingsPanel({
             />
           </Field>
           <button className="primary" disabled={busy}>
-            설정 저장
+            {busy ? "저장 중…" : "설정 저장"}
           </button>
         </form>
+        <p className="muted">
+          현재 저장된 전체 학생 인원수: {data.settings.capacity}명 · 활동 학생:{" "}
+          {activeCount}명
+        </p>
+        {settingsError && (
+          <p role="alert" className="error-text">
+            {settingsError}
+          </p>
+        )}
+        {settingsResult && <p role="status">{settingsResult}</p>}
       </div>
       <div className="panel">
         <h2>운영일·출석 대상 설정</h2>
