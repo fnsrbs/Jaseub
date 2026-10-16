@@ -3015,6 +3015,11 @@ function SettingsPanel({
     <>
       <div className="panel">
         <h2>기본 운영 설정</h2>
+        <p className="muted">
+          전체 학생 인원수를 저장하면 운영현황의 현재 입실·오늘 출석 인원에
+          표시되는 전체 인원(/○명)이 변경됩니다. 활동 학생 수보다 작게 설정할
+          수 없습니다.
+        </p>
         <form
           className="form-grid"
           onSubmit={(e) => {
@@ -3022,7 +3027,7 @@ function SettingsPanel({
             void act("settings", settings).catch(() => {});
           }}
         >
-          <Field label="정원">
+          <Field label="전체 학생 인원수">
             <input
               type="number"
               min="1"
