@@ -1076,10 +1076,11 @@ footer span {
 .manual-student-list small,.manual-student-list span {font-size:12px;}
 .manual-attendance-form {border-top:1px solid #dce5de;margin-top:20px;padding-top:12px;}
 .ranking-tabs {display:flex;gap:8px;margin:16px 0;}
+.ranking-award {display:inline-block;color:#c28b16;margin-right:8px;vertical-align:baseline;}
 .ranking-tabs button {min-width:90px;}
 .ranking-tabs button[aria-pressed="true"] {background:#176b58;border-color:#176b58;color:white;}
 .ranking-encouragement {padding:14px 16px;background:#edf5f0;border-radius:10px;line-height:1.7;}
-.ranking-stats {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:20px;}
+.ranking-stats {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:20px;}
 .ranking-stats > div {background:#f3f7f4;border-radius:12px;padding:18px;min-width:0;}
 .ranking-stats strong {display:block;font-size:21px;line-height:1.5;margin:8px 0;overflow-wrap:anywhere;}
 .ranking-stats small {display:block;color:#60746a;}

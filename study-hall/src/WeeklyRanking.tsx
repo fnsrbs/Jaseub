@@ -23,6 +23,14 @@ type Ranking = {
   mine?: Entry;
   rows?: Entry[];
 };
+function RankAward({ rank }: { rank: number | null | undefined }) {
+  if (!rank || rank > 5) return null;
+  return (
+    <span className="ranking-award" aria-hidden="true">
+      {rank === 1 ? "👑" : "★"}
+    </span>
+  );
+}
 export function WeeklyRanking({
   role,
   token,
@@ -84,9 +92,7 @@ export function WeeklyRanking({
         {scope === "day" ? "오늘" : "월~금"} · 퇴실 처리된 기록으로 집계합니다.
         같은 공부시간은 공동 순위입니다.
       </p>
-      <p>
-        월·화 16:30 / 수·목·금 15:30에 자동으로 퇴실 처리됩니다.
-      </p>
+      <p>월·화 16:30 / 수·목·금 15:30에 자동으로 퇴실 처리됩니다.</p>
       <p className="ranking-encouragement">
         자신의 속도에 맞춰 꾸준히 공부해 주세요. 오늘 쌓은 작은 노력이 내일의
         나를 한 걸음 더 나아가게 합니다.
@@ -112,7 +118,6 @@ export function WeeklyRanking({
                   <th>학번</th>
                   <th>이름</th>
                   <th>{period} 공부시간</th>
-                  <th>같은 시간 인원</th>
                   <th>1등과의 차이</th>
                 </tr>
               </thead>
@@ -120,6 +125,7 @@ export function WeeklyRanking({
                 {ranking.rows?.map((r) => (
                   <tr key={r.id}>
                     <td>
+                      <RankAward rank={r.rank} />
                       {r.rank
                         ? `${r.tied ? "공동 " : ""}${r.rank}위`
                         : "기록 없음"}
@@ -127,7 +133,6 @@ export function WeeklyRanking({
                     <td>{r.number}</td>
                     <td>{r.name}</td>
                     <td>{rankingTime(r.seconds)}</td>
-                    <td>{r.tied_count ? `${r.tied_count}명` : "—"}</td>
                     <td>
                       {r.leader_gap_seconds === null
                         ? "—"
@@ -145,6 +150,7 @@ export function WeeklyRanking({
       ) : (
         <>
           <strong className="my-weekly-rank">
+            <RankAward rank={ranking.mine?.rank} />
             {ranking.mine?.rank
               ? `${ranking.mine.tied ? "공동 " : ""}${ranking.mine.rank}위`
               : "아직 순위가 없어요"}
@@ -158,11 +164,6 @@ export function WeeklyRanking({
                 <div>
                   <small>내 공부시간</small>
                   <strong>{rankingTime(ranking.mine.seconds)}</strong>
-                </div>
-                <div>
-                  <small>같은 공부시간</small>
-                  <strong>{ranking.mine.tied_count}명</strong>
-                  <small>나 포함</small>
                 </div>
                 <div>
                   <small>1등과의 시간 차이</small>
