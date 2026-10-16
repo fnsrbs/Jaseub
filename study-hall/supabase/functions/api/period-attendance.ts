@@ -51,6 +51,11 @@ export async function handlePeriodAttendance(
   admin: string | null,
   viewerSession: string | null,
 ) {
+  if (
+    !admin &&
+    ["period_attendance_connection", "period_attendance_sync"].includes(action)
+  )
+    throw Error("구글 시트 연결·수동 반영은 관리자만 가능합니다.");
   const run = async (operation: string, input: any = payload) => {
     const { data, error } = await db.rpc("period_attendance_api", {
       p_action: operation,

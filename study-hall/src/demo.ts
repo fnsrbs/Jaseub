@@ -244,7 +244,8 @@ export async function demoApi(
     return data;
   }
   if (action === "period_attendance_connection") {
-    if (!teacher && !viewer) throw Error("교사 또는 관리자 권한이 필요합니다.");
+    if (!teacher)
+      throw Error("구글 시트 연결·수동 반영은 관리자만 가능합니다.");
     return { ready: true };
   }
   if (
@@ -256,6 +257,8 @@ export async function demoApi(
     ].includes(action)
   ) {
     if (!teacher && !viewer) throw Error("교사 또는 관리자 권한이 필요합니다.");
+    if (action === "period_attendance_sync" && !teacher)
+      throw Error("구글 시트 연결·수동 반영은 관리자만 가능합니다.");
     const all: Record<string, AttendanceDay> = JSON.parse(
       localStorage.getItem("study-hall-period-attendance") || "{}",
     );

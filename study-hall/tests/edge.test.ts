@@ -241,6 +241,25 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
       assert.equal(calls.at(-1).args.p_admin, "teacher-id");
     },
   );
+  await t.test(
+    "교사의 구글 연결 확인·수동 반영은 서버에서도 차단",
+    async () => {
+      for (const action of [
+        "period_attendance_connection",
+        "period_attendance_sync",
+      ]) {
+        calls.length = 0;
+        const response = await send(
+          action,
+          { day: "2026-10-16" },
+          { "x-teacher-session": "b".repeat(64) },
+        );
+        assert.equal(response.status, 400);
+        assert.match((await response.json()).error, /관리자만/);
+        assert.equal(calls.length, 0);
+      }
+    },
+  );
   await t.test("세션 토큰 해시·클라이언트 관리자 주장 무시", async () => {
     const r = await send(
       "snapshot",

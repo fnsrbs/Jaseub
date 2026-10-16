@@ -502,29 +502,33 @@ export function PeriodAttendance({
                     ? "반영 대기"
                     : "저장 후 반영"}
               </span>
-              <button
-                type="button"
-                disabled={working}
-                onClick={() => {
-                  setWorking(true);
-                  setError("");
-                  void call("period_attendance_connection")
-                    .then(() => setMessage("구글 시트 연결이 정상입니다."))
-                    .catch((e) => setError(e.message))
-                    .finally(() => setWorking(false));
-                }}
-              >
-                구글 연결 확인
-              </button>
-              <button
-                type="button"
-                disabled={
-                  !editable || dirty || working || !result.sessions.length
-                }
-                onClick={() => void sync()}
-              >
-                구글 시트 다시 반영
-              </button>
+              {admin && (
+                <>
+                  <button
+                    type="button"
+                    disabled={working}
+                    onClick={() => {
+                      setWorking(true);
+                      setError("");
+                      void call("period_attendance_connection")
+                        .then(() => setMessage("구글 시트 연결이 정상입니다."))
+                        .catch((e) => setError(e.message))
+                        .finally(() => setWorking(false));
+                    }}
+                  >
+                    구글 연결 확인
+                  </button>
+                  <button
+                    type="button"
+                    disabled={
+                      !editable || dirty || working || !result.sessions.length
+                    }
+                    onClick={() => void sync()}
+                  >
+                    구글 시트 다시 반영
+                  </button>
+                </>
+              )}
               {admin && session?.confirmed && (
                 <button
                   type="button"
