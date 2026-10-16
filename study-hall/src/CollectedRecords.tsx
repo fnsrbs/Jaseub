@@ -71,9 +71,9 @@ export function CollectedRecords({
       >
         {(onlyClovers
           ? ([
-              "clovers",
               ...(value?.crowns ? ["crowns"] : []),
               ...(value?.stars ? ["stars"] : []),
+              "clovers",
             ] as Kind[])
           : (Object.keys(labels) as Kind[])
         ).map((k) => (

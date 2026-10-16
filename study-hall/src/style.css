@@ -1035,11 +1035,15 @@ footer span {
   font-size: 9px;
 }
 .welcome {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 36px;
+  align-items: start;
   padding: 35px;
 }
+.welcome > div {min-width:0;overflow-wrap:anywhere}
+.welcome .check-buttons {width:100%;max-width:none;min-width:0}
+.welcome .check-buttons button {min-width:0}
 .welcome h2 {
   font-size: 26px;
   margin: 10px 0 18px;
