@@ -94,8 +94,10 @@ export function WeeklyRanking({
       </p>
       <p>월·화 16:30 / 수·목·금 15:30에 자동으로 퇴실 처리됩니다.</p>
       <p className="ranking-encouragement">
-        자신의 속도에 맞춰 꾸준히 공부해 주세요. 오늘 쌓은 작은 노력이 내일의
-        나를 한 걸음 더 나아가게 합니다.
+        자신의 속도에 맞춰 꾸준히 공부해 주세요. 조급해하지 않고 나아가다 보면,
+        어느새 목표에 가까워져 있을 거예요.
+        <br />
+        꾸준히 나아가는 여러분의 모든 걸음을 응원합니다.
       </p>
       {error ? (
         <p role="alert" className="error-text">
