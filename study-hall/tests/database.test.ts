@@ -22,6 +22,15 @@ test("PostgreSQL: 마이그레이션·RLS·인증·QR·원자적 출결·좌석�
     "",
   );
   await db.exec(sql);
+  await db.exec(
+    await readFile(
+      new URL(
+        "../supabase/migrations/20261016050436_fix_settings_update_where.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
   const admin = randomUUID(),
     outsider = randomUUID(),
     a = randomUUID(),
@@ -251,6 +260,27 @@ test("PostgreSQL: 마이그레이션·RLS·인증·QR·원자적 출결·좌석�
       2,
     );
   });
+  await t.test(
+    "설정 저장은 WHERE로 단일 설정 행을 지정하고 인원수·시간을 반영",
+    async () => {
+      const definition = await db.query<{ definition: string }>(
+        "select pg_get_functiondef('public.app_api(text,jsonb,uuid,text)'::regprocedure) as definition",
+      );
+      assert.match(
+        definition.rows[0].definition,
+        /update settings set capacity=[^;]+where id=true;/,
+      );
+      await call("settings", {
+        capacity: 70,
+        missing_hours: 17,
+        exam_date: "2026-11-19",
+      });
+      const snapshot = await call("snapshot");
+      assert.equal(snapshot.settings.capacity, 70);
+      assert.equal(snapshot.settings.missing_hours, 17);
+      assert.equal(snapshot.settings.exam_date, "2026-11-19");
+    },
+  );
   await t.test("원자적 로그인 제한", async () => {
     for (let i = 0; i < 10; i++) {
       const r = await db.query<{ ok: boolean }>(
