@@ -1611,7 +1611,11 @@ function Scanner({
       setStatus("현장 QR을 화면 안에 맞춰 주세요.");
     } catch (e) {
       setError(
-        `카메라를 사용할 수 없습니다. 새로고침한 뒤 카메라 권한을 ‘허용’하고 다시 시도하세요. 계속 안 되면 교사에게 수동 처리를 요청하세요. (${(e as Error).message || e})`,
+        /dynamically imported module|module script|loading chunk/i.test(
+          (e as Error).message || String(e),
+        )
+          ? "화면이 업데이트되었거나 연결이 일시적으로 끊겼습니다. 새로고침 후 다시 시도해 주세요."
+          : "카메라를 사용할 수 없습니다. 새로고침한 뒤 카메라 권한을 ‘허용’하고 다시 시도하세요. 계속 안 되면 교사에게 수동 처리를 요청하세요.",
       );
     }
   }
