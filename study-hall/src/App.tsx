@@ -1,3 +1,4 @@
+import { pollWhileVisible } from "./visible-polling";
 import React, { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import type { Html5Qrcode } from "html5-qrcode";
@@ -100,11 +101,10 @@ export default function App() {
         if (alive) updateMenuConfig(next);
       } catch {}
     };
-    void load();
-    const timer = setInterval(load, 30000);
+    const stopPolling = pollWhileVisible(load, 30000);
     return () => {
       alive = false;
-      clearInterval(timer);
+      stopPolling();
     };
   }, [role, token]);
   const [initialCopy] = useState(() => cachedSiteCopy(mode));
@@ -163,16 +163,14 @@ export default function App() {
         if (alive) setError((e as Error).message);
       }
     };
-    load();
-    const timer = setInterval(load, 15000);
+    const stopPolling = pollWhileVisible(load, 15000);
     return () => {
       alive = false;
-      clearInterval(timer);
+      stopPolling();
     };
   }, [role, token]);
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
+    return pollWhileVisible(() => setNow(Date.now()), 1000);
   }, []);
   async function act(action: string, payload: any) {
     if (inFlight.current) throw Error("이전 요청을 처리하고 있습니다.");

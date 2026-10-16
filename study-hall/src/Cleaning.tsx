@@ -1,3 +1,4 @@
+import { pollWhileVisible } from "./visible-polling";
 import { useEffect, useState } from "react";
 import { api } from "./api";
 import { koreanDay, type Snapshot } from "./domain";
@@ -47,11 +48,10 @@ export function Cleaning({
         if (alive) setLoading(false);
       }
     };
-    void refresh();
-    const timer = setInterval(refresh, 30000);
+    const stopPolling = pollWhileVisible(refresh, 30000);
     return () => {
       alive = false;
-      clearInterval(timer);
+      stopPolling();
     };
   }, [role, token]);
   const save = async (slots: CleaningSlot[]) => {

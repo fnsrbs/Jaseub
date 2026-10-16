@@ -1,3 +1,4 @@
+import { pollWhileVisible } from "./visible-polling";
 import { useEffect, useState } from "react";
 import { api } from "./api";
 import { koreanDay, type SupervisionSlot } from "./domain";
@@ -43,11 +44,10 @@ export function Supervision({
         if (alive) setLoading(false);
       }
     };
-    void refresh();
-    const timer = setInterval(refresh, 30000);
+    const stopPolling = pollWhileVisible(refresh, 30000);
     return () => {
       alive = false;
-      clearInterval(timer);
+      stopPolling();
     };
   }, [role, token]);
   const weeks = [...new Set(slots.map((s) => s.week_label))];

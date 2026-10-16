@@ -1,3 +1,4 @@
+import { pollWhileVisible } from "./visible-polling";
 import { useEffect, useState } from "react";
 import { api } from "./api";
 import { duration, type Visit } from "./domain";
@@ -41,11 +42,10 @@ export function WeeklyRanking({
         if (alive) setError((e as Error).message);
       }
     };
-    void refresh();
-    const timer = setInterval(refresh, 30000);
+    const stopPolling = pollWhileVisible(refresh, 30000);
     return () => {
       alive = false;
-      clearInterval(timer);
+      stopPolling();
     };
   }, [role, token, visits]);
   const teacher = role !== "student";
