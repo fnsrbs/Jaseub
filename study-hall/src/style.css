@@ -290,10 +290,14 @@ header button {
 }
 .current-students-head {
   display: flex;
+  flex-shrink: 0;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   padding: 22px 20px 16px;
+}
+.current-students-head > div {
+  min-width: 0;
 }
 .current-students-head h2 {
   margin: 0 0 8px;
@@ -313,6 +317,7 @@ header button {
   min-height: 44px;
 }
 .current-students-list {
+  flex: 1 1 auto;
   overflow-y: auto;
   min-height: 0;
   padding: 0 20px 20px;
@@ -339,6 +344,7 @@ header button {
   font-variant-numeric: tabular-nums;
 }
 .current-students-filters {
+  flex-shrink: 0;
   padding: 0 20px 12px;
 }
 .current-students-tabs {

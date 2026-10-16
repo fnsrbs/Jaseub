@@ -1134,7 +1134,7 @@ function CurrentStudents({ data }: { data: Snapshot }) {
           }
         }}
       >
-        <header className="current-students-head">
+        <div className="current-students-head">
           <div>
             <h2 id="current-students-title">
               학생 입실 현황 <span>{inside}명 입실</span>
@@ -1149,7 +1149,7 @@ function CurrentStudents({ data }: { data: Snapshot }) {
           >
             닫기
           </button>
-        </header>
+        </div>
         <div className="current-students-filters">
           <div
             className="current-students-tabs"
