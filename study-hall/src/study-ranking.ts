@@ -5,7 +5,7 @@ import {
   type Student,
   type Visit,
 } from "./domain";
-import type { AttendanceSession } from "./period-attendance";
+import { periodsForDay, type AttendanceSession } from "./period-attendance";
 export type DemoCollectionRecord = {
   student_id: string;
   day: string;
@@ -27,21 +27,28 @@ export function demoCollections(
   > = {};
   const days = new Map<string, Map<string, number>>();
   for (const s of eligible) {
-    const attended = new Set(
-      visits
-        .filter((v) => v.student_id === s.id && Date.parse(v.entered_at) <= now)
-        .map((v) => koreanDay(v.entered_at)),
-    );
-    for (const session of sessions)
+    const attended = new Set<string>();
+    for (const day of new Set(sessions.map((session) => session.day))) {
+      const expected = periodsForDay(day);
+      if (!expected || day > koreanDay(new Date(now))) continue;
+      const daily = sessions.filter(
+        (session) =>
+          session.day === day &&
+          session.confirmed &&
+          session.period >= 1 &&
+          session.period <= expected,
+      );
+      const matches = daily.flatMap((session) =>
+        session.entries
+          .filter((e) => e.student_id === s.id)
+          .map((e) => ({ period: session.period, status: e.status })),
+      );
       if (
-        session.confirmed &&
-        session.day <= koreanDay(new Date(now)) &&
-        session.entries.some(
-          (e) =>
-            e.student_id === s.id && ["present", "late"].includes(e.status),
-        )
+        new Set(matches.map((e) => e.period)).size === expected &&
+        matches.every((e) => e.status === "present")
       )
-        attended.add(session.day);
+        attended.add(day);
+    }
     result[s.id] = { crowns: 0, stars: 0, clovers: attended.size };
     for (const day of attended)
       records?.push({

@@ -2037,9 +2037,6 @@ blockquote {
   border-radius: 12px;
   background: #edf5ef;
 }
-.home-clovers small {
-  flex-basis: 100%;
-}
 .home-clovers button {
   display: inline-flex;
   gap: 8px;
@@ -2050,7 +2047,13 @@ blockquote {
   color: inherit;
   font: inherit;
 }
-.home-clovers + p{margin-top:0;min-height:28px;line-height:28px}
+.home-use-status{padding:14px 16px;border:1px solid #e2e8e3;border-radius:12px;background:#f8faf8}
+.home-use-status h3{margin:0 0 12px;font-size:13px;color:#425c50}
+.home-use-status p{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0;font-size:12px}
+.home-use-status p+p{margin-top:12px}
+.home-use-status p>span:first-child{flex-shrink:0;color:#75857c}
+.home-use-value{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;text-align:right}
+.home-use-status .status{margin:0}
 .collection-history {
   box-sizing: border-box;
   width: min(520px, calc(100% - 32px));

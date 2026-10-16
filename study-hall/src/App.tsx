@@ -519,25 +519,40 @@ export default function App() {
                             visits={data.visits}
                             token={token}
                           />
-                          <p>
-                            <span className={"status " + (active ? "in" : "")}>
-                              {active ? "● 입실 중" : "○ 퇴실"}
-                            </span>{" "}
-                            {active &&
-                              (currentNow - Date.parse(active.entered_at) >
-                              data.settings.missing_hours * 3600000
-                                ? "퇴실 확인 필요"
-                                : `현재 이용 ${duration((currentNow - Date.parse(active.entered_at)) / 1000)}`)}
-                          </p>
-                          <p>
-                            오늘 출석 상태:{" "}
-                            {attendanceVerdict(
-                              me!.id,
-                              data.operating_days.find((d) => d.day === today),
-                              data.visits,
-                              currentNow,
-                            )}
-                          </p>
+                          <section
+                            className="home-use-status"
+                            aria-label="오늘의 이용 현황"
+                          >
+                            <h3>오늘의 이용 현황</h3>
+                            <p>
+                              <span>출입 상태</span>
+                              <span className="home-use-value">
+                                <span
+                                  className={"status " + (active ? "in" : "")}
+                                >
+                                  {active ? "● 입실 중" : "○ 퇴실"}
+                                </span>{" "}
+                                {active &&
+                                  (currentNow - Date.parse(active.entered_at) >
+                                  data.settings.missing_hours * 3600000
+                                    ? "퇴실 확인 필요"
+                                    : `현재 이용 ${duration((currentNow - Date.parse(active.entered_at)) / 1000)}`)}
+                              </span>
+                            </p>
+                            <p>
+                              <span>오늘 출석</span>
+                              <span className="home-use-value">
+                                {attendanceVerdict(
+                                  me!.id,
+                                  data.operating_days.find(
+                                    (d) => d.day === today,
+                                  ),
+                                  data.visits,
+                                  currentNow,
+                                )}
+                              </span>
+                            </p>
+                          </section>
                         </div>
                         <div className="check-buttons">
                           <button

@@ -16,7 +16,7 @@ test("일일 왕관·별, 하루 출석 클로버: 중복·공동순위·마감�
  create table student_codes(student_id uuid,version int);create table student_sessions(student_id uuid,token_hash text,version int,expires_at timestamptz);
  create table teacher_viewer_code(id boolean,version int);create table teacher_viewer_sessions(token_hash text,version int,expires_at timestamptz);
  create table visits(id uuid default gen_random_uuid(),student_id uuid,entered_at timestamptz,exited_at timestamptz);
- create table period_attendance_sessions(day date,confirmed boolean,entries jsonb);
+ create table period_attendance_sessions(day date,confirmed boolean,entries jsonb,period integer default 1);
  create function snapshot_with_warnings(p_admin uuid default null,p_session text default null,p_viewer_session text default null) returns jsonb language plpgsql as $$ declare result jsonb;begin
  if p_session is distinct from 'mine' then raise exception '로그인';end if;
  select jsonb_build_object('students',jsonb_build_array(jsonb_build_object('id',student_id))) into result from student_sessions where token_hash=p_session;
@@ -74,8 +74,9 @@ test("일일 왕관·별, 하루 출석 클로버: 중복·공동순위·마감�
       day: "2026-10-16",
       confirmed: true,
       entries: [
-        { student_id: ids[2], status: "late" },
-        { student_id: ids[9], status: "present" },
+        ...ids
+          .slice(0, 10)
+          .map((student_id) => ({ student_id, status: "present" })),
         { student_id: ids[10], status: "absent" },
       ],
     } as any;
@@ -103,12 +104,39 @@ test("일일 왕관·별, 하루 출석 클로버: 중복·공동순위·마감�
       "utf8",
     );
     await db.exec(historySql.replaceAll("now()", `'${now}'::timestamptz`));
+    for (let period = 2; period <= 6; period++)
+      await db.query(
+        "insert into period_attendance_sessions values($1,true,$2,$3)",
+        [session.day, JSON.stringify(session.entries), period],
+      );
+    const priorSessions = Array.from({ length: 6 }, (_, i) => ({
+      day: "2026-10-15",
+      period: i + 1,
+      confirmed: true,
+      entries: [{ student_id: ids[2], status: "present" }],
+    }));
+    for (const s of priorSessions)
+      await db.query(
+        "insert into period_attendance_sessions values($1,true,$2,$3)",
+        [s.day, JSON.stringify(s.entries), s.period],
+      );
+    const cloverSql = await readFile(
+      new URL(
+        "../supabase/migrations/20261016134818_full_day_attendance_clovers.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    await db.exec(cloverSql.replaceAll("now()", `'${now}'::timestamptz`));
     const collections = async () =>
       (await db.query<{ r: any }>("select study_collections() r")).rows[0].r;
     let c = await collections();
     assert.deepEqual(
       c,
-      demoCollections(students, visits, Date.parse(now), [session]),
+      demoCollections(students, visits, Date.parse(now), [
+        ...Array.from({ length: 6 }, (_, i) => ({ ...session, period: i + 1 })),
+        ...priorSessions,
+      ] as any),
     );
     assert.deepEqual(c[ids[0]], { crowns: 1, stars: 0, clovers: 1 });
     assert.deepEqual(c[ids[1]], { crowns: 1, stars: 0, clovers: 1 });
@@ -147,6 +175,30 @@ test("일일 왕관·별, 하루 출석 클로버: 중복·공동순위·마감�
     await assert.rejects(history("clovers", ids[0]), /본인/);
     await assert.rejects(history("clovers", null, 0, null, null), /로그인/);
     await assert.rejects(history("invalid"), /종류/);
+    await db.exec(
+      "update period_attendance_sessions set confirmed=false where day='2026-10-16' and period=6",
+    );
+    assert.equal((await collections())[ids[2]].clovers, 1); // Five of six confirmed is not a full day.
+    assert.equal((await history("clovers")).total, 1);
+    await db.exec(
+      "update period_attendance_sessions set confirmed=true where day='2026-10-16' and period=6",
+    );
+    for (const status of ["late", "absent", "excused"]) {
+      const entries = session.entries.map((e: any) =>
+        e.student_id === ids[2] ? { ...e, status } : e,
+      );
+      await db.query(
+        "update period_attendance_sessions set entries=$1 where day='2026-10-16' and period=6",
+        [JSON.stringify(entries)],
+      );
+      assert.equal((await collections())[ids[2]].clovers, 1);
+    }
+    await db.query(
+      "update period_attendance_sessions set entries=$1 where day='2026-10-16' and period=6",
+      [JSON.stringify(session.entries)],
+    );
+    assert.equal((await collections())[ids[2]].clovers, 2);
+    assert.equal((await collections())[ids[11]].clovers, 0);
     const read = async (scope: string) =>
       (
         await db.query<{ r: any }>(
@@ -175,6 +227,7 @@ test("일일 왕관·별, 하루 출석 클로버: 중복·공동순위·마감�
       "study_ranking('day')",
       "study_collection_records()",
       "collection_history('clovers')",
+      "full_attendance_days()",
     ])
       await assert.rejects(db.query("select " + fn), /permission/);
     await db.exec("reset role");
@@ -182,7 +235,7 @@ test("일일 왕관·별, 하루 출석 클로버: 중복·공동순위·마감�
     c = await collections();
     assert.equal(c[ids[0]].crowns, 0);
     assert.equal(c[ids[2]].crowns, 1);
-    assert.equal(c[ids[11]].clovers, 1);
+    assert.equal(c[ids[11]].clovers, 0); // QR entry alone never earns a clover.
     await db.exec(
       "delete from visits where exited_at is null;update period_attendance_sessions set entries='[]'",
     );
@@ -194,20 +247,61 @@ test("일일 왕관·별, 하루 출석 클로버: 중복·공동순위·마감�
     );
     assert.equal((await collections())[ids[0]].crowns, 0);
     assert.equal((await collections())[ids[2]].crowns, 1); // Previous-day awards remain.
-    for (let i = 0; i < 60; i++)
+    await db.exec(
+      cloverSql.replaceAll("now()", "'2026-10-16T15:29:59+09:00'::timestamptz"),
+    );
+    const fullEntry = JSON.stringify([
+      { student_id: ids[11], status: "present" },
+    ]);
+    for (let period = 1; period <= 6; period++)
       await db.query(
-        "insert into visits(student_id,entered_at,exited_at) values($1,'2026-01-01'::timestamptz+($2||' days')::interval,null)",
-        [ids[2], i],
+        "insert into period_attendance_sessions values('2026-10-12',true,$1,$2)",
+        [fullEntry, period],
       );
+    assert.equal((await collections())[ids[11]].clovers, 0); // Monday requires seven periods.
+    await db.query(
+      "insert into period_attendance_sessions values('2026-10-12',false,$1,7)",
+      [fullEntry],
+    );
+    assert.equal((await collections())[ids[11]].clovers, 0);
+    await db.exec(
+      "update period_attendance_sessions set confirmed=true where day='2026-10-12' and period=7",
+    );
+    assert.equal((await collections())[ids[11]].clovers, 1);
+    for (const day of ["2026-10-11", "2026-10-19"])
+      for (let period = 1; period <= 7; period++)
+        await db.query(
+          "insert into period_attendance_sessions values($1,true,$2,$3)",
+          [day, fullEntry, period],
+        );
+    assert.equal((await collections())[ids[11]].clovers, 1); // Weekend and future days do not count.
+    for (let i = 0, days = 0; days < 60; i++) {
+      const day = new Date(Date.parse("2026-01-01") + i * 86400000)
+          .toISOString()
+          .slice(0, 10),
+        weekday = new Date(day + "T12:00:00+09:00").getUTCDay();
+      if (!weekday || weekday === 6) continue;
+      days++;
+      const count = weekday <= 2 ? 7 : 6;
+      for (let period = 1; period <= count; period++)
+        await db.query(
+          "insert into period_attendance_sessions values($1,true,$2,$3)",
+          [
+            day,
+            JSON.stringify([{ student_id: ids[2], status: "present" }]),
+            period,
+          ],
+        );
+    }
     const first = await history("clovers"),
       second = await history("clovers", null, 50);
-    assert.equal(first.total, 62);
+    assert.equal(first.total, 60);
     assert.equal(first.records.length, 50);
-    assert.equal(second.records.length, 12);
+    assert.equal(second.records.length, 10);
     assert.equal(
       new Set([...first.records, ...second.records].map((r: any) => r.day))
         .size,
-      62,
+      60,
     );
   } finally {
     await db.close();

@@ -67,7 +67,7 @@ export function CollectedRecords({
     <>
       <div
         className={onlyClovers ? "home-clovers" : "ranking-collection"}
-        aria-label={onlyClovers ? "출석 클로버" : "누적 수집 개수"}
+        aria-label={onlyClovers ? "클로버와 수집 기록" : "누적 수집 개수"}
       >
         {(onlyClovers
           ? ([
@@ -83,15 +83,9 @@ export function CollectedRecords({
             onClick={() => setKind(k)}
             aria-label={`${labels[k]} ${value?.[k] ?? 0}개 획득 기록 보기`}
           >
-            {onlyClovers && k === "clovers" ? "🍀 출석 클로버" : labels[k]}{" "}
-            <strong>{value?.[k] ?? 0}개</strong>
+            {labels[k]} <strong>{value?.[k] ?? 0}개</strong>
           </button>
         ))}
-        {onlyClovers && (
-          <small>
-            출석 클로버는 하루 1개씩 쌓여요. 눌러서 언제 모았는지 확인하세요.
-          </small>
-        )}
       </div>
       {kind && (
         <HistoryDialog
@@ -182,7 +176,7 @@ function HistoryDialog({
                   <time dateTime={r.day}>{r.day.replaceAll("-", ".")}</time>
                   <span>
                     {kind === "clovers"
-                      ? "출석 · 클로버 1개"
+                      ? "하루 개근 · 클로버 1개"
                       : `하루 ${r.rank}위 · ${rankingTime(r.seconds ?? 0)}`}
                   </span>
                 </li>

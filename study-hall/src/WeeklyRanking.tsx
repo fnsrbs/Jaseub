@@ -99,8 +99,8 @@ export function WeeklyRanking({
       <p>월·화 16:30 / 수·목·금 15:30에 자동으로 퇴실 처리됩니다.</p>
       {teacher ? (
         <p className="ranking-explanation">
-          👑 하루 최종 1위 · ⭐ 하루 최종 2~5위 · 🍀 출석한 날마다 1개. 수집
-          개수를 누르면 획득 날짜를 볼 수 있습니다.
+          👑 하루 최종 1위 · ⭐ 하루 최종 2~5위 · 🍀 하루 모든 교시에 출석하면
+          1개. 수집 개수를 누르면 획득 날짜를 볼 수 있습니다.
         </p>
       ) : (
         encouragement.trim() && (
@@ -175,8 +175,8 @@ export function WeeklyRanking({
             token={token}
           />
           <p className="ranking-collection-note">
-            하루 집계 후 1위 👑 · 2~5위 ⭐ · 출석한 날마다 🍀 1개. 누르면 언제
-            모았는지 볼 수 있어요.
+            하루 집계 후 1위 👑 · 2~5위 ⭐ · 하루 모든 교시에 출석하면 🍀 1개.
+            누르면 언제 모았는지 볼 수 있어요.
           </p>
           <strong className="my-weekly-rank">
             <RankAward rank={ranking.mine?.rank} />
