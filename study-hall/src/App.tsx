@@ -120,7 +120,7 @@ export default function App() {
         if (alive) updateMenuConfig(next);
       } catch {}
     };
-    const stopPolling = pollWhileVisible(load, 30000);
+    const stopPolling = pollWhileVisible(load, 300000);
     return () => {
       alive = false;
       stopPolling();
