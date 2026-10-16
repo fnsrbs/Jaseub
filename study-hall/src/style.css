@@ -338,6 +338,63 @@ header button {
 .current-students-list td:first-child {
   font-variant-numeric: tabular-nums;
 }
+.current-students-filters {
+  padding: 0 20px 12px;
+}
+.current-students-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.current-students-tabs button {
+  flex: 1;
+  min-height: 44px;
+  padding: 10px 6px;
+  font-size: 12px;
+}
+.current-students-tabs button[aria-pressed="true"] {
+  background: #176b58;
+  border-color: #176b58;
+  color: white;
+}
+.current-students-result {
+  margin: 10px 0 0;
+  color: #6e8073;
+  font-size: 12px;
+}
+.current-students-state {
+  display: inline-block;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.current-students-state.is-in {
+  background: #e5f4eb;
+  color: #176b58;
+}
+.current-students-state.is-out {
+  background: #f0f2f1;
+  color: #627268;
+}
+@media (max-width: 480px) {
+  .current-students-list {
+    padding: 0 12px 16px;
+  }
+  .current-students-list td,
+  .current-students-list th {
+    padding: 12px 6px;
+  }
+  .current-students-head {
+    padding: 18px 14px 14px;
+  }
+  .current-students-head h2 {
+    font-size: 17px;
+  }
+  .current-students-filters {
+    padding: 0 14px 12px;
+  }
+}
 .stats .metric strong {
   font-size: 22px;
 }

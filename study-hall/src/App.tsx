@@ -1080,18 +1080,30 @@ function Metric({
 }
 function CurrentStudents({ data }: { data: Snapshot }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<"all" | "in" | "out">("in");
   const currentIds = new Set(
     data.visits
       .filter((visit) => !visit.exited_at)
       .map((visit) => visit.student_id),
   );
   const students = data.students
-    .filter((student) => currentIds.has(student.id))
+    .filter((student) => !student.deleted_at)
     .sort(
       (a, b) =>
         a.number.localeCompare(b.number, "ko", { numeric: true }) ||
         a.name.localeCompare(b.name, "ko"),
     );
+  const inside = students.filter((student) =>
+    currentIds.has(student.id),
+  ).length;
+  const visible = students.filter(
+    (student) =>
+      (status === "all" || currentIds.has(student.id) === (status === "in")) &&
+      `${student.name} ${student.number} ${student.seat_id ?? "미배정"}`.includes(
+        search.trim(),
+      ),
+  );
   return (
     <>
       <Metric
@@ -1099,7 +1111,11 @@ function CurrentStudents({ data }: { data: Snapshot }) {
         value={String(data.current)}
         unit={`/ ${data.settings.capacity}명`}
         caption="학생 명단 보기 ↗"
-        onClick={() => dialog.current?.showModal()}
+        onClick={() => {
+          setSearch("");
+          setStatus("in");
+          dialog.current?.showModal();
+        }}
       />
       <dialog
         ref={dialog}
@@ -1121,9 +1137,9 @@ function CurrentStudents({ data }: { data: Snapshot }) {
         <header className="current-students-head">
           <div>
             <h2 id="current-students-title">
-              현재 입실 학생 <span>{students.length}명</span>
+              학생 입실 현황 <span>{inside}명 입실</span>
             </h2>
-            <p>학번순 · 퇴실한 학생은 제외됩니다.</p>
+            <p>학번순 · 미입실은 현재 자습실에 없는 학생입니다.</p>
           </div>
           <button
             type="button"
@@ -1134,26 +1150,81 @@ function CurrentStudents({ data }: { data: Snapshot }) {
             닫기
           </button>
         </header>
+        <div className="current-students-filters">
+          <div
+            className="current-students-tabs"
+            role="group"
+            aria-label="입실 상태 선택"
+          >
+            {(
+              [
+                ["in", "현재입실", inside],
+                ["out", "미입실", students.length - inside],
+                ["all", "전체", students.length],
+              ] as const
+            ).map(([value, label, count]) => (
+              <button
+                type="button"
+                key={value}
+                aria-pressed={status === value}
+                onClick={() => setStatus(value)}
+              >
+                {label} <span>{count}</span>
+              </button>
+            ))}
+          </div>
+          <Field label="이름·학번·좌석번호 검색">
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="이름, 학번 또는 좌석번호 입력"
+            />
+          </Field>
+          <p className="current-students-result" role="status">
+            조회 {visible.length}명
+          </p>
+        </div>
         <div className="current-students-list">
-          {students.length ? (
+          {visible.length ? (
             <table>
               <thead>
                 <tr>
                   <th scope="col">학번</th>
                   <th scope="col">이름</th>
+                  <th scope="col">좌석</th>
+                  <th scope="col">상태</th>
                 </tr>
               </thead>
               <tbody>
-                {students.map((student) => (
+                {visible.map((student) => (
                   <tr key={student.id}>
                     <td>{student.number}</td>
                     <td>{student.name}</td>
+                    <td>
+                      {student.seat_id ? `${student.seat_id}번` : "미배정"}
+                    </td>
+                    <td>
+                      <span
+                        className={`current-students-state ${currentIds.has(student.id) ? "is-in" : "is-out"}`}
+                      >
+                        {currentIds.has(student.id) ? "현재입실" : "미입실"}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           ) : (
-            <p className="empty">현재 입실한 학생이 없습니다.</p>
+            <p className="empty">
+              {search.trim()
+                ? "검색 결과가 없습니다."
+                : status === "in"
+                  ? "현재 입실한 학생이 없습니다."
+                  : status === "out"
+                    ? "미입실 학생이 없습니다."
+                    : "등록된 학생이 없습니다."}
+            </p>
           )}
         </div>
       </dialog>
