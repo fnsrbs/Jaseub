@@ -501,7 +501,7 @@ export default function App() {
                       <div className="panel welcome">
                         <div>
                           <span className="eyebrow">MY DAILY STUDY</span>
-                          <h2>{me?.name} 님, 반가워요.</h2>
+                          <h2>{me?.name} 님, 오늘도 파이팅!</h2>
                           <p>
                             <span className={"status " + (active ? "in" : "")}>
                               {active ? "● 입실 중" : "○ 퇴실"}
@@ -2081,7 +2081,7 @@ function SeatAdmin({
                 disabled={busy}
                 onClick={confirmDraft}
               >
-                배정 확정
+                배정 저장
               </button>
               <button
                 disabled={busy}
@@ -2093,7 +2093,7 @@ function SeatAdmin({
                 미리보기 취소
               </button>
               <span role="status">
-                미확정 · {preview.length}명 배정 미리보기
+                저장 전 · {preview.length}명 배정 미리보기
               </span>
             </>
           )}
@@ -2170,7 +2170,7 @@ function SeatAdmin({
       <div className="panel">
         <h2>좌석 재추첨</h2>
         <p>
-          대상 학생과 좌석을 고르고, 유지할 좌석은 고정하세요. 확정 전에는 기존
+          대상 학생과 좌석을 고르고, 유지할 좌석은 고정하세요. 저장 전에는 기존
           배정이 유지됩니다.
         </p>
         <div className="pick-grid">
@@ -2178,7 +2178,7 @@ function SeatAdmin({
             <h3>대상 학생 / 기존 좌석 고정</h3>
             <p>
               남녀를 따로 배정하려면 한 그룹을 선택하고 사용할 좌석 구역을 고른
-              뒤 확정하세요. 선택하지 않은 학생의 자리는 유지됩니다.
+              뒤 저장하세요. 선택하지 않은 학생의 자리는 유지됩니다.
             </p>
             {(
               [
@@ -2345,7 +2345,7 @@ function Records({
                     "학번",
                     "입실(한국)",
                     "퇴실(한국)",
-                    "확정 이용 초",
+                    "공부시간(초)",
                     "상태",
                   ],
                   ...visits.map((v) => {
@@ -2360,7 +2360,7 @@ function Records({
                           1000
                         : "",
                       v.exited_at
-                        ? "확정"
+                        ? "퇴실 완료"
                         : now - Date.parse(v.entered_at) >
                             data.settings.missing_hours * 3600000
                           ? "확인 필요"
@@ -2539,7 +2539,7 @@ function Records({
                   <td>{time(v.exited_at)}</td>
                   <td>
                     {review
-                      ? "미확정"
+                      ? "확인 필요"
                       : duration(
                           ((v.exited_at ? Date.parse(v.exited_at) : now) -
                             Date.parse(v.entered_at)) /
@@ -2550,7 +2550,7 @@ function Records({
                     {review
                       ? "⚠ 확인 필요"
                       : v.exited_at
-                        ? "확정"
+                        ? "퇴실 완료"
                         : "● 진행 중"}
                   </td>
                   {canEdit && (
@@ -2604,7 +2604,13 @@ function Records({
           {data.audits.map((a, i) => (
             <details key={i}>
               <summary>
-                {String(a.created_at)} · {String(a.kind)} · {String(a.reason)}
+                {String(a.created_at)} · {String(a.kind)} ·{" "}
+                {String(a.reason)
+                  .replace("좌석 배정 확정", "좌석 배정 저장")
+                  .replace(
+                    "확정 좌석 구글 시트 반영",
+                    "좌석 배정 구글 시트 반영",
+                  )}
               </summary>
               <pre>{JSON.stringify(a, null, 2)}</pre>
             </details>
@@ -2860,29 +2866,29 @@ function Stats({
     <>
       <div className="metrics stats">
         <Metric
-          label="오늘 확정"
+          label="오늘 공부시간"
           value={duration(t.today)}
           unit=""
           caption="진행 중인 이용 시간 제외"
         />
         <Metric
-          label="이번 주 확정"
+          label="이번 주 공부시간"
           value={duration(t.week)}
           unit=""
           caption="월요일부터 금요일까지"
         />
         <Metric
-          label="이번 달 확정"
+          label="이번 달 공부시간"
           value={duration(t.month)}
           unit=""
           caption=""
         />
         {!compact && (
           <Metric
-            label="전체 확정"
+            label="전체 공부시간"
             value={duration(t.all)}
             unit=""
-            caption={`확정 이용 일수 ${t.count}일`}
+            caption={`공부한 날 ${t.count}일`}
           />
         )}
       </div>
@@ -3004,8 +3010,8 @@ function Statistics({
                 [
                   "학생",
                   "학번",
-                  "확정 이용 초",
-                  "확정 이용 일수",
+                  "공부시간(초)",
+                  "공부한 날",
                   "진행 중 초",
                   "확인 필요 날짜 구간",
                 ],
@@ -3026,10 +3032,10 @@ function Statistics({
       </div>
       <div className="metrics">
         <Metric
-          label="전체 확정 이용"
+          label="전체 공부시간"
           value={duration(rows.reduce((a, r) => a + r.seconds, 0))}
           unit=""
-          caption="학생별 확정 이용 시간 합계"
+          caption="학생별 공부시간 합계"
         />
         <Metric
           label="총 이용 일수"
@@ -3044,9 +3050,9 @@ function Statistics({
             <tr>
               <th>학번</th>
               <th>학생</th>
-              <th>확정 이용 시간</th>
+              <th>공부시간</th>
               <th>이용 일수</th>
-              <th>미확정</th>
+              <th>진행 중</th>
             </tr>
           </thead>
           <tbody>

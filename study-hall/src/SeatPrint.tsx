@@ -29,7 +29,7 @@ export function SeatPrint({ data }: { data: Snapshot }) {
           자리배치표 인쇄
         </button>
         <p className="muted">
-          저장된 현재 배정을 인쇄합니다. 변경 중인 미리보기는 배정 확정 후
+          저장된 현재 배정을 인쇄합니다. 변경 중인 미리보기는 배정 저장 후
           인쇄해 주세요.
         </p>
       </div>
@@ -39,7 +39,7 @@ export function SeatPrint({ data }: { data: Snapshot }) {
             <section className="seat-print-page" key={index}>
               <h1>용인고 온실 · 자리배치표</h1>
               <p>
-                현재 확정 배정 · {index + 1} / {groups.length}쪽 ·{" "}
+                현재 저장된 배정 · {index + 1} / {groups.length}쪽 ·{" "}
                 {new Date().toLocaleDateString("ko-KR", {
                   timeZone: "Asia/Seoul",
                 })}

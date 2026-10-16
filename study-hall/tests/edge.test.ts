@@ -375,10 +375,11 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
       assert.equal((await send("weekly_ranking")).status, 401);
       await send(
         "weekly_ranking",
-        { p_admin: "spoof", student_id: "other" },
+        { p_admin: "spoof", student_id: "other", scope: "day" },
         { "x-student-session": "a".repeat(64) },
       );
-      assert.equal(calls.at(-1).name, "weekly_ranking");
+      assert.equal(calls.at(-1).name, "study_ranking");
+      assert.equal(calls.at(-1).args.p_scope, "day");
       assert.equal(calls.at(-1).args.p_admin, null);
       assert.equal(calls.at(-1).args.p_student_session.length, 64);
       assert.equal(calls.at(-1).args.student_id, undefined);

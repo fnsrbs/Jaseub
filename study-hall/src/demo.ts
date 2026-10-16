@@ -1,3 +1,4 @@
+import { demoStudyRanking } from "./study-ranking";
 import {
   koreanDay,
   totals,
@@ -485,50 +486,29 @@ export async function demoApi(
   }
   if (action === "menu_order") return structuredClone(menuConfig);
   if (action === "weekly_ranking") {
-    const rows = state.students
-      .filter((s) => s.active && !s.deleted_at)
-      .map((s) => ({
-        id: s.id,
-        name: s.name,
-        number: s.number,
-        seconds: Math.floor(
-          totals(
-            state.visits.filter((v) => v.student_id === s.id),
-            Date.now(),
-            state.settings.missing_hours,
-          ).week,
-        ),
-      }))
-      .sort(
-        (a, b) =>
-          b.seconds - a.seconds ||
-          a.number.localeCompare(b.number, "ko", { numeric: true }),
-      );
-    const ranked = rows.map((r) => ({
-      ...r,
-      rank: r.seconds
-        ? rows.findIndex((s) => s.seconds === r.seconds) + 1
-        : null,
-      tied:
-        r.seconds > 0 && rows.filter((s) => s.seconds === r.seconds).length > 1,
-    }));
-    const today = koreanDay(new Date()),
-      wd = new Date(`${today}T12:00:00Z`).getUTCDay(),
-      start = new Date(
-        Date.parse(`${today}T12:00:00Z`) - ((wd + 6) % 7) * 86400000,
-      ),
-      end = new Date(start.getTime() + 4 * 86400000);
-    const shared = {
-      week_start: start.toISOString().slice(0, 10),
-      week_end: end.toISOString().slice(0, 10),
-      participants: rows.filter((r) => r.seconds > 0).length,
-      eligible: rows.length,
-    };
-    if (teacher || viewer) return { ...shared, rows: ranked };
-    const r = ranked.find((r) => r.id === sid);
+    const scope = p.scope || "week";
+    if (!["day", "week"].includes(scope))
+      throw Error("순위 조회 기간을 확인하세요.");
+    const ranking = demoStudyRanking(
+      state.students,
+      state.visits,
+      scope,
+      Date.now(),
+    );
+    if (teacher || viewer) return ranking;
+    const r = ranking.rows.find((r) => r.id === sid);
+    const { rows, ...shared } = ranking;
     return {
       ...shared,
-      mine: r ? { rank: r.rank, seconds: r.seconds, tied: r.tied } : null,
+      mine: r
+        ? {
+            rank: r.rank,
+            seconds: r.seconds,
+            tied: r.tied,
+            tied_count: r.tied_count,
+            leader_gap_seconds: r.leader_gap_seconds,
+          }
+        : null,
     };
   }
   if (action === "cleaning") return structuredClone(cleaning);
@@ -890,7 +870,7 @@ export async function demoApi(
       kind: "assign",
       before_value: before,
       after_value: p.pairs,
-      reason: "좌석 배정 확정",
+      reason: "좌석 배정 저장",
       created_at: now(),
     });
   } else if (action === "seat") {

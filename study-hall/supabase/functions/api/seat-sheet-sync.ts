@@ -25,7 +25,7 @@ export function seatSheetRows(
       used.has(s.seat_id) ||
       !seats.some((seat) => seat.id === s.seat_id && seat.enabled)
     )
-      throw Error("확정된 좌석 배정을 확인하세요.");
+      throw Error("저장된 좌석 배정을 확인하세요.");
     used.add(s.seat_id);
   }
   return [...seats]

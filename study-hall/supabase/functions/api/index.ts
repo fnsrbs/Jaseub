@@ -179,7 +179,8 @@ Deno.serve(async (req) => {
         return reply(data);
       }
       if (action === "weekly_ranking") {
-        const { data, error } = await db.rpc("weekly_ranking", {
+        const { data, error } = await db.rpc("study_ranking", {
+          p_scope: payload.scope || "week",
           p_viewer_session: await hash(viewerToken),
         });
         if (error) throw Error(error.message);
@@ -288,7 +289,8 @@ Deno.serve(async (req) => {
       return reply(data);
     }
     if (action === "weekly_ranking") {
-      const { data, error } = await db.rpc("weekly_ranking", {
+      const { data, error } = await db.rpc("study_ranking", {
+        p_scope: payload.scope || "week",
         p_admin: admin,
         p_student_session: session,
       });

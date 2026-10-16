@@ -47,7 +47,7 @@ export function SeatSheetSync({
           onClick={() => {
             if (
               !confirm(
-                "확정된 좌석 배정을 구글 시트에 반영할까요? 좌석표의 학번·이름 72칸을 갱신하고, 빈자리는 비웁니다.",
+                "저장된 좌석 배정을 구글 시트에 반영할까요? 좌석표의 학번·이름 72칸을 갱신하고, 빈자리는 비웁니다.",
               )
             )
               return;
@@ -64,7 +64,7 @@ export function SeatSheetSync({
                 setMessage(
                   r.demo
                     ? "데모 확인 완료 · 실제 구글 시트는 변경되지 않았습니다."
-                    : "구글 시트에 확정 좌석 배정을 반영했습니다.",
+                    : "구글 시트에 저장된 좌석 배정을 반영했습니다.",
                 );
               })
               .catch((e) => setError((e as Error).message))
@@ -85,7 +85,7 @@ export function SeatSheetSync({
           </small>
         )}
       </div>
-      {hasDraft && <small>미리보기 배정을 먼저 확정한 뒤 반영하세요.</small>}
+      {hasDraft && <small>미리보기 배정을 먼저 저장한 뒤 반영하세요.</small>}
       {status && !status.configured && (
         <p>처음 한 번 구글 시트 연결을 완료하면 사용할 수 있습니다.</p>
       )}

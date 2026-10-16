@@ -20,7 +20,7 @@ function doPost(e) {
     if (data.action === "attendance") return jaseubAttendance(data.attendance);
     if (data.action === "roster") {
       var roster = SpreadsheetApp.openById(JASEUB_SPREADSHEET).getSheetByName("출석부(확정)");
-      if (!roster) throw new Error("출석부(확정) 시트를 찾을 수 없습니다.");
+      if (!roster) throw new Error("연결된 출석부 시트를 찾을 수 없습니다.");
       var values = roster.getRange(5,1,996,3).getDisplayValues();
       if (values[0][1] !== "학번" || values[0][2] !== "이름") throw new Error("출석부 학번·이름 열을 확인하세요.");
       var students = [], numbers = {};

@@ -26,7 +26,7 @@ export function SeatArrangement({
     <>
       <p>
         좌석을 클릭해 학생 또는 빈자리를 선택하세요. 이미 자리가 있는 학생을
-        고르면 두 학생의 자리를 맞바꿉니다. 확정 전에는 저장되지 않습니다.
+        고르면 두 학생의 자리를 맞바꿉니다. 저장 전에는 저장되지 않습니다.
       </p>
       <GenderLegend />
       {target !== null && (
@@ -103,7 +103,7 @@ export function SeatArrangement({
       <div className="seat-scroll">
         <div className="seat-room">
           <div className="room-caption">
-            좌석 배정 편집 · {draft.length ? "미확정 미리보기" : "현재 배정"}
+            좌석 배정 편집 · {draft.length ? "저장 전 미리보기" : "현재 배정"}
           </div>
           {rows.map((row) => (
             <div

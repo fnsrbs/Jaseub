@@ -5,7 +5,7 @@ export const defaultMenus: Record<MenuRole, MenuItem[]> = {
   teacher: [
     ["home", "▦", "운영 대시보드"],
     ["attendance", "✓", "출석관리"],
-    ["ranking", "♛", "주간 순위"],
+    ["ranking", "♛", "공부시간 순위"],
     ["supervision", "▦", "감독표 관리"],
     ["cleaning", "♧", "청소 당번 관리"],
     ["students", "♙", "학생 관리"],
@@ -21,7 +21,7 @@ export const defaultMenus: Record<MenuRole, MenuItem[]> = {
   viewer: [
     ["home", "▦", "운영 현황"],
     ["attendance", "✓", "출석관리"],
-    ["ranking", "♛", "주간 순위"],
+    ["ranking", "♛", "공부시간 순위"],
     ["supervision", "▦", "감독 조회"],
     ["cleaning", "♧", "청소 당번표"],
     ["student-lookup", "♙", "학생 조회"],
@@ -35,7 +35,7 @@ export const defaultMenus: Record<MenuRole, MenuItem[]> = {
   student: [
     ["home", "▦", "내 자습실"],
     ["attendance", "✓", "내 교시별 출결"],
-    ["ranking", "♛", "내 주간 순위"],
+    ["ranking", "♛", "내 순위"],
     ["cleaning", "♧", "청소 당번표"],
     ["seats", "▤", "좌석 확인"],
     ["warnings", "▣", "경고카드"],
