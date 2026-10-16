@@ -102,7 +102,10 @@ export function WarningCards({
               .filter((s) => !s.deleted_at && (!student || s.id === student))
               .map((s) => (
                 <button key={s.id} onClick={() => setStudent(s.id)}>
-                  {s.name}{" "}
+                  <span className="warning-student-name">
+                    <small>{s.number}</small>
+                    <span>{s.name}</span>
+                  </span>
                   <strong>
                     ▣ {warnings.filter((w) => w.student_id === s.id).length}장
                   </strong>

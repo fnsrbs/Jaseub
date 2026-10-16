@@ -94,7 +94,7 @@ export function StudentLookup({
                     <td>
                       {
                         (data.warnings || []).filter(
-                          (w) => w.student_id === s.id,
+                          (w) => w.student_id === s.id && !w.deleted_at,
                         ).length
                       }
                       장
@@ -123,8 +123,9 @@ export function StudentLookup({
               좌석 {student.seat_id || "미배정"} ·{" "}
               {student.active ? "이용 가능" : "이용 중지"} · 누적 경고{" "}
               {
-                (data.warnings || []).filter((w) => w.student_id === student.id)
-                  .length
+                (data.warnings || []).filter(
+                  (w) => w.student_id === student.id && !w.deleted_at,
+                ).length
               }
               장
             </p>
@@ -169,7 +170,7 @@ export function StudentLookup({
           <div className="panel">
             <h3>경고카드 내역</h3>
             {(data.warnings || [])
-              .filter((w) => w.student_id === student.id)
+              .filter((w) => w.student_id === student.id && !w.deleted_at)
               .sort((a, b) => b.created_at.localeCompare(a.created_at))
               .map((w) => (
                 <p key={w.id}>
@@ -180,7 +181,7 @@ export function StudentLookup({
                 </p>
               ))}
             {!(data.warnings || []).some(
-              (w) => w.student_id === student.id,
+              (w) => w.student_id === student.id && !w.deleted_at,
             ) && <p>발급된 경고카드가 없습니다.</p>}
           </div>
         </section>

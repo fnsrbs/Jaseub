@@ -27,6 +27,7 @@ import { SeatPrint } from "./SeatPrint";
 import { SeatSheetSync } from "./SeatSheetSync";
 import { GenderLegend } from "./GenderLegend";
 import { WarningCards } from "./WarningCards";
+import { StudentWarningIssue } from "./StudentWarningIssue";
 import { StudentLookup } from "./StudentLookup";
 import { Supervision } from "./Supervision";
 import { Cleaning } from "./Cleaning";
@@ -379,6 +380,8 @@ export default function App() {
           </div>
           {teacher && data && detailStudent && (
             <SeatStudentDetails
+              act={act}
+              busy={busy}
               data={data}
               studentId={detailStudent}
               now={currentNow}
@@ -1071,11 +1074,15 @@ function SeatStudentDetails({
   studentId,
   now,
   close,
+  act,
+  busy,
 }: {
   data: Snapshot;
   studentId: string;
   now: number;
   close: () => void;
+  busy: boolean;
+  act: (action: string, payload: any) => Promise<any>;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -1098,7 +1105,10 @@ function SeatStudentDetails({
           initialSelectedId={studentId}
           onClose={() => dialog.current?.close()}
           renderDetails={(s) => (
-            <Stats data={data} studentId={s.id} now={now} />
+            <>
+              <StudentWarningIssue student={s} busy={busy} act={act} />
+              <Stats data={data} studentId={s.id} now={now} />
+            </>
           )}
         />
       ) : (
