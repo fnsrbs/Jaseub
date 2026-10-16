@@ -3006,8 +3006,8 @@ function SettingsPanel({
 }) {
   const [settings, setSettings] = useState(data.settings),
     [day, setDay] = useState(koreanDay(new Date())),
-    [start, setStart] = useState("18:00"),
-    [end, setEnd] = useState("22:00"),
+    [start, setStart] = useState("06:00"),
+    [end, setEnd] = useState("17:00"),
     [targets, setTargets] = useState(
       data.students.filter((s) => s.active).map((s) => s.id),
     );
