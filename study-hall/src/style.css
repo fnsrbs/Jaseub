@@ -263,6 +263,81 @@ header button {
 .metric small {
   font-size: 10px;
 }
+.metric-action {
+  text-align: left;
+  width: 100%;
+  font: inherit;
+}
+.metric-action:hover {
+  border-color: #79a58e;
+  background: #f3f8f4;
+}
+.current-students {
+  width: min(560px, calc(100% - 28px));
+  max-height: 85dvh;
+  padding: 0;
+  border: 1px solid #d4ddd7;
+  border-radius: 18px;
+  color: #24382f;
+  box-shadow: 0 24px 80px #102c3033;
+}
+.current-students[open] {
+  display: flex;
+  flex-direction: column;
+}
+.current-students::backdrop {
+  background: #102c3066;
+}
+.current-students-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 22px 20px 16px;
+}
+.current-students-head h2 {
+  margin: 0 0 8px;
+  font-size: 19px;
+}
+.current-students-head h2 span {
+  color: #176b58;
+  white-space: nowrap;
+}
+.current-students-head p {
+  margin: 0;
+  font-size: 12px;
+  color: #6e8073;
+}
+.current-students-head button {
+  flex-shrink: 0;
+  min-height: 44px;
+}
+.current-students-list {
+  overflow-y: auto;
+  min-height: 0;
+  padding: 0 20px 20px;
+  overscroll-behavior: contain;
+}
+.current-students-list table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+  white-space: normal;
+}
+.current-students-list th {
+  position: sticky;
+  top: 0;
+  background: #eef4ef;
+}
+.current-students-list td,
+.current-students-list th {
+  padding: 13px 16px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.current-students-list td:first-child {
+  font-variant-numeric: tabular-nums;
+}
 .stats .metric strong {
   font-size: 22px;
 }

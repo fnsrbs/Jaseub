@@ -400,12 +400,16 @@ export default function App() {
                   <div
                     className={teacher ? "metrics" : "metrics student-metrics"}
                   >
-                    <Metric
-                      label="현재 입실 인원"
-                      value={`${data.current}`}
-                      unit={`/ ${data.settings.capacity}명`}
-                      caption="지금 자습실에서 공부하는 학생"
-                    />
+                    {teacher ? (
+                      <CurrentStudents data={data} />
+                    ) : (
+                      <Metric
+                        label="현재 입실 인원"
+                        value={`${data.current}`}
+                        unit={`/ ${data.settings.capacity}명`}
+                        caption="지금 자습실에서 공부하는 학생"
+                      />
+                    )}
                     <Metric
                       label="오늘 출석 인원"
                       value={`${data.today}`}
@@ -1051,21 +1055,109 @@ function Metric({
   value,
   unit,
   caption,
+  onClick,
 }: {
   label: string;
   value: string;
   unit: string;
   caption: string;
+  onClick?: () => void;
 }) {
+  const Tag = onClick ? "button" : "div";
   return (
-    <div className="metric">
+    <Tag
+      className={`metric${onClick ? " metric-action" : ""}`}
+      onClick={onClick}
+    >
       <span>{label}</span>
       <div>
         <strong>{value}</strong>
         <span>{unit}</span>
       </div>
       <small>{caption}</small>
-    </div>
+    </Tag>
+  );
+}
+function CurrentStudents({ data }: { data: Snapshot }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const currentIds = new Set(
+    data.visits
+      .filter((visit) => !visit.exited_at)
+      .map((visit) => visit.student_id),
+  );
+  const students = data.students
+    .filter((student) => currentIds.has(student.id))
+    .sort(
+      (a, b) =>
+        a.number.localeCompare(b.number, "ko", { numeric: true }) ||
+        a.name.localeCompare(b.name, "ko"),
+    );
+  return (
+    <>
+      <Metric
+        label="현재 입실 인원"
+        value={String(data.current)}
+        unit={`/ ${data.settings.capacity}명`}
+        caption="학생 명단 보기 ↗"
+        onClick={() => dialog.current?.showModal()}
+      />
+      <dialog
+        ref={dialog}
+        className="current-students"
+        aria-labelledby="current-students-title"
+        onClick={(event) => {
+          if (event.target === event.currentTarget) {
+            const rect = event.currentTarget.getBoundingClientRect();
+            if (
+              event.clientX < rect.left ||
+              event.clientX > rect.right ||
+              event.clientY < rect.top ||
+              event.clientY > rect.bottom
+            )
+              dialog.current?.close();
+          }
+        }}
+      >
+        <header className="current-students-head">
+          <div>
+            <h2 id="current-students-title">
+              현재 입실 학생 <span>{students.length}명</span>
+            </h2>
+            <p>학번순 · 퇴실한 학생은 제외됩니다.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => dialog.current?.close()}
+            autoFocus
+            aria-label="입실 학생 명단 닫기"
+          >
+            닫기
+          </button>
+        </header>
+        <div className="current-students-list">
+          {students.length ? (
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">학번</th>
+                  <th scope="col">이름</th>
+                </tr>
+              </thead>
+              <tbody>
+                {students.map((student) => (
+                  <tr key={student.id}>
+                    <td>{student.number}</td>
+                    <td>{student.name}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="empty">현재 입실한 학생이 없습니다.</p>
+          )}
+        </div>
+      </dialog>
+    </>
   );
 }
 function Empty({ text }: { text: string }) {
