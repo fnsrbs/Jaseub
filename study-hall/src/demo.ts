@@ -1,4 +1,8 @@
-import { demoStudyRanking, demoCollections } from "./study-ranking";
+import {
+  demoStudyRanking,
+  demoCollections,
+  type DemoCollectionRecord,
+} from "./study-ranking";
 import {
   koreanDay,
   totals,
@@ -537,6 +541,42 @@ export async function demoApi(
             collection: r.collection,
           }
         : null,
+    };
+  }
+  if (action === "collection_history") {
+    if (!["crowns", "stars", "clovers"].includes(p.kind))
+      throw Error("수집 기록 종류를 확인하세요.");
+    if (!teacher && !viewer && p.student_id && p.student_id !== sid)
+      throw Error("본인 수집 기록만 조회할 수 있습니다.");
+    const selected = teacher || viewer ? p.student_id : sid;
+    if (
+      !state.students.some(
+        (s) => s.id === selected && s.active && !s.deleted_at,
+      )
+    )
+      throw Error("학생을 확인하세요.");
+    const records: DemoCollectionRecord[] = [];
+    demoCollections(
+      state.students,
+      state.visits,
+      Date.now(),
+      Object.values(
+        JSON.parse(
+          localStorage.getItem("study-hall-period-attendance") || "{}",
+        ),
+      ).flatMap((d: any) => d.sessions),
+      records,
+    );
+    const matching = records
+        .filter((r) => r.student_id === selected && r.kind === p.kind)
+        .sort((a, b) => b.day.localeCompare(a.day)),
+      offset = Math.max(0, p.offset || 0);
+    return {
+      kind: p.kind,
+      total: matching.length,
+      records: matching
+        .slice(offset, offset + 50)
+        .map(({ day, rank, seconds }) => ({ day, rank, seconds })),
     };
   }
   if (action === "cleaning") return structuredClone(cleaning);

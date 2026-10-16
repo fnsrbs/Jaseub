@@ -399,6 +399,34 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
     },
   );
   await t.test("구글 시트 연결 정보 요청도 서버 검증 신원만 전달", async () => {
+    assert.equal(
+      (await send("collection_history", { kind: "clovers" })).status,
+      401,
+    );
+    await send(
+      "collection_history",
+      { kind: "clovers", student_id: "selected", offset: 50, p_admin: "spoof" },
+      { "x-student-session": "a".repeat(64) },
+    );
+    assert.equal(calls.at(-1).name, "collection_history");
+    assert.equal(calls.at(-1).args.p_admin, null);
+    assert.equal(calls.at(-1).args.p_kind, "clovers");
+    assert.equal(calls.at(-1).args.p_student, "selected");
+    assert.equal(calls.at(-1).args.p_offset, 50);
+    assert.equal(calls.at(-1).args.p_student_session.length, 64);
+    await send(
+      "collection_history",
+      { kind: "crowns", student_id: "selected", p_admin: "spoof" },
+      { "x-teacher-session": "b".repeat(64) },
+    );
+    assert.equal(calls.at(-1).args.p_admin, undefined);
+    assert.equal(calls.at(-1).args.p_viewer_session.length, 64);
+    await send(
+      "collection_history",
+      { kind: "stars", student_id: "selected", p_admin: "spoof" },
+      { Authorization: "Bearer verified-teacher" },
+    );
+    assert.equal(calls.at(-1).args.p_admin, "teacher-id");
     assert.equal((await send("sheet_sync_status")).status, 401);
     await send(
       "sheet_sync_status",

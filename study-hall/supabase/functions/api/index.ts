@@ -186,6 +186,16 @@ Deno.serve(async (req) => {
         if (error) throw Error(error.message);
         return reply(data);
       }
+      if (action === "collection_history") {
+        const { data, error } = await db.rpc("collection_history", {
+          p_kind: payload.kind,
+          p_student: payload.student_id || null,
+          p_offset: payload.offset || 0,
+          p_viewer_session: await hash(viewerToken),
+        });
+        if (error) throw Error(error.message);
+        return reply(data);
+      }
       if (action === "cleaning" || action === "cleaning_notice") {
         const { data, error } = await db.rpc(
           action === "cleaning" ? "cleaning_api" : "cleaning_notice_api",
@@ -291,6 +301,17 @@ Deno.serve(async (req) => {
     if (action === "weekly_ranking") {
       const { data, error } = await db.rpc("study_ranking", {
         p_scope: payload.scope || "week",
+        p_admin: admin,
+        p_student_session: session,
+      });
+      if (error) throw Error(error.message);
+      return reply(data);
+    }
+    if (action === "collection_history") {
+      const { data, error } = await db.rpc("collection_history", {
+        p_kind: payload.kind,
+        p_student: payload.student_id || null,
+        p_offset: payload.offset || 0,
         p_admin: admin,
         p_student_session: session,
       });

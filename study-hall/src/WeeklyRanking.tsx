@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "./api";
 import { type Visit } from "./domain";
 import { rankingTime } from "./study-ranking";
+import { CollectedRecords, type CollectionCounts } from "./CollectedRecords";
 type Entry = {
   id?: string;
   name?: string;
@@ -12,7 +13,7 @@ type Entry = {
   tied: boolean;
   tied_count: number;
   leader_gap_seconds: number | null;
-  collection?: { crowns: number; stars: number; clovers: number };
+  collection?: CollectionCounts;
 };
 type Ranking = {
   participants: number;
@@ -30,21 +31,6 @@ function RankAward({ rank }: { rank: number | null | undefined }) {
     <span className="ranking-award" aria-hidden="true">
       {rank === 1 ? "👑" : "★"}
     </span>
-  );
-}
-function Collection({ value }: { value: Entry["collection"] }) {
-  return (
-    <div className="ranking-collection" aria-label="누적 수집 개수">
-      <span>
-        👑 왕관 <strong>{value?.crowns ?? 0}개</strong>
-      </span>
-      <span>
-        ⭐ 별 <strong>{value?.stars ?? 0}개</strong>
-      </span>
-      <span>
-        🍀 클로버 <strong>{value?.clovers ?? 0}개</strong>
-      </span>
-    </div>
   );
 }
 export function WeeklyRanking({
@@ -111,8 +97,15 @@ export function WeeklyRanking({
         같은 공부시간은 공동 순위입니다.
       </p>
       <p>월·화 16:30 / 수·목·금 15:30에 자동으로 퇴실 처리됩니다.</p>
-      {encouragement.trim() && (
-        <p className="ranking-encouragement">{encouragement}</p>
+      {teacher ? (
+        <p className="ranking-explanation">
+          👑 하루 최종 1위 · ⭐ 하루 최종 2~5위 · 🍀 출석한 날마다 1개. 수집
+          개수를 누르면 획득 날짜를 볼 수 있습니다.
+        </p>
+      ) : (
+        encouragement.trim() && (
+          <p className="ranking-encouragement">{encouragement}</p>
+        )
       )}
       {error ? (
         <p role="alert" className="error-text">
@@ -159,7 +152,12 @@ export function WeeklyRanking({
                           : rankingTime(r.leader_gap_seconds)}
                     </td>
                     <td>
-                      <Collection value={r.collection} />
+                      <CollectedRecords
+                        value={r.collection}
+                        role={role}
+                        token={token}
+                        studentId={r.id}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -170,12 +168,15 @@ export function WeeklyRanking({
         </>
       ) : (
         <>
-          <h3>내가 모은 보상</h3>
-          <Collection value={ranking.mine?.collection} />
+          <h3>차곡차곡 모은 기록</h3>
+          <CollectedRecords
+            value={ranking.mine?.collection}
+            role={role}
+            token={token}
+          />
           <p className="ranking-collection-note">
-            하루 집계 후 1위 👑 · 2~5위 ⭐ · 출석한 날마다 🍀 1개. 공동 순위도
-            같은 보상을 받아요. 기존 기록을 포함한 누적 개수이며, 출결 기록을
-            수정하면 함께 반영됩니다.
+            하루 집계 후 1위 👑 · 2~5위 ⭐ · 출석한 날마다 🍀 1개. 누르면 언제
+            모았는지 볼 수 있어요.
           </p>
           <strong className="my-weekly-rank">
             <RankAward rank={ranking.mine?.rank} />

@@ -6,11 +6,19 @@ import {
   type Visit,
 } from "./domain";
 import type { AttendanceSession } from "./period-attendance";
+export type DemoCollectionRecord = {
+  student_id: string;
+  day: string;
+  kind: "crowns" | "stars" | "clovers";
+  rank: number | null;
+  seconds: number | null;
+};
 export function demoCollections(
   students: Student[],
   visits: Visit[],
   now: number,
   sessions: AttendanceSession[] = [],
+  records?: DemoCollectionRecord[],
 ) {
   const eligible = students.filter((s) => s.active && !s.deleted_at);
   const result: Record<
@@ -35,6 +43,14 @@ export function demoCollections(
       )
         attended.add(session.day);
     result[s.id] = { crowns: 0, stars: 0, clovers: attended.size };
+    for (const day of attended)
+      records?.push({
+        student_id: s.id,
+        day,
+        kind: "clovers",
+        rank: null,
+        seconds: null,
+      });
     for (const v of visits.filter(
       (v) =>
         v.student_id === s.id && v.exited_at && Date.parse(v.exited_at) <= now,
@@ -70,7 +86,7 @@ export function demoCollections(
   function resultEligible(id: string) {
     return eligible.some((s) => s.id === id);
   }
-  for (const scores of days.values()) {
+  for (const [day, scores] of days.entries()) {
     const values = [...scores]
       .map(([id, seconds]) => ({ id, seconds: Math.floor(seconds) }))
       .filter((x) => x.seconds > 0)
@@ -79,6 +95,14 @@ export function demoCollections(
       const rank = values.findIndex((v) => v.seconds === x.seconds) + 1;
       if (rank === 1) result[x.id].crowns++;
       else if (rank <= 5) result[x.id].stars++;
+      if (rank <= 5)
+        records?.push({
+          student_id: x.id,
+          day,
+          kind: rank === 1 ? "crowns" : "stars",
+          rank,
+          seconds: x.seconds,
+        });
     }
   }
   return result;

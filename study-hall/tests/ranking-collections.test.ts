@@ -95,6 +95,14 @@ test("일일 왕관·별, 하루 출석 클로버: 중복·공동순위·마감�
       "utf8",
     );
     await db.exec(sql.replaceAll("now()", `'${now}'::timestamptz`));
+    const historySql = await readFile(
+      new URL(
+        "../supabase/migrations/20261016133112_collection_history.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    await db.exec(historySql.replaceAll("now()", `'${now}'::timestamptz`));
     const collections = async () =>
       (await db.query<{ r: any }>("select study_collections() r")).rows[0].r;
     let c = await collections();
@@ -109,6 +117,36 @@ test("일일 왕관·별, 하루 출석 클로버: 중복·공동순위·마감�
     assert.deepEqual(c[ids[9]], { crowns: 0, stars: 0, clovers: 1 });
     assert.equal(c[ids[10]].clovers, 0);
     assert.deepEqual(c, await collections()); // Refreshes cannot duplicate awards.
+    const history = async (
+      kind: string,
+      student: string | null = null,
+      offset = 0,
+      who: string | null = null,
+      token: string | null = "mine",
+    ) =>
+      (
+        await db.query<{ r: any }>(
+          "select collection_history($1,$2,$3,$4,null,$5) r",
+          [kind, student, offset, who, token],
+        )
+      ).rows[0].r;
+    for (const kind of ["crowns", "stars", "clovers"] as const) {
+      const h = await history(kind);
+      assert.equal(h.total, c[ids[2]][kind]);
+      assert.equal(h.records.length, h.total);
+      assert.ok(!JSON.stringify(h).includes(ids[0]));
+    }
+    assert.deepEqual((await history("stars")).records, [
+      { day: "2026-10-16", rank: 3, seconds: 3600 },
+    ]);
+    assert.deepEqual(
+      (await history("clovers")).records.map((r: any) => r.day),
+      ["2026-10-16", "2026-10-15"],
+    );
+    assert.equal((await history("crowns", ids[0], 0, admin, null)).total, 1);
+    await assert.rejects(history("clovers", ids[0]), /본인/);
+    await assert.rejects(history("clovers", null, 0, null, null), /로그인/);
+    await assert.rejects(history("invalid"), /종류/);
     const read = async (scope: string) =>
       (
         await db.query<{ r: any }>(
@@ -135,6 +173,8 @@ test("일일 왕관·별, 하루 출석 클로버: 중복·공동순위·마감�
       "study_collections()",
       "study_clovers(null)",
       "study_ranking('day')",
+      "study_collection_records()",
+      "collection_history('clovers')",
     ])
       await assert.rejects(db.query("select " + fn), /permission/);
     await db.exec("reset role");
@@ -154,6 +194,21 @@ test("일일 왕관·별, 하루 출석 클로버: 중복·공동순위·마감�
     );
     assert.equal((await collections())[ids[0]].crowns, 0);
     assert.equal((await collections())[ids[2]].crowns, 1); // Previous-day awards remain.
+    for (let i = 0; i < 60; i++)
+      await db.query(
+        "insert into visits(student_id,entered_at,exited_at) values($1,'2026-01-01'::timestamptz+($2||' days')::interval,null)",
+        [ids[2], i],
+      );
+    const first = await history("clovers"),
+      second = await history("clovers", null, 50);
+    assert.equal(first.total, 62);
+    assert.equal(first.records.length, 50);
+    assert.equal(second.records.length, 12);
+    assert.equal(
+      new Set([...first.records, ...second.records].map((r: any) => r.day))
+        .size,
+      62,
+    );
   } finally {
     await db.close();
   }
