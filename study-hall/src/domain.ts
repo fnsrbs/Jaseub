@@ -128,7 +128,7 @@ export function attendanceVerdict(
   visits: Visit[],
   now: number,
 ) {
-  if (!day || !day.student_ids.includes(studentId)) return "판정 설정 없음";
+  if (!day || !day.student_ids.includes(studentId)) return "출석 확인 전";
   const first = visits
     .filter(
       (v) => v.student_id === studentId && koreanDay(v.entered_at) === day.day,

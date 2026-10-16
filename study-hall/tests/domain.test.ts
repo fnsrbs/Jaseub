@@ -92,9 +92,9 @@ test("좌석 부족 거부 및 미리보기 원본 유지·고정 좌석 유지"
   assert.equal(new Set(preview.map((p) => p.seat_id)).size, 3);
   assert.deepEqual(students, before);
 });
-test("설정 없으면 지각·결석 판정하지 않음, 운영 종료 후 결석", () => {
+test("출석 기준이 없으면 확인 전 표시, 운영 시간 이후 결석 확인", () => {
   const now = Date.parse("2026-10-14T23:00:00+09:00");
-  assert.equal(attendanceVerdict("a", undefined, [], now), "판정 설정 없음");
+  assert.equal(attendanceVerdict("a", undefined, [], now), "출석 확인 전");
   const day = {
     day: "2026-10-14",
     start_time: "18:00",
@@ -102,7 +102,7 @@ test("설정 없으면 지각·결석 판정하지 않음, 운영 종료 후 결
     student_ids: ["a"],
   };
   assert.equal(attendanceVerdict("a", day, [], now), "결석");
-  assert.equal(attendanceVerdict("b", day, [], now), "판정 설정 없음");
+  assert.equal(attendanceVerdict("b", day, [], now), "출석 확인 전");
   assert.equal(
     attendanceVerdict(
       "a",
