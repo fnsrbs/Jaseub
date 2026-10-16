@@ -168,7 +168,7 @@ export function WeeklyRanking({
         </>
       ) : (
         <>
-          <h3>차곡차곡 모은 기록</h3>
+          <h3>차곡차곡 쌓은 보물</h3>
           <CollectedRecords
             value={ranking.mine?.collection}
             role={role}
