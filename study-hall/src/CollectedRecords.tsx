@@ -150,7 +150,11 @@ function HistoryDialog({
       ref={dialog}
       className="collection-history"
       aria-label={labels[kind] + " 획득 기록"}
-      onClose={close}
+      onClose={(event) => {
+        event.stopPropagation();
+        close();
+      }}
+      onCancel={(event) => event.stopPropagation()}
     >
       <div className="collection-history-heading">
         <h2>{labels[kind]} 획득 기록</h2>

@@ -48,6 +48,9 @@ export function WeeklyRanking({
   const period = scope === "day" ? "오늘" : "이번 주";
   const [ranking, setRanking] = useState<Ranking | null>(null),
     [error, setError] = useState("");
+  const visitRevision = visits
+    .map((v) => `${v.id}:${v.entered_at}:${v.exited_at ?? ""}`)
+    .join("|");
   useEffect(() => {
     let alive = true;
     setRanking((previous) => (previous?.scope === scope ? previous : null));
@@ -68,7 +71,7 @@ export function WeeklyRanking({
       alive = false;
       stopPolling();
     };
-  }, [role, token, visits, scope]);
+  }, [role, token, visitRevision, scope]);
   const teacher = role !== "student";
   return (
     <section

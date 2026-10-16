@@ -3,10 +3,8 @@ import { AttendanceSummary } from "./AttendanceSummary";
 import { CheckoutGuide, CameraGuide } from "./AttendanceGuide";
 import { pollWhileVisible } from "./visible-polling";
 import React, { useEffect, useRef, useState } from "react";
-import QRCode from "qrcode";
 import type { Html5Qrcode } from "html5-qrcode";
 import { api, mode, supabase } from "./api";
-import { demoQr, demoReset } from "./demo";
 import {
   attendanceVerdict,
   csv,
@@ -25,16 +23,29 @@ import {
 } from "./domain";
 import "./style.css";
 import { SeatPicker } from "./SeatPicker";
-import { SeatArrangement } from "./SeatArrangement";
-import { SeatPrint } from "./SeatPrint";
-import { SeatSheetSync } from "./SeatSheetSync";
+import { deferredPanel } from "./deferred-panel";
+const SeatArrangement = deferredPanel(() =>
+  import("./SeatArrangement").then((m) => ({ default: m.SeatArrangement })),
+);
+const SeatPrint = deferredPanel(() =>
+  import("./SeatPrint").then((m) => ({ default: m.SeatPrint })),
+);
+const SeatSheetSync = deferredPanel(() =>
+  import("./SeatSheetSync").then((m) => ({ default: m.SeatSheetSync })),
+);
 import { GenderLegend } from "./GenderLegend";
 import { WarningCards } from "./WarningCards";
 import { StudentWarningIssue } from "./StudentWarningIssue";
-import { PeriodAttendance } from "./PeriodAttendance";
+const PeriodAttendance = deferredPanel(() =>
+  import("./PeriodAttendance").then((m) => ({ default: m.PeriodAttendance })),
+);
 import { StudentLookup } from "./StudentLookup";
-import { Supervision } from "./Supervision";
-import { Cleaning } from "./Cleaning";
+const Supervision = deferredPanel(() =>
+  import("./Supervision").then((m) => ({ default: m.Supervision })),
+);
+const Cleaning = deferredPanel(() =>
+  import("./Cleaning").then((m) => ({ default: m.Cleaning })),
+);
 import { WeeklyRanking } from "./WeeklyRanking";
 import { HomeCollectedRecords } from "./CollectedRecords";
 import { rememberedLogin, rememberLogin } from "./remembered-login";
@@ -189,7 +200,7 @@ export default function App() {
     };
   }, [role, token]);
   useEffect(() => {
-    return pollWhileVisible(() => setNow(Date.now()), 1000);
+    return pollWhileVisible(() => setNow(Date.now()), 10000);
   }, []);
   async function act(action: string, payload: any) {
     if (inFlight.current) throw Error("이전 요청을 처리하고 있습니다.");
@@ -1056,7 +1067,8 @@ function Login({
             </p>
             <button onClick={() => setCode("S2K9D")}>데모 코드 채우기</button>
             <button
-              onClick={() => {
+              onClick={async () => {
+                const { demoReset } = await import("./demo");
                 demoReset();
                 location.reload();
               }}
@@ -1426,6 +1438,7 @@ function QRDisplay({ role, token }: { role: Role; token: string | null }) {
     setError("");
     try {
       const qr = await api(rotate ? "qr_rotate" : "qr", {}, role, token);
+      const { default: QRCode } = await import("qrcode");
       const img = await QRCode.toDataURL(qr.token, {
         width: 1000,
         margin: 4,
@@ -1667,7 +1680,14 @@ function Scanner({
               같은 브라우저의 교사 데모에서 QR을 표시한 후 학생으로
               로그인하세요.
             </p>
-            <button disabled={busy} onClick={() => void send(demoQr().token)}>
+            <button
+              disabled={busy}
+              onClick={() =>
+                void import("./demo")
+                  .then(({ demoQr }) => send(demoQr().token))
+                  .catch(() => {})
+              }
+            >
               현재 데모 QR로 시연
             </button>
             <Field label="QR 내용으로 시연">

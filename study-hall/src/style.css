@@ -480,6 +480,8 @@ small,
   min-height: 100vh;
 }
 aside {
+  overflow-y: auto;
+  overscroll-behavior: contain;
   width: 230px;
   background: #fff;
   border-right: 1px solid #e5ebe5;
@@ -519,7 +521,13 @@ aside {
 nav {
   display: grid;
   gap: 6px;
+  flex: 1;
+  min-height: 80px;
+  overflow-y: auto;
+  align-content: start;
+  scrollbar-width: thin;
 }
+.brand,.role-label,.sidebar-bottom{flex-shrink:0}
 nav a {
   padding: 12px 14px;
   color: #718177;
@@ -1555,6 +1563,8 @@ blockquote {
   nav {
     display: flex;
     overflow: auto;
+    flex: none;
+    min-height: 0;
     gap: 4px;
     margin-top: 17px;
   }

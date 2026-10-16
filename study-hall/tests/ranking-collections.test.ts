@@ -128,6 +128,20 @@ test("일일 왕관·별, 하루 출석 클로버: 중복·공동순위·마감�
       "utf8",
     );
     await db.exec(cloverSql.replaceAll("now()", `'${now}'::timestamptz`));
+    const optimizedSql = await readFile(
+      new URL(
+        "../supabase/migrations/20261016140313_optimize_collection_aggregation.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    const before = (await db.query<{ r: any }>("select study_collections() r"))
+      .rows[0].r;
+    await db.exec(optimizedSql);
+    assert.deepEqual(
+      (await db.query<{ r: any }>("select study_collections() r")).rows[0].r,
+      before,
+    );
     const collections = async () =>
       (await db.query<{ r: any }>("select study_collections() r")).rows[0].r;
     let c = await collections();
@@ -250,6 +264,7 @@ test("일일 왕관·별, 하루 출석 클로버: 중복·공동순위·마감�
     await db.exec(
       cloverSql.replaceAll("now()", "'2026-10-16T15:29:59+09:00'::timestamptz"),
     );
+    await db.exec(optimizedSql);
     const fullEntry = JSON.stringify([
       { student_id: ids[11], status: "present" },
     ]);
