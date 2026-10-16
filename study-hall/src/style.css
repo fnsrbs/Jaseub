@@ -2112,3 +2112,4 @@ blockquote {
   line-height: 1.8;
 }
 .student-collection-summary{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:13px}.student-collection-summary span{white-space:nowrap}
+.student-detail-back{display:flex;width:fit-content;margin-bottom:18px}

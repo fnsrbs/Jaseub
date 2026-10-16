@@ -158,6 +158,7 @@ export function StudentLookup({
             <button
               type="button"
               onClick={() => (onClose ? onClose() : setSelected(""))}
+              className="student-detail-back"
             >
               {onClose ? "← 운영현황으로 돌아가기" : "← 학생 목록으로"}
             </button>
