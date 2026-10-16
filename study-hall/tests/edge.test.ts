@@ -191,7 +191,6 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
         "qr",
         "qr_rotate",
         "assign",
-        "manual",
         "attendance",
         "correct",
         "settings",
@@ -205,6 +204,34 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
       }
     },
   );
+  await t.test("수동 입퇴실: 교사 허용·학생 거부·인증 인자 보호", async () => {
+    assert.equal(
+      (await send("manual", {}, { "x-student-session": "a".repeat(64) }))
+        .status,
+      403,
+    );
+    for (const headers of [
+      { "x-teacher-session": "a".repeat(64) },
+      { Authorization: "Bearer verified-teacher" },
+    ] as Record<string, string>[]) {
+      const r = await send(
+        "manual",
+        { student_id: "target", p_admin: "forged" },
+        headers,
+      );
+      assert.equal(r.status, 200);
+      const last = calls.at(-1);
+      assert.equal(last.name, "staff_manual_attendance");
+      assert.notEqual(last.args.p_admin, "forged");
+      if (headers["x-teacher-session"]) {
+        assert.match(last.args.p_viewer_session, /^[a-f0-9]{64}$/);
+        assert.notEqual(
+          last.args.p_viewer_session,
+          headers["x-teacher-session"],
+        );
+      }
+    }
+  });
   await t.test(
     "교시 출석은 학생 거부·검증된 교사 및 관리자 신원만 전달",
     async () => {
@@ -463,7 +490,7 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
     assert.equal(calls.at(-1).args.p_student, "student-id");
   });
   await t.test("출결 집계는 신뢰한 세션만 RPC 인증인자로 전달", async () => {
-    const identities: Record<string,string>[] = [
+    const identities: Record<string, string>[] = [
       { "x-student-session": "a".repeat(64) },
       { "x-teacher-session": "b".repeat(64) },
       { Authorization: "Bearer verified-teacher" },

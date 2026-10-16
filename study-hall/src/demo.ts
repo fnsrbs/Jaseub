@@ -414,6 +414,52 @@ export async function demoApi(
       }
     }
     if (
+      action === "period_attendance_save" &&
+      p.day === koreanDay(new Date())
+    ) {
+      const cutoff = new Date(
+        `${p.day}T${[1, 2].includes(new Date(p.day + "T12:00:00+09:00").getUTCDay()) ? "16:30" : "15:30"}:00+09:00`,
+      ).getTime();
+      for (const entry of record.sessions.find((s) => s.period === p.period)
+        ?.entries || []) {
+        if (
+          !["present", "late"].includes(entry.status) ||
+          !state.students.some(
+            (s) => s.id === entry.student_id && s.active && !s.deleted_at,
+          ) ||
+          state.visits.some(
+            (v) =>
+              v.student_id === entry.student_id &&
+              (!v.exited_at || koreanDay(v.entered_at) === p.day),
+          )
+        )
+          continue;
+        const first =
+          record.history
+            .filter(
+              (e) =>
+                Array.isArray(e.changes) &&
+                e.changes.some(
+                  (c) =>
+                    c.student_id === entry.student_id &&
+                    ["present", "late"].includes(c.after || ""),
+                ),
+            )
+            .map((e) => e.created_at)
+            .sort()[0] || now();
+        state.visits.unshift({
+          id: id(),
+          student_id: entry.student_id,
+          entered_at: first,
+          exited_at:
+            Date.now() >= cutoff
+              ? new Date(Math.max(cutoff, Date.parse(first))).toISOString()
+              : null,
+        });
+      }
+      save();
+    }
+    if (
       action !== "period_attendance" &&
       (action === "period_attendance_sync" ||
         shouldSyncAttendance(p.day, record.sessions))
@@ -491,8 +537,8 @@ export async function demoApi(
     if (!teacher && !viewer) throw Error("교사 또는 관리자 권한이 필요합니다.");
     return structuredClone(supervision);
   }
-  if (viewer && !["warning_issue", "warning_delete"].includes(action))
-    throw Error("교사는 조회 및 경고카드 관리만 가능합니다.");
+  if (viewer && !["warning_issue", "warning_delete", "manual"].includes(action))
+    throw Error("교사 권한으로 처리할 수 없는 요청입니다.");
   if (action === "suggest" && !teacher) {
     state.suggestions.unshift({
       id: id(),
@@ -507,16 +553,26 @@ export async function demoApi(
     save();
     return {};
   }
-  if (action === "attendance" || (action === "manual" && teacher)) {
-    const studentId = teacher ? p.student_id : sid;
+  if (action === "attendance" || (action === "manual" && (teacher || viewer))) {
+    const staff = teacher || viewer;
+    if (
+      action === "manual" &&
+      (!p.reason?.trim() || p.reason.trim().length > 500)
+    )
+      throw Error("수동 처리 사유를 입력하세요.");
+    if (!["in", "out"].includes(p.direction))
+      throw Error("입퇴실 구분을 확인하세요.");
+    const studentId = staff ? p.student_id : sid;
     const student = state.students.find(
       (s) =>
-        s.id === studentId && (s.active || (teacher && p.direction === "out")),
+        s.id === studentId &&
+        !s.deleted_at &&
+        (s.active || (staff && p.direction === "out")),
     );
     if (!student) throw Error("이용 가능한 학생이 아닙니다.");
-    const key = (teacher ? "teacher" : sid) + p.request_id;
+    const key = (staff ? (viewer ? "viewer" : "teacher") : sid) + p.request_id;
     if (requests.has(key)) return requests.get(key);
-    if (!teacher && (!validQr(p.qr) || p.qr !== readQr().token))
+    if (!staff && (!validQr(p.qr) || p.qr !== readQr().token))
       throw Error("QR이 만료되었거나 유효하지 않습니다.");
     const v = state.visits.find(
       (v) => v.student_id === studentId && !v.exited_at,

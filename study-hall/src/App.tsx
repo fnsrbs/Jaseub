@@ -1,3 +1,4 @@
+import { ManualAttendance } from "./ManualAttendance";
 import { AttendanceSummary } from "./AttendanceSummary";
 import { CheckoutGuide, CameraGuide } from "./AttendanceGuide";
 import { pollWhileVisible } from "./visible-polling";
@@ -279,7 +280,6 @@ export default function App() {
   const currentNow = now + offset;
   const today = koreanDay(new Date(currentNow));
   const me = data?.students[0];
-  const chosen = data?.students.find((s) => s.id === selected) || me;
   const active = data?.visits.find(
     (v) => v.student_id === me?.id && !v.exited_at,
   );
@@ -481,74 +481,7 @@ export default function App() {
                             setDetailStudent(id);
                         }}
                       />
-                      {chosen && (
-                        <div className="panel selected-card">
-                          <div>
-                            <h3>
-                              {chosen.name} <small>{chosen.number}</small>
-                            </h3>
-                            <p>
-                              오늘 출석 상태:{" "}
-                              {attendanceVerdict(
-                                chosen.id,
-                                data.operating_days.find(
-                                  (d) => d.day === today,
-                                ),
-                                data.visits,
-                                currentNow,
-                              )}{" "}
-                              · 오늘 확정 이용{" "}
-                              {duration(
-                                dailyUsage(
-                                  data.visits.filter(
-                                    (v) => v.student_id === chosen.id,
-                                  ),
-                                  currentNow,
-                                  data.settings.missing_hours,
-                                )[today]?.confirmed || 0,
-                              )}
-                            </p>
-                          </div>
-                          {admin && (
-                            <div className="actions">
-                              <button
-                                disabled={busy}
-                                onClick={() => {
-                                  const reason = prompt("수동 입실 사유");
-                                  if (reason)
-                                    safe(
-                                      act("manual", {
-                                        student_id: chosen.id,
-                                        direction: "in",
-                                        reason,
-                                        request_id: crypto.randomUUID(),
-                                      }),
-                                    );
-                                }}
-                              >
-                                수동 입실
-                              </button>
-                              <button
-                                disabled={busy}
-                                onClick={() => {
-                                  const reason = prompt("수동 퇴실 사유");
-                                  if (reason)
-                                    safe(
-                                      act("manual", {
-                                        student_id: chosen.id,
-                                        direction: "out",
-                                        reason,
-                                        request_id: crypto.randomUUID(),
-                                      }),
-                                    );
-                                }}
-                              >
-                                수동 퇴실
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                      <ManualAttendance data={data} act={act} busy={busy} />
                       {missing.length > 0 && (
                         <div className="alert error">
                           퇴실 확인 필요:{" "}
@@ -3172,8 +3105,8 @@ function SettingsPanel({
         <h2>기본 운영 설정</h2>
         <p>
           자동 일괄 퇴실: 월·화 오후 4시 30분 / 수·목·금 오후 3시 30분 (한국
-          시간). 입실 중인 학생은 해당 시각에 자동 퇴실되며, 조퇴 등 중간
-          퇴실만 QR로 기록합니다.
+          시간). 입실 중인 학생은 해당 시각에 자동 퇴실되며, 조퇴 등 중간 퇴실만
+          QR로 기록합니다.
         </p>
         <p className="muted">
           전체 학생 인원수를 저장하면 운영현황의 현재 입실·오늘 출석 인원에

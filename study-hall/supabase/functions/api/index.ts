@@ -144,6 +144,14 @@ Deno.serve(async (req) => {
     const viewerToken = req.headers.get("x-teacher-session");
     if (viewerToken) {
       if (!/^[a-f0-9]{64}$/.test(viewerToken)) throw Error("교사 세션 오류");
+      if (action === "manual") {
+        const { data, error } = await db.rpc("staff_manual_attendance", {
+          p_payload: payload,
+          p_viewer_session: await hash(viewerToken),
+        });
+        if (error) throw Error(error.message);
+        return reply(data);
+      }
       if (action === "attendance_summary") {
         const { data, error } = await db.rpc("attendance_summary", {
           p_payload: payload,
@@ -207,7 +215,7 @@ Deno.serve(async (req) => {
       }
       if (!["snapshot", "logout"].includes(action))
         return reply(
-          { error: "교사는 조회 및 경고카드 관리만 가능합니다." },
+          { error: "교사 권한으로 처리할 수 없는 요청입니다." },
           403,
         );
       const { data, error } =
@@ -236,6 +244,19 @@ Deno.serve(async (req) => {
       if (error || !data.user)
         return reply({ error: "인증이 만료되었습니다." }, 401);
       admin = data.user.id;
+    }
+    if (action === "manual") {
+      if (session)
+        return reply(
+          { error: "교사 또는 관리자만 수동 처리할 수 있습니다." },
+          403,
+        );
+      const { data, error } = await db.rpc("staff_manual_attendance", {
+        p_payload: payload,
+        p_admin: admin,
+      });
+      if (error) throw Error(error.message);
+      return reply(data);
     }
     if (action === "attendance_summary") {
       const { data, error } = await db.rpc("attendance_summary", {

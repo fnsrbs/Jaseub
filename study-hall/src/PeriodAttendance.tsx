@@ -474,7 +474,12 @@ export function PeriodAttendance({
                 <small>
                   {session?.confirmed
                     ? `저장: ${new Date(session.updated_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}`
-                    : "확인 완료 전에는 DB·구글 시트에 출석으로 기록되지 않습니다."}
+                    : "확인 완료 전에는 출석으로 기록되지 않습니다."}
+                </small>
+                <small>
+                  오늘 출석·지각을 처음 확인하면 QR 입실 기록이 없는 학생은 최초
+                  확인 시각으로 자동 입실 처리됩니다. 기존 입실 시각은
+                  유지됩니다.
                 </small>
               </div>
               <button
