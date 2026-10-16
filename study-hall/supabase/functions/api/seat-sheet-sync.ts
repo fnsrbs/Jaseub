@@ -38,9 +38,14 @@ export function seatSheetRows(
 export async function callSeatSheet(
   endpoint: string,
   secret: string,
-  action: "check" | "sync" | "roster",
+  action: "check" | "sync" | "roster" | "attendance",
   spreadsheetId: string,
   seats?: { id: number; number: string; name: string }[],
+  attendance?: {
+    day: string;
+    generation: number;
+    rows: { number: string; name: string; statuses: string[]; note: string }[];
+  },
 ) {
   validateSheetEndpoint(endpoint);
   const requestId = crypto.randomUUID();
@@ -50,6 +55,7 @@ export async function callSeatSheet(
     requestId,
     spreadsheetId,
     ...(action === "sync" ? { seats } : {}),
+    ...(action === "attendance" ? { attendance } : {}),
   });
   const key = await crypto.subtle.importKey(
     "raw",
@@ -85,6 +91,8 @@ export async function callSeatSheet(
     error?: string;
     before?: unknown;
     students?: { number: string; name: string }[];
+    attendance?: boolean;
+    url?: string;
   };
   try {
     result = await response.json();
@@ -100,7 +108,9 @@ export async function callSeatSheet(
       ? result.ready !== true
       : action === "sync"
         ? result.updated !== 72
-        : !Array.isArray(result.students)
+        : action === "roster"
+          ? !Array.isArray(result.students)
+          : typeof result.updated !== "number"
   )
     throw Error("구글 시트 응답을 확인하세요.");
   return { ...result, requestId };

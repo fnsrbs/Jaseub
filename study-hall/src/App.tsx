@@ -28,6 +28,7 @@ import { SeatSheetSync } from "./SeatSheetSync";
 import { GenderLegend } from "./GenderLegend";
 import { WarningCards } from "./WarningCards";
 import { StudentWarningIssue } from "./StudentWarningIssue";
+import { PeriodAttendance } from "./PeriodAttendance";
 import { StudentLookup } from "./StudentLookup";
 import { Supervision } from "./Supervision";
 import { Cleaning } from "./Cleaning";
@@ -628,6 +629,14 @@ export default function App() {
               )}
               {page === "ranking" && (
                 <WeeklyRanking role={role} token={token} visits={data.visits} />
+              )}
+              {page === "attendance" && teacher && (
+                <PeriodAttendance
+                  data={data}
+                  role={admin ? "teacher" : "viewer"}
+                  token={token}
+                  now={currentNow}
+                />
               )}
               {page === "supervision" && teacher && (
                 <Supervision

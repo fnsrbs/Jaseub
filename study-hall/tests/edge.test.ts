@@ -205,6 +205,42 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
       }
     },
   );
+  await t.test(
+    "교시 출석은 학생 거부·검증된 교사 및 관리자 신원만 전달",
+    async () => {
+      assert.equal(
+        (await send("period_attendance", { day: "2026-10-16" })).status,
+        401,
+      );
+      calls.length = 0;
+      assert.equal(
+        (
+          await send(
+            "period_attendance_save",
+            { p_admin: "spoof" },
+            { "x-student-session": "a".repeat(64) },
+          )
+        ).status,
+        403,
+      );
+      assert.equal(calls.length, 0);
+      await send(
+        "period_attendance",
+        { day: "2026-10-16", p_admin: "spoof" },
+        { "x-teacher-session": "b".repeat(64) },
+      );
+      assert.equal(calls.at(-1).name, "period_attendance_api");
+      assert.equal(calls.at(-1).args.p_admin, null);
+      assert.match(calls.at(-1).args.p_viewer_session, /^[a-f0-9]{64}$/);
+      assert.notEqual(calls.at(-1).args.p_viewer_session, "b".repeat(64));
+      await send(
+        "period_attendance",
+        { day: "2026-10-16" },
+        { Authorization: "Bearer verified-teacher" },
+      );
+      assert.equal(calls.at(-1).args.p_admin, "teacher-id");
+    },
+  );
   await t.test("세션 토큰 해시·클라이언트 관리자 주장 무시", async () => {
     const r = await send(
       "snapshot",

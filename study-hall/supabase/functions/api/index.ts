@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { seatSheetScript } from "./seat-sheet-script.ts";
+import { handlePeriodAttendance, periodActions } from "./period-attendance.ts";
 import {
   callSeatSheet,
   seatSheetRows,
@@ -143,6 +144,16 @@ Deno.serve(async (req) => {
     const viewerToken = req.headers.get("x-teacher-session");
     if (viewerToken) {
       if (!/^[a-f0-9]{64}$/.test(viewerToken)) throw Error("교사 세션 오류");
+      if (periodActions.includes(action))
+        return reply(
+          await handlePeriodAttendance(
+            db,
+            action,
+            payload,
+            null,
+            await hash(viewerToken),
+          ),
+        );
       if (action === "menu_order") {
         const { data, error } = await db.rpc("menu_order_api", {
           p_action: "read",
@@ -217,6 +228,16 @@ Deno.serve(async (req) => {
       if (error || !data.user)
         return reply({ error: "인증이 만료되었습니다." }, 401);
       admin = data.user.id;
+    }
+    if (periodActions.includes(action)) {
+      if (session)
+        return reply(
+          { error: "교사 또는 관리자만 출석관리를 사용할 수 있습니다." },
+          403,
+        );
+      return reply(
+        await handlePeriodAttendance(db, action, payload, admin, null),
+      );
     }
     if (action === "menu_order" || action === "menu_order_save") {
       const { data, error } = await db.rpc("menu_order_api", {

@@ -4,6 +4,7 @@ export type MenuItem = [string, string, string];
 export const defaultMenus: Record<MenuRole, MenuItem[]> = {
   teacher: [
     ["home", "▦", "운영 대시보드"],
+    ["attendance", "✓", "출석관리"],
     ["ranking", "♛", "주간 순위"],
     ["supervision", "▦", "감독표 관리"],
     ["cleaning", "♧", "청소 당번 관리"],
@@ -19,6 +20,7 @@ export const defaultMenus: Record<MenuRole, MenuItem[]> = {
   ],
   viewer: [
     ["home", "▦", "운영 현황"],
+    ["attendance", "✓", "출석관리"],
     ["ranking", "♛", "주간 순위"],
     ["supervision", "▦", "감독 조회"],
     ["cleaning", "♧", "청소 당번표"],

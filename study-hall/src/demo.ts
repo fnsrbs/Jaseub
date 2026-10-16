@@ -24,6 +24,12 @@ let cleaningNotice = JSON.parse(
 const now = () => new Date().toISOString();
 import { classroomSeats } from "./seat-layout";
 import { defaultSiteCopy } from "./site-copy";
+import {
+  defaultAttendance,
+  periodsForDay,
+  type AttendanceDay,
+  type AttendanceEntry,
+} from "./period-attendance";
 const id = () => crypto.randomUUID();
 // Entirely fictional browser-only demonstration. Never used by production.
 const initial = (): Snapshot => {
@@ -165,6 +171,7 @@ const save = () =>
   localStorage.setItem("study-hall-fictional-demo", JSON.stringify(state));
 export function demoReset() {
   state = initial();
+  localStorage.removeItem("study-hall-period-attendance");
   save();
 }
 export async function demoApi(
@@ -235,6 +242,135 @@ export async function demoApi(
       }));
     }
     return data;
+  }
+  if (action === "period_attendance_connection") {
+    if (!teacher && !viewer) throw Error("교사 또는 관리자 권한이 필요합니다.");
+    return { ready: true };
+  }
+  if (
+    [
+      "period_attendance",
+      "period_attendance_save",
+      "period_attendance_reset",
+      "period_attendance_sync",
+    ].includes(action)
+  ) {
+    if (!teacher && !viewer) throw Error("교사 또는 관리자 권한이 필요합니다.");
+    const all: Record<string, AttendanceDay> = JSON.parse(
+      localStorage.getItem("study-hall-period-attendance") || "{}",
+    );
+    const record = all[p.day] || {
+      day: p.day,
+      sessions: [],
+      history: [],
+      sheet_configured: true,
+    };
+    const old = record.sessions.find((s) => s.period === p.period);
+    if (
+      action !== "period_attendance" &&
+      !teacher &&
+      p.day !== koreanDay(new Date())
+    )
+      throw Error("과거·미래 날짜의 출석 변경은 관리자만 가능합니다.");
+    if (
+      action === "period_attendance_save" ||
+      action === "period_attendance_reset"
+    ) {
+      if (!p.period || p.period > periodsForDay(p.day) || p.period < 1)
+        throw Error("해당 요일에 없는 교시입니다.");
+      if (old?.request_id !== p.request_id) {
+        if ((old?.revision || 0) !== p.revision)
+          throw Error(
+            "다른 교사가 출석을 변경했습니다. 다시 조회한 뒤 수정하세요.",
+          );
+        if (action === "period_attendance_reset") {
+          if (!teacher) throw Error("출석 초기화는 관리자만 가능합니다.");
+          if (!old || !p.reason?.trim())
+            throw Error("초기화 사유를 입력하세요.");
+          old.confirmed = false;
+          old.revision++;
+          old.request_id = p.request_id;
+          old.updated_at = now();
+        } else {
+          const roster = old?.entries || defaultAttendance(state.students);
+          if (
+            p.entries?.length !== roster.length ||
+            new Set(p.entries.map((e: any) => e.student_id)).size !==
+              roster.length
+          )
+            throw Error("출석 대상 학생을 확인하세요.");
+          const entries: AttendanceEntry[] = roster.map((s) => {
+            const e = p.entries.find((e: any) => e.student_id === s.student_id);
+            if (
+              !e ||
+              !["present", "late", "absent", "excused"].includes(e.status) ||
+              String(e.note || "").length > 500
+            )
+              throw Error("출석 상태·사유를 확인하세요.");
+            return {
+              ...s,
+              status: e.status,
+              note: String(e.note || "").trim(),
+            };
+          });
+          record.sessions = record.sessions
+            .filter((s) => s.period !== p.period)
+            .concat({
+              day: p.day,
+              period: p.period,
+              entries,
+              confirmed: true,
+              revision: (old?.revision || 0) + 1,
+              updated_at: now(),
+              updated_by: teacher ? "admin:demo" : "teacher:demo",
+              synced_revision: 0,
+              synced_at: null,
+              request_id: p.request_id,
+            });
+        }
+        record.history.unshift({
+          id: Date.now(),
+          day: p.day,
+          period: p.period,
+          actor: teacher ? "admin:demo" : "teacher:demo",
+          action: action === "period_attendance_reset" ? "reset" : "save",
+          reason:
+            action === "period_attendance_reset"
+              ? p.reason
+              : "출석 확인 완료·변경",
+          created_at: now(),
+          changes:
+            action === "period_attendance_reset"
+              ? { previous_revision: p.revision }
+              : p.entries.map((e: any) => ({
+                  ...e,
+                  ...{
+                    name: record.sessions
+                      .find((s) => s.period === p.period)
+                      ?.entries.find((x) => x.student_id === e.student_id)
+                      ?.name,
+                    number: record.sessions
+                      .find((s) => s.period === p.period)
+                      ?.entries.find((x) => x.student_id === e.student_id)
+                      ?.number,
+                  },
+                  after: e.status,
+                })),
+        });
+      }
+    }
+    if (action !== "period_attendance") {
+      record.sessions.forEach((s) => {
+        s.synced_revision = s.revision;
+        s.synced_at = now();
+      });
+      record.sheet_sync = { ok: true };
+    }
+    all[p.day] = record;
+    localStorage.setItem("study-hall-period-attendance", JSON.stringify(all));
+    const result = structuredClone(record);
+    if (!teacher) result.history = [];
+    return result;
   }
   if (action === "menu_order") return structuredClone(menuConfig);
   if (action === "weekly_ranking") {

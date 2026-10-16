@@ -58,6 +58,7 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     await db.exec(migration("_cleaning_notice.sql"));
     await db.exec(migration("_student_weekly_rank.sql"));
     await db.exec(migration("_role_menu_order.sql"));
+    await db.exec(migration("_period_attendance.sql"));
     await assert.rejects(db.query("select code_digest('AB12')"), /형식/);
     const admin = crypto.randomUUID(),
       outsider = crypto.randomUUID(),
@@ -1080,9 +1081,10 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
       menuApi("save", { orders, revision: 1 }, null, null, "c".repeat(64)),
       /관리자/,
     );
-    const nav = await menuApi("save", { orders, revision: 1 });
+    const menuRevision = (await menuApi("read")).revision;
+    const nav = await menuApi("save", { orders, revision: menuRevision });
     assert.deepEqual(nav.orders, orders);
-    assert.equal(nav.revision, 2);
+    assert.equal(nav.revision, menuRevision + 1);
     assert.deepEqual(
       await menuApi("read", {}, null, null, "c".repeat(64)),
       nav,
