@@ -23,6 +23,7 @@ import {
 import "./style.css";
 import { SeatPicker } from "./SeatPicker";
 import { SeatArrangement } from "./SeatArrangement";
+import { SeatPrint } from "./SeatPrint";
 import { SeatSheetSync } from "./SeatSheetSync";
 import { GenderLegend } from "./GenderLegend";
 import { WarningCards } from "./WarningCards";
@@ -1627,6 +1628,30 @@ function Students({
     });
   return (
     <>
+      <div className="metrics" aria-label="학생 등록 현황">
+        <Metric
+          label="전체 등록 인원"
+          value={String(data.students.filter((s) => !s.deleted_at).length)}
+          unit="명"
+          caption="삭제된 학생 제외 · 검색 조건과 무관"
+        />
+        <Metric
+          label="이용 가능 인원"
+          value={String(
+            data.students.filter((s) => !s.deleted_at && s.active).length,
+          )}
+          unit="명"
+          caption="자습실 이용이 가능한 학생"
+        />
+        <Metric
+          label="이용 제한 인원"
+          value={String(
+            data.students.filter((s) => !s.deleted_at && !s.active).length,
+          )}
+          unit="명"
+          caption="이용이 중지된 학생"
+        />
+      </div>
       <div className="panel">
         <h2>{edit.id ? "학생 정보 수정" : "학생 등록"}</h2>
         <button
@@ -1978,6 +2003,7 @@ function SeatAdmin({
     <>
       <div className="panel">
         <h2>좌석 배정 · 클릭해서 변경</h2>
+        <SeatPrint data={data} />
         <SeatSheetSync hasDraft={!!preview?.length} busy={busy} act={act} />
         <label className="pair-option">
           <input

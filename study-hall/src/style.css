@@ -1,4 +1,105 @@
 @import url("https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap");
+.seat-print {
+  display: none;
+}
+.seat-print-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.seat-print-controls .field {
+  margin: 0;
+}
+.seat-print-controls p {
+  flex-basis: 100%;
+  margin: 0;
+}
+@media print {
+  body:has(.seat-print) #root {
+    display: none !important;
+  }
+  body:has(.seat-print) {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  body .seat-print,
+  body .seat-print * {
+    visibility: visible !important;
+  }
+  body .seat-print {
+    display: block !important;
+    color: #000;
+    font-family: "Noto Sans KR", sans-serif;
+  }
+  .seat-print-page {
+    break-after: page;
+    break-inside: avoid;
+    page-break-after: always;
+  }
+  .seat-print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+  .seat-print-page h1 {
+    font-size: 18pt;
+    margin: 0 0 3mm;
+  }
+  .seat-print-page p {
+    font-size: 9pt;
+    margin: 0 0 4mm;
+  }
+  .seat-print-direction {
+    text-align: center;
+    font-size: 9pt;
+    margin-bottom: 3mm;
+  }
+  .seat-print-row {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 1mm;
+    margin-bottom: 1.5mm;
+    break-inside: avoid;
+  }
+  .seat-print-cell {
+    min-height: 16mm;
+    border: 0.3mm solid #555;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1mm;
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+  .seat-print-cell b {
+    font-size: 8pt;
+  }
+  .seat-print-cell span {
+    font-size: 8pt;
+  }
+  .seat-print-cell strong {
+    font-size: 10pt;
+    line-height: 1.3;
+  }
+  .seat-print-2 .seat-print-cell {
+    min-height: 29mm;
+  }
+  .seat-print-2 .seat-print-cell strong {
+    font-size: 13pt;
+  }
+  .seat-print-2 .seat-print-cell span {
+    font-size: 10pt;
+  }
+  .seat-print-front {
+    display: flex;
+    justify-content: space-between;
+    border-top: 0.5mm solid #333;
+    padding-top: 3mm;
+    font-size: 9pt;
+  }
+}
 :root {
   font-family: "Noto Sans KR", system-ui, sans-serif;
   color: #24382f;
