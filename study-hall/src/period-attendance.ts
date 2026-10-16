@@ -56,6 +56,7 @@ export type AttendanceHistory = {
     | { previous_revision: number };
 };
 export type AttendanceDay = {
+  sheet_deferred?: boolean;
   day: string;
   sessions: AttendanceSession[];
   history: AttendanceHistory[];

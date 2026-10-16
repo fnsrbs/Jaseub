@@ -8,7 +8,58 @@ import {
   periodAt,
   defaultAttendance,
 } from "../src/period-attendance";
-import { attendanceSheetRows } from "../supabase/functions/api/period-attendance";
+import {
+  attendanceSheetRows,
+  shouldSyncAttendance,
+  handlePeriodAttendance,
+} from "../supabase/functions/api/period-attendance";
+
+test("구글 반영은 마지막 교시 확인 후부터, 그전 저장은 외부 호출 없음", async () => {
+  assert.equal(
+    shouldSyncAttendance("2026-10-19", [{ period: 6, confirmed: true }]),
+    false,
+  );
+  assert.equal(
+    shouldSyncAttendance("2026-10-19", [{ period: 7, confirmed: true }]),
+    true,
+  );
+  assert.equal(
+    shouldSyncAttendance("2026-10-16", [{ period: 6, confirmed: true }]),
+    true,
+  );
+  assert.equal(
+    shouldSyncAttendance("2026-10-16", [{ period: 6, confirmed: false }]),
+    false,
+  );
+  assert.equal(
+    shouldSyncAttendance("2026-10-16", [
+      { period: 1, confirmed: true, synced_revision: 1 },
+    ]),
+    true,
+  );
+  const operations: string[] = [];
+  const db = {
+    rpc: async (_name: string, args: any) => {
+      operations.push(args.p_action);
+      return {
+        data: {
+          day: "2026-10-16",
+          sessions: [{ period: 1, confirmed: true, synced_revision: 0 }],
+        },
+        error: null,
+      };
+    },
+  };
+  const r = await handlePeriodAttendance(
+    db,
+    "period_attendance_save",
+    { day: "2026-10-16", period: 1 },
+    "admin",
+    null,
+  );
+  assert.equal(r.sheet_deferred, true);
+  assert.deepEqual(operations, ["save"]);
+});
 
 test("시간표: 월화 7교시·수목금 6교시, 시작·종료·쉬는시간·점심·주말", () => {
   assert.equal(periodsForDay("2026-10-19"), 7);

@@ -160,7 +160,7 @@ export function PeriodAttendance({
       setResult(next);
       requestId.current = crypto.randomUUID();
       setMessage(
-        `${period}교시 출석을 저장했습니다.${next.sheet_sync?.ok ? " 구글 시트 반영 완료." : " 구글 시트 반영 대기."}`,
+        `${period}교시 출석을 저장했습니다.${next.sheet_deferred ? " 구글 시트는 마지막 교시 확인 완료 시 반영됩니다." : next.sheet_sync?.ok ? " 구글 시트 반영 완료." : " 구글 시트 반영 대기."}`,
       );
       if (next.sheet_sync && !next.sheet_sync.ok)
         setError(`DB 저장 완료 · 시트 반영 대기: ${next.sheet_sync.error}`);
@@ -420,7 +420,10 @@ export function PeriodAttendance({
                   {[...new Set(data.seats.map((s) => s.row))]
                     .sort((a, b) => a - b)
                     .map((row) => (
-                      <div className="attendance-seat-row" key={row}>
+                      <div
+                        className={`attendance-seat-row ${row === 5 ? "cross-aisle" : ""}`}
+                        key={row}
+                      >
                         {data.seats
                           .filter((s) => s.row === row)
                           .sort((a, b) => a.col - b.col)
@@ -494,7 +497,7 @@ export function PeriodAttendance({
             </div>
             <div className="actions">
               <span className="muted">
-                구글 시트:{" "}
+                구글 시트 (월·화 7교시 / 수·목·금 6교시 확인 완료 시 일괄 반영):{" "}
                 {result.sessions.length &&
                 result.sessions.every((s) => s.synced_revision === s.revision)
                   ? "반영 완료"

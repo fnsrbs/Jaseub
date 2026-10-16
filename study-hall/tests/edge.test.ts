@@ -462,6 +462,37 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
     assert.equal(calls.at(-1).args.p_admin, "teacher-id");
     assert.equal(calls.at(-1).args.p_student, "student-id");
   });
+  await t.test("출결 집계는 신뢰한 세션만 RPC 인증인자로 전달", async () => {
+    const identities: Record<string,string>[] = [
+      { "x-student-session": "a".repeat(64) },
+      { "x-teacher-session": "b".repeat(64) },
+      { Authorization: "Bearer verified-teacher" },
+    ];
+    for (const headers of identities) {
+      const r = await send(
+        "attendance_summary",
+        {
+          start: "2026-10-01",
+          end: "2026-10-31",
+          p_admin: "forged",
+          p_student_session: "forged",
+        },
+        headers,
+      );
+      assert.equal(r.status, 200);
+      const last = calls.at(-1);
+      assert.equal(last.name, "attendance_summary");
+      assert.notEqual(last.args.p_admin, "forged");
+      assert.notEqual(last.args.p_student_session, "forged");
+      if ("x-student-session" in headers) {
+        assert.match(last.args.p_student_session, /^[a-f0-9]{64}$/);
+        assert.notEqual(
+          last.args.p_student_session,
+          headers["x-student-session"],
+        );
+      }
+    }
+  });
   await t.test("Vault 모드에서 비밀키 없이 서버 해시 RPC 사용", async () => {
     const originalGet = globals.Deno.env.get;
     globals.Deno.env.get = (key: string) =>

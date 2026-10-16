@@ -211,8 +211,8 @@
   gap: 6px;
   margin-bottom: 8px;
 }
-.attendance-seat-row:nth-child(4) {
-  margin-bottom: 22px;
+.attendance-seat-row.cross-aisle {
+  margin-bottom: 36px;
 }
 .attendance-seat {
   display: flex;

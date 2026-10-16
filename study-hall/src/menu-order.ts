@@ -34,6 +34,7 @@ export const defaultMenus: Record<MenuRole, MenuItem[]> = {
   ],
   student: [
     ["home", "▦", "내 자습실"],
+    ["attendance", "✓", "내 교시별 출결"],
     ["ranking", "♛", "내 주간 순위"],
     ["cleaning", "♧", "청소 당번표"],
     ["seats", "▤", "좌석 확인"],

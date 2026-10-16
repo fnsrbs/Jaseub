@@ -1,3 +1,4 @@
+import { AttendanceSummary } from "./AttendanceSummary";
 import { pollWhileVisible } from "./visible-polling";
 import React, { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
@@ -630,6 +631,12 @@ export default function App() {
               {page === "ranking" && (
                 <WeeklyRanking role={role} token={token} visits={data.visits} />
               )}
+              {page === "attendance" && !teacher && (
+                <AttendanceSummary
+                  students={data.students}
+                  studentId={me?.id}
+                />
+              )}
               {page === "attendance" && teacher && (
                 <PeriodAttendance
                   data={data}
@@ -668,12 +675,21 @@ export default function App() {
                 <StudentLookup
                   data={data}
                   renderDetails={(s) => (
-                    <Stats data={data} studentId={s.id} now={currentNow} />
+                    <>
+                      <AttendanceSummary
+                        students={data.students}
+                        studentId={s.id}
+                      />
+                      <Stats data={data} studentId={s.id} now={currentNow} />
+                    </>
                   )}
                 />
               )}
               {page === "students" && admin && (
-                <Students data={data} act={act} busy={busy} />
+                <>
+                  <AttendanceSummary students={data.students} />
+                  <Students data={data} act={act} busy={busy} />
+                </>
               )}
               {page === "warnings" && (
                 <WarningCards
@@ -1115,6 +1131,7 @@ function SeatStudentDetails({
           onClose={() => dialog.current?.close()}
           renderDetails={(s) => (
             <>
+              <AttendanceSummary students={data.students} studentId={s.id} />
               <StudentWarningIssue student={s} busy={busy} act={act} />
               <Stats data={data} studentId={s.id} now={now} />
             </>
@@ -3133,6 +3150,11 @@ function SettingsPanel({
     <>
       <div className="panel">
         <h2>기본 운영 설정</h2>
+        <p>
+          자동 일괄 퇴실: 월·화 오후 5시 처리 → 4시 30분 퇴실 기록 / 수·목·금
+          오후 4시 처리 → 3시 30분 퇴실 기록 (한국 시간). 그때까지 입실 중인
+          학생만 처리합니다.
+        </p>
         <p className="muted">
           전체 학생 인원수를 저장하면 운영현황의 현재 입실·오늘 출석 인원에
           표시되는 전체 인원(/○명)이 변경됩니다. 활동 학생 수보다 작게 설정할 수

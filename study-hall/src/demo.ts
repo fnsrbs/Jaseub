@@ -8,6 +8,14 @@ import {
   type SupervisionSlot,
 } from "./domain";
 import { validateDeskPairs } from "./seat-pairs";
+const shouldSyncAttendance = (
+  day: string,
+  sessions: AttendanceDay["sessions"],
+) =>
+  sessions.some(
+    (s) =>
+      (s.period === periodsForDay(day) && s.confirmed) || s.synced_revision > 0,
+  );
 import type { CleaningSlot } from "./cleaning-plan";
 let menuConfig = JSON.parse(
   localStorage.getItem("study-hall-demo-menu-order") || "null",
@@ -243,6 +251,44 @@ export async function demoApi(
     }
     return data;
   }
+  if (action === "attendance_summary") {
+    if (!teacher && !viewer && p.student_id && p.student_id !== sid)
+      throw Error("본인 출결만 조회할 수 있습니다.");
+    const selected = teacher || viewer ? p.student_id : sid;
+    const days = JSON.parse(
+      localStorage.getItem("study-hall-period-attendance") || "{}",
+    );
+    const records = Object.values(days).flatMap((d: any) =>
+      d.sessions
+        .filter((s: any) => s.confirmed && s.day >= p.start && s.day <= p.end)
+        .flatMap((s: any) =>
+          s.entries
+            .filter((e: any) => !selected || e.student_id === selected)
+            .map((e: any) => ({ ...e, day: s.day, period: s.period })),
+        ),
+    );
+    const summaries: any = {};
+    for (const r of records as any[]) {
+      summaries[r.student_id] ||= {
+        student_id: r.student_id,
+        present: 0,
+        late: 0,
+        absent: 0,
+        excused: 0,
+      };
+      summaries[r.student_id][r.status]++;
+    }
+    records.sort(
+      (a: any, b: any) => b.day.localeCompare(a.day) || b.period - a.period,
+    );
+    return {
+      summaries: Object.values(summaries),
+      total: selected ? records.length : 0,
+      records: selected
+        ? records.slice(p.offset || 0, (p.offset || 0) + 100)
+        : [],
+    };
+  }
   if (action === "period_attendance_connection") {
     if (!teacher)
       throw Error("구글 시트 연결·수동 반영은 관리자만 가능합니다.");
@@ -362,16 +408,27 @@ export async function demoApi(
         });
       }
     }
-    if (action !== "period_attendance") {
+    if (
+      action !== "period_attendance" &&
+      (action === "period_attendance_sync" ||
+        shouldSyncAttendance(p.day, record.sessions))
+    ) {
       record.sessions.forEach((s) => {
         s.synced_revision = s.revision;
         s.synced_at = now();
       });
       record.sheet_sync = { ok: true };
+    } else if (action !== "period_attendance") {
+      delete record.sheet_sync;
     }
     all[p.day] = record;
     localStorage.setItem("study-hall-period-attendance", JSON.stringify(all));
     const result = structuredClone(record);
+    if (
+      action !== "period_attendance" &&
+      !shouldSyncAttendance(p.day, record.sessions)
+    )
+      (result as any).sheet_deferred = true;
     if (!teacher) result.history = [];
     return result;
   }

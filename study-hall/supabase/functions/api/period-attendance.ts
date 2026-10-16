@@ -44,6 +44,13 @@ export const periodActions = [
   "period_attendance_sync",
   "period_attendance_connection",
 ];
+export function shouldSyncAttendance(day: string, sessions: any[]) {
+  const weekday = new Date(`${day}T12:00:00+09:00`).getUTCDay();
+  const last = weekday === 1 || weekday === 2 ? 7 : 6;
+  return sessions.some(
+    (s) => (s.period === last && s.confirmed) || s.synced_revision > 0,
+  );
+}
 export async function handlePeriodAttendance(
   db: any,
   action: string,
@@ -79,8 +86,13 @@ export async function handlePeriodAttendance(
       throw Error("구글 연결코드 업데이트가 필요합니다.");
     return { ready: true };
   }
-  if (action !== "period_attendance_sync")
-    await run(action === "period_attendance_save" ? "save" : "reset");
+  if (action !== "period_attendance_sync") {
+    const saved = await run(
+      action === "period_attendance_save" ? "save" : "reset",
+    );
+    if (!shouldSyncAttendance(payload.day, saved.sessions))
+      return { ...saved, sheet_deferred: true };
+  }
   let sheet_sync;
   try {
     const source = await run("sync_payload");
