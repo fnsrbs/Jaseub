@@ -2113,3 +2113,5 @@ blockquote {
 }
 .student-collection-summary{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:13px}.student-collection-summary span{white-space:nowrap}
 .student-detail-back{display:flex;width:fit-content;margin-bottom:18px}
+.seat.not-in-room{background-color:#eef0ef;border-color:#ccd3ce}
+.seat.not-in-room b,.seat.not-in-room small{color:#5e6c63}

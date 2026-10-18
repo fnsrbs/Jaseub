@@ -1343,7 +1343,7 @@ function SeatMap({
           <i className="dot" />
           입실 중
         </span>
-        <span>○ 퇴실</span>
+        <span>{teacher ? "○ 미입실·퇴실 · 회색" : "○ 퇴실"}</span>
         <span>▨ 사용 불가</span>
         <span>내 좌석 / 선택 좌석</span>
       </div>
@@ -1368,7 +1368,7 @@ function SeatMap({
                   return (
                     <button
                       style={{ gridColumn: seat.col }}
-                      className={`seat ${st?.gender === "male" ? "gender-male" : st?.gender === "female" ? "gender-female" : ""} ${inside && teacher ? "occupied" : ""} ${selected && st?.id === selected ? "mine" : ""} ${seat.enabled ? "" : "disabled"}`}
+                      className={`seat ${st?.gender === "male" ? "gender-male" : st?.gender === "female" ? "gender-female" : ""} ${inside && teacher ? "occupied" : ""} ${teacher && st && !inside ? "not-in-room" : ""} ${selected && st?.id === selected ? "mine" : ""} ${seat.enabled ? "" : "disabled"}`}
                       key={seat.id}
                       onClick={() => {
                         if (st) onSelect(st.id);
