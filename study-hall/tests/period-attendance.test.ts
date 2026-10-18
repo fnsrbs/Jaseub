@@ -7,6 +7,7 @@ import {
   periodsForDay,
   periodAt,
   defaultAttendance,
+  attendancePreview,
 } from "../src/period-attendance";
 import {
   attendanceSheetRows,
@@ -130,6 +131,47 @@ test("기본 출석은 이용가능 학생만, 미배정도 포함", () => {
   assert.equal(rows.length, 1);
   assert.equal(rows[0].status, "present");
   assert.equal(rows[0].seat_id, null);
+});
+
+test("확인 전 표시는 현재 입실만 출석, 퇴실·미입실은 결석이며 원본은 유지", () => {
+  const students = ["a", "b", "c"].map((id, i) => ({
+    id,
+    name: id,
+    number: String(i + 1),
+    seat_id: i + 1,
+    active: true,
+  }));
+  const visits = [
+    {
+      id: "1",
+      student_id: "a",
+      entered_at: "2026-10-19T08:00:00+09:00",
+      exited_at: null,
+    },
+    {
+      id: "2",
+      student_id: "b",
+      entered_at: "2026-10-19T08:00:00+09:00",
+      exited_at: "2026-10-19T09:00:00+09:00",
+    },
+  ];
+  assert.deepEqual(
+    defaultAttendance(students, visits).map((e) => e.status),
+    ["present", "absent", "absent"],
+  );
+  const saved = defaultAttendance(students).map((e) => ({
+    ...e,
+    status: "late" as const,
+    note: "유지할 기록",
+  }));
+  assert.deepEqual(
+    attendancePreview(saved, visits).map((e) => e.status),
+    ["present", "absent", "absent"],
+  );
+  assert.ok(
+    saved.every((e) => e.status === "late" && e.note === "유지할 기록"),
+  );
+  assert.ok(attendancePreview(saved).every((e) => e.status === "present")); // Historical preview does not use today's presence.
 });
 
 test("교시별 DB: 역할·전체 저장·수정 이력·동시수정·초기화·시트 버전·RLS", async (t) => {

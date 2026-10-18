@@ -1,4 +1,4 @@
-import { koreanDay, type Student } from "./domain";
+import { koreanDay, type Student, type Visit } from "./domain";
 export const periodTimes = [
   ["08:50", "09:40"],
   ["09:50", "10:40"],
@@ -93,16 +93,35 @@ export function periodAt(now: number) {
               : "쉬는 시간",
   };
 }
-export function defaultAttendance(students: Student[]): AttendanceEntry[] {
-  return students
-    .filter((s) => s.active && !s.deleted_at)
-    .sort((a, b) => a.number.localeCompare(b.number, "ko", { numeric: true }))
-    .map((s) => ({
-      student_id: s.id,
-      name: s.name,
-      number: s.number,
-      seat_id: s.seat_id,
-      status: "present",
-      note: "",
-    }));
+export function attendancePreview(
+  entries: AttendanceEntry[],
+  visits?: Visit[],
+): AttendanceEntry[] {
+  const inside = visits
+    ? new Set(visits.filter((v) => !v.exited_at).map((v) => v.student_id))
+    : null;
+  return entries.map((e) => ({
+    ...e,
+    status: inside && !inside.has(e.student_id) ? "absent" : "present",
+    note: "",
+  }));
+}
+export function defaultAttendance(
+  students: Student[],
+  visits?: Visit[],
+): AttendanceEntry[] {
+  return attendancePreview(
+    students
+      .filter((s) => s.active && !s.deleted_at)
+      .sort((a, b) => a.number.localeCompare(b.number, "ko", { numeric: true }))
+      .map((s) => ({
+        student_id: s.id,
+        name: s.name,
+        number: s.number,
+        seat_id: s.seat_id,
+        status: "present",
+        note: "",
+      })),
+    visits,
+  );
 }

@@ -3,6 +3,7 @@ import { api } from "./api";
 import { koreanDay, type Snapshot } from "./domain";
 import {
   attendanceLabels,
+  attendancePreview,
   defaultAttendance,
   periodAt,
   periodsForDay,
@@ -83,11 +84,17 @@ export function PeriodAttendance({
       session?.confirmed
         ? structuredClone(session.entries)
         : session
-          ? session.entries.map((e) => ({ ...e, status: "present", note: "" }))
-          : defaultAttendance(data.students),
+          ? attendancePreview(
+              session.entries,
+              day === today ? data.visits : undefined,
+            )
+          : defaultAttendance(
+              data.students,
+              day === today ? data.visits : undefined,
+            ),
     );
     requestId.current = crypto.randomUUID();
-  }, [result, day, period, data.students, dirty]);
+  }, [result, day, period, data.students, data.visits, today, dirty]);
   useEffect(() => {
     if (automatic && !dirty && !working && !selected) {
       if (day !== today) setDay(today);
@@ -265,12 +272,20 @@ export function PeriodAttendance({
         <div className="attendance-heading">
           <div>
             <h2>출석관리</h2>
-            <p>기본 출석 · 지각·결석 학생만 체크한 뒤 확인 완료해 주세요.</p>
+            <p>
+              {day === today
+                ? "입실 중인 학생은 출석, 미입실·퇴실 학생은 결석으로 표시됩니다. 확인 후 필요한 출결을 수정하고 저장해 주세요."
+                : "출결을 확인하고 필요한 학생을 수정한 뒤 확인 완료해 주세요."}
+            </p>
           </div>
           <span
             className={`attendance-confirmed ${session?.confirmed ? "done" : ""}`}
           >
-            {session?.confirmed ? "확인 완료" : "확인 전 · 기본 출석"}
+            {session?.confirmed
+              ? "확인 완료"
+              : day === today
+                ? "확인 전 · 입실 현황 기준"
+                : "확인 전"}
             {dirty ? " · 변경 중" : ""}
           </span>
         </div>
