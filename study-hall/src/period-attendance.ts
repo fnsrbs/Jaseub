@@ -16,6 +16,7 @@ export const attendanceLabels = {
 } as const;
 export type AttendanceStatus = keyof typeof attendanceLabels;
 export type AttendanceEntry = {
+  confirmed?: boolean;
   student_id: string;
   number: string;
   name: string;
@@ -102,8 +103,12 @@ export function attendancePreview(
     : null;
   return entries.map((e) => ({
     ...e,
-    status: inside && !inside.has(e.student_id) ? "absent" : "present",
-    note: "",
+    ...(e.confirmed
+      ? { status: e.status, note: e.note }
+      : {
+          status: inside && !inside.has(e.student_id) ? "absent" : "present",
+          note: "",
+        }),
   }));
 }
 export function defaultAttendance(

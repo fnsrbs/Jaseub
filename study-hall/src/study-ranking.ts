@@ -34,13 +34,14 @@ export function demoCollections(
       const daily = sessions.filter(
         (session) =>
           session.day === day &&
-          session.confirmed &&
           session.period >= 1 &&
           session.period <= expected,
       );
       const matches = daily.flatMap((session) =>
         session.entries
-          .filter((e) => e.student_id === s.id)
+          .filter(
+            (e) => e.student_id === s.id && (session.confirmed || e.confirmed),
+          )
           .map((e) => ({ period: session.period, status: e.status })),
       );
       if (

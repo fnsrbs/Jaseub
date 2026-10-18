@@ -2115,3 +2115,4 @@ blockquote {
 .student-detail-back{display:flex;width:fit-content;margin-bottom:18px}
 .seat-room .seat.not-in-room{background-color:#eef0ef;border-color:#ccd3ce}
 .seat.not-in-room b,.seat.not-in-room small{color:#5e6c63}
+.attendance-bulk-editor{width:min(520px,calc(100% - 32px));box-sizing:border-box}.attendance-bulk-editor fieldset{border:0;padding:0;margin:0;min-width:0}.attendance-bulk-periods{display:grid;grid-template-columns:1fr 1fr;gap:12px}

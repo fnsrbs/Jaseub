@@ -278,10 +278,14 @@ export async function demoApi(
     );
     const records = Object.values(days).flatMap((d: any) =>
       d.sessions
-        .filter((s: any) => s.confirmed && s.day >= p.start && s.day <= p.end)
+        .filter((s: any) => s.day >= p.start && s.day <= p.end)
         .flatMap((s: any) =>
           s.entries
-            .filter((e: any) => !selected || e.student_id === selected)
+            .filter(
+              (e: any) =>
+                (s.confirmed || e.confirmed) &&
+                (!selected || e.student_id === selected),
+            )
             .map((e: any) => ({ ...e, day: s.day, period: s.period })),
         ),
     );
@@ -321,6 +325,7 @@ export async function demoApi(
     [
       "period_attendance",
       "period_attendance_save",
+      "period_attendance_bulk",
       "period_attendance_reset",
       "period_attendance_sync",
     ].includes(action)
@@ -331,12 +336,14 @@ export async function demoApi(
     const all: Record<string, AttendanceDay> = JSON.parse(
       localStorage.getItem("study-hall-period-attendance") || "{}",
     );
-    const record = all[p.day] || {
-      day: p.day,
-      sessions: [],
-      history: [],
-      sheet_configured: true,
-    };
+    const record = structuredClone(
+      all[p.day] || {
+        day: p.day,
+        sessions: [],
+        history: [],
+        sheet_configured: true,
+      },
+    );
     const old = record.sessions.find((s) => s.period === p.period);
     if (
       action !== "period_attendance" &&
@@ -360,10 +367,18 @@ export async function demoApi(
           if (!old || !p.reason?.trim())
             throw Error("초기화 사유를 입력하세요.");
           old.confirmed = false;
+          old.entries = old.entries.map(({ confirmed, ...entry }) => entry);
           old.revision++;
           old.request_id = p.request_id;
           old.updated_at = now();
         } else {
+          if (
+            old?.entries.some((e) => e.confirmed) &&
+            !p.supports_individual_records
+          )
+            throw Error(
+              "개별 저장된 출결이 있습니다. 새로고침 후 수정해 주세요.",
+            );
           const roster = old?.entries || defaultAttendance(state.students);
           if (
             p.entries?.length !== roster.length ||
@@ -431,15 +446,107 @@ export async function demoApi(
         });
       }
     }
+    if (action === "period_attendance_bulk") {
+      const count = periodsForDay(p.day),
+        start = p.start_period,
+        end = p.end_period,
+        note = String(p.note || "").trim();
+      if (
+        !Number.isInteger(start) ||
+        !Number.isInteger(end) ||
+        start < 1 ||
+        end < start ||
+        end > count
+      )
+        throw Error("교시 범위를 확인하세요.");
+      if (
+        !["present", "late", "absent", "excused"].includes(p.status) ||
+        !note ||
+        note.length > 500
+      )
+        throw Error("출결 상태와 사유(1~500자)를 입력하세요.");
+      if (!p.request_id || !p.revisions) throw Error("저장 요청을 확인하세요.");
+      const key = "period-bulk:" + p.request_id,
+        previous = requests.get(key);
+      if (previous && previous !== JSON.stringify(p))
+        throw Error("저장 요청이 중복되었습니다. 다시 시도하세요.");
+      if (!previous) {
+        for (let period = start; period <= end; period++)
+          if (
+            (record.sessions.find((s) => s.period === period)?.revision ||
+              0) !== p.revisions[period]
+          )
+            throw Error(
+              "다른 교사가 출석을 변경했습니다. 다시 조회한 뒤 수정하세요.",
+            );
+        for (let period = start; period <= end; period++) {
+          const old = record.sessions.find((s) => s.period === period),
+            roster =
+              old?.entries ||
+              defaultAttendance(
+                state.students,
+                p.day === koreanDay(new Date()) ? state.visits : [],
+              ),
+            before = roster.find((e) => e.student_id === p.student_id);
+          if (!before)
+            throw Error("선택한 교시의 출석 대상에 학생이 없습니다.");
+          const entries = roster.map((e) =>
+            e.student_id === p.student_id
+              ? { ...e, status: p.status, note, confirmed: true }
+              : e,
+          );
+          record.sessions = record.sessions
+            .filter((s) => s.period !== period)
+            .concat({
+              day: p.day,
+              period,
+              entries,
+              confirmed: old?.confirmed ?? false,
+              revision: (old?.revision || 0) + 1,
+              updated_at: now(),
+              updated_by: teacher ? "admin:demo" : "teacher:demo",
+              synced_revision: old?.synced_revision ?? 0,
+              synced_at: old?.synced_at ?? null,
+              request_id: p.request_id,
+            });
+          record.history.unshift({
+            id: Date.now() + period,
+            day: p.day,
+            period,
+            actor: teacher ? "admin:demo" : "teacher:demo",
+            action: "bulk",
+            reason: "학생별 여러 교시 변경",
+            created_at: now(),
+            changes: [
+              {
+                student_id: p.student_id,
+                number: before.number,
+                name: before.name,
+                before:
+                  old?.confirmed || before.confirmed ? before.status : null,
+                after: p.status,
+                note,
+              },
+            ],
+          });
+        }
+        requests.set(key, JSON.stringify(p));
+      }
+    }
     if (
-      action === "period_attendance_save" &&
+      ["period_attendance_save", "period_attendance_bulk"].includes(action) &&
       p.day === koreanDay(new Date())
     ) {
       const cutoff = new Date(
         `${p.day}T${[1, 2].includes(new Date(p.day + "T12:00:00+09:00").getUTCDay()) ? "16:30" : "15:30"}:00+09:00`,
       ).getTime();
-      for (const entry of record.sessions.find((s) => s.period === p.period)
-        ?.entries || []) {
+      for (const entry of record.sessions
+        .filter((s) =>
+          action === "period_attendance_bulk"
+            ? s.period >= p.start_period && s.period <= p.end_period
+            : s.period === p.period,
+        )
+        .flatMap((s) => s.entries.filter((e) => s.confirmed || e.confirmed))) {
         if (
           !["present", "late"].includes(entry.status) ||
           !state.students.some(

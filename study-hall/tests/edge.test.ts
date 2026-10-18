@@ -36,6 +36,8 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
       if (name === "get_site_copy")
         return { data: { hero_title: "Public copy" }, error: null };
       if (name === "code_digest") return { data: "a".repeat(64), error: null };
+      if (name === "period_attendance_bulk")
+        return { data: { day: "2026-10-19", sessions: [] }, error: null };
       if (name === "issue_student_code")
         return args.p_admin === "teacher-id"
           ? { data: { code: "B7K2P" }, error: null }
@@ -251,6 +253,17 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
         403,
       );
       assert.equal(calls.length, 0);
+      assert.equal(
+        (
+          await send(
+            "period_attendance_bulk",
+            { p_admin: "spoof" },
+            { "x-student-session": "a".repeat(64) },
+          )
+        ).status,
+        403,
+      );
+      assert.equal(calls.length, 0);
       await send(
         "period_attendance",
         { day: "2026-10-16", p_admin: "spoof" },
@@ -266,6 +279,23 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
         { Authorization: "Bearer verified-teacher" },
       );
       assert.equal(calls.at(-1).args.p_admin, "teacher-id");
+      for (const headers of <Record<string, string>[]>[
+        { "x-teacher-session": "b".repeat(64) },
+        { Authorization: "Bearer verified-teacher" },
+      ]) {
+        const r = await send(
+          "period_attendance_bulk",
+          { day: "2026-10-19", p_admin: "spoof", p_viewer_session: "spoof" },
+          headers,
+        );
+        assert.equal(r.status, 200);
+        assert.equal(calls.at(-1).name, "period_attendance_bulk");
+        assert.notEqual(calls.at(-1).args.p_admin, "spoof");
+        if (headers["x-teacher-session"]) {
+          assert.equal(calls.at(-1).args.p_admin, null);
+          assert.match(calls.at(-1).args.p_viewer_session, /^[a-f0-9]{64}$/);
+        } else assert.equal(calls.at(-1).args.p_admin, "teacher-id");
+      }
     },
   );
   await t.test(

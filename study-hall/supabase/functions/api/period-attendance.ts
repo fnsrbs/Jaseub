@@ -9,8 +9,8 @@ export function attendanceSheetRows(source: any) {
   const rows = new Map<string, any>();
   const weekday = new Date(`${source.day}T12:00:00+09:00`).getUTCDay();
   for (const session of source.sessions) {
-    if (!session.confirmed) continue;
     for (const entry of session.entries) {
+      if (!session.confirmed && !entry.confirmed) continue;
       let row = rows.get(entry.student_id);
       if (!row) {
         row = {
@@ -40,6 +40,7 @@ export function attendanceSheetRows(source: any) {
 export const periodActions = [
   "period_attendance",
   "period_attendance_save",
+  "period_attendance_bulk",
   "period_attendance_reset",
   "period_attendance_sync",
   "period_attendance_connection",
@@ -64,12 +65,15 @@ export async function handlePeriodAttendance(
   )
     throw Error("구글 시트 연결·수동 반영은 관리자만 가능합니다.");
   const run = async (operation: string, input: any = payload) => {
-    const { data, error } = await db.rpc("period_attendance_api", {
-      p_action: operation,
-      p_payload: input,
-      p_admin: admin,
-      p_viewer_session: viewerSession,
-    });
+    const { data, error } = await db.rpc(
+      operation === "bulk" ? "period_attendance_bulk" : "period_attendance_api",
+      {
+        ...(operation === "bulk" ? {} : { p_action: operation }),
+        p_payload: input,
+        p_admin: admin,
+        p_viewer_session: viewerSession,
+      },
+    );
     if (error) throw Error(error.message);
     return data;
   };
@@ -88,7 +92,11 @@ export async function handlePeriodAttendance(
   }
   if (action !== "period_attendance_sync") {
     const saved = await run(
-      action === "period_attendance_save" ? "save" : "reset",
+      action === "period_attendance_save"
+        ? "save"
+        : action === "period_attendance_bulk"
+          ? "bulk"
+          : "reset",
     );
     if (!shouldSyncAttendance(payload.day, saved.sessions))
       return { ...saved, sheet_deferred: true };

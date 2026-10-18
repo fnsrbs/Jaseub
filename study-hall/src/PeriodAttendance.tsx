@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
+import { AttendanceBulkEditor } from "./AttendanceBulkEditor";
 import { koreanDay, type Snapshot } from "./domain";
 import {
   attendanceLabels,
@@ -39,6 +40,7 @@ export function PeriodAttendance({
   const [selected, setSelected] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"seats" | "list">("seats");
+  const [bulkOpen, setBulkOpen] = useState(false);
   const requestId = useRef(crypto.randomUUID());
   const dirtyRef = useRef(false);
   const dayRef = useRef(day);
@@ -96,11 +98,11 @@ export function PeriodAttendance({
     requestId.current = crypto.randomUUID();
   }, [result, day, period, data.students, data.visits, today, dirty]);
   useEffect(() => {
-    if (automatic && !dirty && !working && !selected) {
+    if (automatic && !dirty && !working && !selected && !bulkOpen) {
       if (day !== today) setDay(today);
       setPeriod(clock.period);
     }
-  }, [automatic, dirty, working, selected, today, clock.period]);
+  }, [automatic, dirty, working, selected, bulkOpen, today, clock.period]);
   useEffect(() => {
     const guard = (event: BeforeUnloadEvent) => {
       if (dirtyRef.current) {
@@ -154,6 +156,7 @@ export function PeriodAttendance({
     setMessage("");
     try {
       const next: AttendanceDay = await call("period_attendance_save", {
+        supports_individual_records: true,
         period,
         revision: session?.revision || 0,
         request_id: requestId.current,
@@ -283,9 +286,11 @@ export function PeriodAttendance({
           >
             {session?.confirmed
               ? "확인 완료"
-              : day === today
-                ? "확인 전 · 입실 현황 기준"
-                : "확인 전"}
+              : session?.entries.some((e) => e.confirmed)
+                ? "확인 전 · 일부 학생 저장됨"
+                : day === today
+                  ? "확인 전 · 입실 현황 기준"
+                  : "확인 전"}
             {dirty ? " · 변경 중" : ""}
           </span>
         </div>
@@ -343,6 +348,18 @@ export function PeriodAttendance({
             }}
           >
             다시 조회
+          </button>
+          <button
+            type="button"
+            disabled={
+              working || loading || dirty || !editable || !count || !result
+            }
+            title={
+              dirty ? "현재 교시의 변경사항을 먼저 저장해 주세요." : undefined
+            }
+            onClick={() => setBulkOpen(true)}
+          >
+            학생별 여러 교시 변경
           </button>
         </div>
         <p className="muted">
@@ -644,6 +661,29 @@ export function PeriodAttendance({
             requestId.current = crypto.randomUUID();
             setSelected(null);
             setMessage("");
+          }}
+        />
+      )}
+      {bulkOpen && result && (
+        <AttendanceBulkEditor
+          day={day}
+          period={period}
+          students={data.students}
+          result={result}
+          role={role}
+          token={token}
+          close={() => setBulkOpen(false)}
+          onSaved={(next) => {
+            setDirty(false);
+            setError("");
+            setResult(next);
+            setMessage(
+              `선택한 학생의 출결과 사유를 저장했습니다.${next.sheet_deferred ? " 구글 시트는 마지막 교시 확인 완료 시 반영됩니다." : next.sheet_sync?.ok ? " 구글 시트 반영 완료." : " 구글 시트 반영 대기."}`,
+            );
+            if (next.sheet_sync && !next.sheet_sync.ok)
+              setError(
+                `DB 저장 완료 · 시트 반영 대기: ${next.sheet_sync.error}`,
+              );
           }}
         />
       )}
