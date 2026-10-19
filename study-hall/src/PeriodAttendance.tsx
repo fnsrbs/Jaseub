@@ -1,3 +1,4 @@
+import { AttendanceExemption, validExemption } from "./AttendanceExemption";
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import { AttendanceBulkEditor } from "./AttendanceBulkEditor";
@@ -164,6 +165,7 @@ export function PeriodAttendance({
           student_id: e.student_id,
           status: e.status,
           note: e.note,
+          exempt_reason: e.exempt_reason || "",
         })),
       });
       setDirty(false);
@@ -605,6 +607,9 @@ export function PeriodAttendance({
                     {e.before ? attendanceLabels[e.before] : "확인 전"} →{" "}
                     {e.after ? attendanceLabels[e.after] : ""}
                     {e.note ? ` · ${e.note}` : ""}
+                    {e.exempt_reason
+                      ? ` · 퇴출 집계 제외: ${e.exempt_reason}`
+                      : ""}
                   </p>
                 ))
               ) : (
@@ -651,10 +656,12 @@ export function PeriodAttendance({
         <AttendanceEditor
           entry={entries.find((e) => e.student_id === selected)!}
           close={() => setSelected(null)}
-          apply={(status, note) => {
+          apply={(status, note, exempt_reason) => {
             setEntries((current) =>
               current.map((e) =>
-                e.student_id === selected ? { ...e, status, note } : e,
+                e.student_id === selected
+                  ? { ...e, status, note, exempt_reason }
+                  : e,
               ),
             );
             setDirty(true);
@@ -696,12 +703,17 @@ function AttendanceEditor({
   close,
 }: {
   entry: AttendanceEntry;
-  apply: (status: AttendanceStatus, note: string) => void;
+  apply: (
+    status: AttendanceStatus,
+    note: string,
+    exempt_reason: string,
+  ) => void;
   close: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [status, setStatus] = useState(entry.status);
   const [note, setNote] = useState(entry.note);
+  const [exemption, setExemption] = useState(entry.exempt_reason || "");
   useEffect(() => {
     dialog.current?.showModal();
     return () => dialog.current?.close();
@@ -730,6 +742,9 @@ function AttendanceEditor({
           </button>
         ))}
       </div>
+      {status === "excused" && (
+        <AttendanceExemption value={exemption} onChange={setExemption} />
+      )}
       <label className="field">
         <span>사유·메모 (선택)</span>
         <textarea
@@ -743,7 +758,14 @@ function AttendanceEditor({
         <button
           className="primary"
           type="button"
-          onClick={() => apply(status, note.trim())}
+          disabled={status === "excused" && !validExemption(exemption)}
+          onClick={() =>
+            apply(
+              status,
+              note.trim(),
+              status === "excused" ? exemption.trim() : "",
+            )
+          }
         >
           적용
         </button>

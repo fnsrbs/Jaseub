@@ -17,6 +17,7 @@ export const attendanceLabels = {
 export type AttendanceStatus = keyof typeof attendanceLabels;
 export type AttendanceEntry = {
   confirmed?: boolean;
+  exempt_reason?: string;
   student_id: string;
   number: string;
   name: string;
@@ -53,6 +54,7 @@ export type AttendanceHistory = {
         before?: AttendanceStatus | null;
         after?: AttendanceStatus;
         note?: string;
+        exempt_reason?: string;
       }[]
     | { previous_revision: number };
 };

@@ -36,6 +36,17 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
       if (name === "get_site_copy")
         return { data: { hero_title: "Public copy" }, error: null };
       if (name === "code_digest") return { data: "a".repeat(64), error: null };
+      if (name === "attendance_daily_source")
+        return {
+          data: {
+            daily_source: [],
+            selected: args.p_student_session
+              ? "student-id"
+              : args.p_payload.student_id,
+            server_now: "2026-10-19T17:00:00+09:00",
+          },
+          error: null,
+        };
       if (name === "period_attendance_bulk")
         return { data: { day: "2026-10-19", sessions: [] }, error: null };
       if (name === "issue_student_code")
@@ -567,7 +578,7 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
       );
       assert.equal(r.status, 200);
       const last = calls.at(-1);
-      assert.equal(last.name, "attendance_summary");
+      assert.equal(last.name, "attendance_daily_source");
       assert.notEqual(last.args.p_admin, "forged");
       assert.notEqual(last.args.p_student_session, "forged");
       if ("x-student-session" in headers) {

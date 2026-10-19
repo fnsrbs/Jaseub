@@ -25,6 +25,10 @@ export function attendanceSheetRows(source: any) {
         rows.set(entry.student_id, row);
       }
       row.statuses[session.period - 1] = labels[entry.status];
+      if (entry.exempt_reason)
+        row.notes.push(
+          `${session.period}교시 퇴출 집계 제외: ${entry.exempt_reason}`,
+        );
       if (entry.note) row.notes.push(`${session.period}교시: ${entry.note}`);
     }
   }

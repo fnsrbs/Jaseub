@@ -2122,3 +2122,7 @@ blockquote {
 .attendance-period-options label{display:flex;align-items:center;gap:6px;padding:10px 12px;border:1px solid var(--border,#d5dfd9);border-radius:10px;cursor:pointer}
 .attendance-period-options label:has(input:checked){background:#e8f3ed;border-color:#197560}
 .attendance-period-options input{width:auto;margin:0;accent-color:#197560}
+
+.status-early{background:#fff0df;color:#8a480f}
+.status-missed{background:#f4eaff;color:#673697}
+.attendance-summary .alert p{margin:8px 0}

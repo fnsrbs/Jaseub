@@ -59,6 +59,12 @@ test("학생별 여러 교시 저장·재수정: 다른 학생 보존·부분 �
         await migration("20261019000000_selectable_attendance_periods.sql")
       ).replaceAll("now()", `'${now}'::timestamptz`),
     );
+    await db.exec(
+      (await migration("20261019045714_daily_attendance_rules.sql")).replaceAll(
+        "now()",
+        `'${now}'::timestamptz`,
+      ),
+    );
     await db.query(
       "insert into visits(student_id,entered_at) values($1,'2026-10-19T08:10:00+09:00')",
       [ids[1]],
@@ -117,6 +123,79 @@ test("학생별 여러 교시 저장·재수정: 다른 학생 보존·부분 �
       await assert.rejects(
         bulk({ ...arbitrary, periods, request_id: randomUUID() }),
       );
+    const exempted = await bulk({
+      ...arbitrary,
+      exempt_reason: "면접고사",
+      request_id: randomUUID(),
+      revisions: { 2: 2, 4: 2, 6: 2 },
+    });
+    assert.ok(
+      exempted.sessions.every(
+        (s: any) =>
+          s.entries.find((e: any) => e.student_id === ids[0]).exempt_reason ===
+          "면접고사",
+      ),
+    );
+    const cleared = await bulk({
+      ...arbitrary,
+      status: "late",
+      exempt_reason: "면접고사",
+      request_id: randomUUID(),
+      revisions: { 2: 3, 4: 3, 6: 3 },
+    });
+    assert.ok(
+      cleared.sessions.every(
+        (s: any) =>
+          s.entries.find((e: any) => e.student_id === ids[0]).exempt_reason ===
+          "",
+      ),
+    );
+    const source = (
+      await db.query<{ r: any }>(
+        "select attendance_daily_source($1,null,'teacher-valid',null) r",
+        [{ start: "2026-10-01", end: "2026-10-31" }],
+      )
+    ).rows[0].r;
+    assert.equal(source.daily_source.length, 1);
+    assert.ok(source.daily_source.every((d: any) => d.entries.length === 3));
+    await assert.rejects(
+      db.query("select attendance_daily_source($1,null,null,null)", [
+        { start: "2026-10-01", end: "2026-10-31" },
+      ]),
+      /로그인/,
+    );
+    await db.query("insert into student_codes values($1,1);", [ids[0]]);
+    await db.query(
+      "insert into student_sessions values($1,'own-valid',1,'2027-01-01');",
+      [ids[0]],
+    );
+    const ownSource = (
+      await db.query<{ r: any }>(
+        "select attendance_daily_source($1,null,null,'own-valid') r",
+        [{ start: "2026-10-01", end: "2026-10-31" }],
+      )
+    ).rows[0].r;
+    assert.equal(ownSource.selected, ids[0]);
+    assert.ok(
+      ownSource.daily_source.every((d: any) => d.student_id === ids[0]),
+    );
+    await assert.rejects(
+      db.query("select attendance_daily_source($1,null,null,'own-valid')", [
+        { start: "2026-10-01", end: "2026-10-31", student_id: ids[1] },
+      ]),
+      /본인/,
+    );
+    await assert.rejects(
+      db.query("select attendance_daily_source($1,null,null,'expired')", [
+        { start: "2026-10-01", end: "2026-10-31" },
+      ]),
+      /만료/,
+    );
+    await db.query(
+      "delete from period_attendance_checkins where student_id=$1",
+      [ids[0]],
+    );
+    await db.query("delete from visits where student_id=$1", [ids[0]]);
     await db.exec(
       "truncate period_attendance_sessions,period_attendance_events,period_attendance_bulk_requests",
     );
@@ -317,9 +396,69 @@ test("학생별 여러 교시 저장·재수정: 다른 학생 보존·부분 �
         .rows[0].n,
       3,
     );
+    const historic = "2026-10-16";
+    const historicPayload = {
+      ...make(),
+      day: historic,
+      periods: [1],
+      exempt_reason: "면접고사",
+      revisions: { 1: 0 },
+    };
+    const h = await bulk(historicPayload, admin, null);
+    const saved = await db.query<{ r: any }>(
+      "select period_attendance_api('save',$1,$2,null) r",
+      [
+        {
+          day: historic,
+          period: 1,
+          revision: 1,
+          request_id: randomUUID(),
+          supports_individual_records: true,
+          entries: h.sessions[0].entries.map((e: any) => ({
+            student_id: e.student_id,
+            status: e.status,
+            note: e.note,
+          })),
+        },
+        admin,
+      ],
+    );
+    assert.equal(
+      saved.rows[0].r.sessions[0].entries.find(
+        (e: any) => e.student_id === ids[0],
+      ).exempt_reason,
+      "면접고사",
+    );
+    const updated = await db.query<{ r: any }>(
+      "select period_attendance_api('save',$1,$2,null) r",
+      [
+        {
+          day: historic,
+          period: 1,
+          revision: 2,
+          request_id: randomUUID(),
+          supports_individual_records: true,
+          entries: saved.rows[0].r.sessions[0].entries.map((e: any) => ({
+            ...e,
+            exempt_reason: "",
+          })),
+        },
+        admin,
+      ],
+    );
+    assert.equal(
+      updated.rows[0].r.sessions[0].entries.find(
+        (e: any) => e.student_id === ids[0],
+      ).exempt_reason,
+      "",
+    );
     await db.exec("set role anon");
     await assert.rejects(
       db.query("select period_attendance_bulk('{}')"),
+      /permission/,
+    );
+    await assert.rejects(
+      db.query("select attendance_daily_source('{}')"),
       /permission/,
     );
     await assert.rejects(

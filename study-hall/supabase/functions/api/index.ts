@@ -1,3 +1,4 @@
+import { summarizeDaily } from "./attendance-daily.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { seatSheetScript } from "./seat-sheet-script.ts";
 import { handlePeriodAttendance, periodActions } from "./period-attendance.ts";
@@ -153,12 +154,18 @@ Deno.serve(async (req) => {
         return reply(data);
       }
       if (action === "attendance_summary") {
-        const { data, error } = await db.rpc("attendance_summary", {
+        const { data, error } = await db.rpc("attendance_daily_source", {
           p_payload: payload,
           p_viewer_session: await hash(viewerToken),
         });
         if (error) throw Error(error.message);
-        return reply(data);
+        return reply(
+          summarizeDaily(
+            data.daily_source,
+            { ...payload, student_id: data.selected || undefined },
+            Date.parse(data.server_now),
+          ),
+        );
       }
       if (periodActions.includes(action))
         return reply(
@@ -270,13 +277,19 @@ Deno.serve(async (req) => {
       return reply(data);
     }
     if (action === "attendance_summary") {
-      const { data, error } = await db.rpc("attendance_summary", {
+      const { data, error } = await db.rpc("attendance_daily_source", {
         p_payload: payload,
         p_admin: admin,
         p_student_session: session,
       });
       if (error) throw Error(error.message);
-      return reply(data);
+      return reply(
+        summarizeDaily(
+          data.daily_source,
+          { ...payload, student_id: data.selected || undefined },
+          Date.parse(data.server_now),
+        ),
+      );
     }
     if (periodActions.includes(action)) {
       if (session)

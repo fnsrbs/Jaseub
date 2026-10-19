@@ -1,3 +1,4 @@
+import { AttendanceExemption, validExemption } from "./AttendanceExemption";
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import type { Student } from "./domain";
@@ -33,6 +34,7 @@ export function AttendanceBulkEditor({
     [periods, setPeriods] = useState<number[]>([period]),
     [status, setStatus] = useState<AttendanceStatus>("excused"),
     [note, setNote] = useState(""),
+    [exemption, setExemption] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const count = periodsForDay(day),
@@ -50,7 +52,7 @@ export function AttendanceBulkEditor({
   }, []);
   useEffect(() => {
     requestId.current = crypto.randomUUID();
-  }, [student, periods, status, note]);
+  }, [student, periods, status, note, exemption]);
   useEffect(() => {
     if (!student) return;
     const saved = periods.map((n) => {
@@ -61,13 +63,20 @@ export function AttendanceBulkEditor({
     const first = saved[0];
     if (
       first &&
-      saved.every((e) => e?.status === first.status && e.note === first.note)
+      saved.every(
+        (e) =>
+          e?.status === first.status &&
+          e.note === first.note &&
+          (e.exempt_reason || "") === (first.exempt_reason || ""),
+      )
     ) {
       setStatus(first.status);
       setNote(first.note);
+      setExemption(first.exempt_reason || "");
     } else {
       setStatus("excused");
       setNote("");
+      setExemption("");
     }
   }, [student, periods]);
   return (
@@ -106,6 +115,7 @@ export function AttendanceBulkEditor({
                 periods,
                 status,
                 note: note.trim(),
+                exempt_reason: status === "excused" ? exemption.trim() : "",
                 request_id: requestId.current,
                 revisions,
               },
@@ -202,6 +212,9 @@ export function AttendanceBulkEditor({
               ))}
             </select>
           </label>
+          {status === "excused" && (
+            <AttendanceExemption value={exemption} onChange={setExemption} />
+          )}
           <label className="field">
             <span>사유</span>
             <textarea
@@ -233,7 +246,13 @@ export function AttendanceBulkEditor({
         <div className="actions">
           <button
             className="primary"
-            disabled={busy || !student || !periods.length || !note.trim()}
+            disabled={
+              busy ||
+              !student ||
+              !periods.length ||
+              !note.trim() ||
+              (status === "excused" && !validExemption(exemption))
+            }
           >
             {busy ? "저장 중…" : "선택한 교시 저장"}
           </button>

@@ -1,3 +1,4 @@
+import { summarizeDaily } from "../supabase/functions/api/attendance-daily";
 import {
   demoStudyRanking,
   demoCollections,
@@ -276,46 +277,42 @@ export async function demoApi(
     const days = JSON.parse(
       localStorage.getItem("study-hall-period-attendance") || "{}",
     );
-    const records = Object.values(days).flatMap((d: any) =>
-      d.sessions
-        .filter((s: any) => s.day >= p.start && s.day <= p.end)
-        .flatMap((s: any) =>
-          s.entries
-            .filter(
-              (e: any) =>
-                (s.confirmed || e.confirmed) &&
-                (!selected || e.student_id === selected),
-            )
-            .map((e: any) => ({ ...e, day: s.day, period: s.period })),
-        ),
-    );
-    const summaries: any = {};
-    const presentDays = new Set<string>();
-    for (const r of records as any[]) {
-      summaries[r.student_id] ||= {
-        student_id: r.student_id,
-        present: 0,
-        late: 0,
-        absent: 0,
-        excused: 0,
-      };
-      const key = r.student_id + ":" + r.day;
-      if (r.status !== "present" || !presentDays.has(key))
-        summaries[r.student_id][r.status]++;
-      if (r.status === "present") presentDays.add(key);
-    }
-    const exceptions = records.filter((r: any) => r.status !== "present");
-    exceptions.sort(
-      (a: any, b: any) => b.day.localeCompare(a.day) || b.period - a.period,
-    );
-    return {
-      summaries: Object.values(summaries),
-      total: selected ? exceptions.length : 0,
-      records: selected
-        ? exceptions.slice(p.offset || 0, (p.offset || 0) + 100)
-        : [],
-    };
+    const source = Object.values(days).flatMap((d: any) => {
+      const byStudent = new Map<string, any>();
+      for (const s of d.sessions)
+        for (const e of s.entries) {
+          if (
+            (!s.confirmed && !e.confirmed) ||
+            (selected && e.student_id !== selected)
+          )
+            continue;
+          const row = byStudent.get(e.student_id) || {
+            day: s.day,
+            student_id: e.student_id,
+            entries: [],
+          };
+          row.entries.push({ ...e, period: s.period });
+          byStudent.set(e.student_id, row);
+        }
+      for (const row of byStudent.values()) {
+        const visits = state.visits.filter(
+          (v) =>
+            v.student_id === row.student_id &&
+            koreanDay(v.entered_at) === row.day,
+        );
+        row.last_exit = visits.some((v) => !v.exited_at)
+          ? null
+          : visits
+              .map((v) => v.exited_at)
+              .filter(Boolean)
+              .sort()
+              .at(-1);
+      }
+      return [...byStudent.values()];
+    });
+    return summarizeDaily(source, { ...p, student_id: selected });
   }
+
   if (action === "period_attendance_connection") {
     if (!teacher)
       throw Error("구글 시트 연결·수동 반영은 관리자만 가능합니다.");
@@ -398,6 +395,12 @@ export async function demoApi(
               ...s,
               status: e.status,
               note: String(e.note || "").trim(),
+              exempt_reason:
+                e.status === "excused"
+                  ? String(e.exempt_reason ?? s.exempt_reason ?? "")
+                      .trim()
+                      .slice(0, 200)
+                  : "",
             };
           });
           record.sessions = record.sessions
@@ -500,7 +503,18 @@ export async function demoApi(
             throw Error("선택한 교시의 출석 대상에 학생이 없습니다.");
           const entries = roster.map((e) =>
             e.student_id === p.student_id
-              ? { ...e, status: p.status, note, confirmed: true }
+              ? {
+                  ...e,
+                  status: p.status,
+                  note,
+                  confirmed: true,
+                  exempt_reason:
+                    p.status === "excused"
+                      ? String(p.exempt_reason || "")
+                          .trim()
+                          .slice(0, 200)
+                      : "",
+                }
               : e,
           );
           record.sessions = record.sessions
