@@ -1,3 +1,4 @@
+import { missingAttendancePeriods } from "../supabase/functions/api/attendance-completion";
 import { AttendanceStudentBulk } from "./AttendanceStudentBulk";
 import { AttendanceExemption, validExemption } from "./AttendanceExemption";
 import { useEffect, useRef, useState } from "react";
@@ -56,6 +57,10 @@ export function PeriodAttendance({
       ? result.sessions.find((s) => s.period === period)
       : undefined;
   const count = periodsForDay(day);
+  const missingPeriods = missingAttendancePeriods(
+    day,
+    result?.day === day ? result.sessions : [],
+  );
   const call = (action: string, payload: any = {}) =>
     api(action, { day, ...payload }, role, token);
   const refresh = async () => {
@@ -191,7 +196,7 @@ export function PeriodAttendance({
       setResult(next);
       requestId.current = crypto.randomUUID();
       setMessage(
-        `${period}교시 출석을 저장했습니다.${next.sheet_deferred ? " 구글 시트는 마지막 교시 확인 완료 시 반영됩니다." : next.sheet_sync?.ok ? " 구글 시트 반영 완료." : " 구글 시트 반영 대기."}`,
+        `${period}교시 출석을 저장했습니다.${next.sheet_deferred ? " 구글 시트는 모든 교시 확인 완료 시 반영됩니다." : next.sheet_sync?.ok ? " 구글 시트 반영 완료." : " 구글 시트 반영 대기."}`,
       );
       if (next.sheet_sync && !next.sheet_sync.ok)
         setError(`DB 저장 완료 · 시트 반영 대기: ${next.sheet_sync.error}`);
@@ -208,6 +213,12 @@ export function PeriodAttendance({
     try {
       const next = await call("period_attendance_sync");
       setResult(next);
+      if (next.sheet_deferred) {
+        setMessage(
+          "미확인 교시가 있습니다. 모든 교시 확인 완료 후 구글 시트에 반영됩니다.",
+        );
+        return;
+      }
       if (!next.sheet_sync?.ok)
         throw Error(next.sheet_sync?.error || "시트 반영 실패");
       setMessage("구글 시트에 반영했습니다.");
@@ -390,6 +401,46 @@ export function PeriodAttendance({
             : "선택한 날짜의 출석"}
           {!editable ? " · 과거·미래 기록 수정은 관리자만 가능" : ""}
         </p>
+        {!loading && result?.day === day && count > 0 && (
+          <div className="attendance-completion" aria-label="교시별 확인 현황">
+            <strong>
+              {day} · 확인 완료 {count - missingPeriods.length}/{count}교시
+            </strong>
+            {missingPeriods.length > 0 ? (
+              <>
+                <p>
+                  미확인 교시: {missingPeriods.join("·")}교시 · 모두 확인하면
+                  구글 시트에 반영됩니다.
+                </p>
+                <div className="actions">
+                  {missingPeriods.map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      disabled={working}
+                      onClick={() => change(day, n, false)}
+                    >
+                      {n}교시 확인하러 가기
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p>
+                모든 교시 확인 완료 ·{" "}
+                {dirty
+                  ? "변경사항을 저장해 주세요."
+                  : !result.sheet_configured
+                    ? "구글 시트 연결이 필요합니다."
+                    : result.sessions
+                          .filter((s) => s.period >= 1 && s.period <= count)
+                          .every((s) => (s.synced_revision || 0) >= s.revision)
+                      ? "구글 시트 반영 완료"
+                      : "구글 시트 반영을 확인해 주세요."}
+              </p>
+            )}
+          </div>
+        )}
         {automatic && dirty && period !== clock.period && day === today && (
           <p role="status" className="alert">
             다음 교시가 시작됐습니다. 현재 변경사항을 저장한 뒤 교시를 이동해
@@ -589,7 +640,11 @@ export function PeriodAttendance({
                   <button
                     type="button"
                     disabled={
-                      !editable || dirty || working || !result.sessions.length
+                      !editable ||
+                      dirty ||
+                      working ||
+                      !count ||
+                      missingPeriods.length > 0
                     }
                     onClick={() => void sync()}
                   >
@@ -735,7 +790,7 @@ export function PeriodAttendance({
             setError("");
             setResult(next);
             setMessage(
-              `선택한 학생의 출결과 사유를 저장했습니다.${next.sheet_deferred ? " 구글 시트는 마지막 교시 확인 완료 시 반영됩니다." : next.sheet_sync?.ok ? " 구글 시트 반영 완료." : " 구글 시트 반영 대기."}`,
+              `선택한 학생의 출결과 사유를 저장했습니다.${next.sheet_deferred ? " 구글 시트는 모든 교시 확인 완료 시 반영됩니다." : next.sheet_sync?.ok ? " 구글 시트 반영 완료." : " 구글 시트 반영 대기."}`,
             );
             if (next.sheet_sync && !next.sheet_sync.ok)
               setError(

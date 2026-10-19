@@ -470,7 +470,7 @@ test("학생별 여러 교시 저장·재수정: 다른 학생 보존·부분 �
     await db.close();
   }
 });
-test("여러 교시 변경은 RPC 한 번으로 저장하고 마지막 전체 확인 전에는 구글 호출하지 않음", async () => {
+test("여러 교시 변경은 RPC 한 번으로 저장하고 모든 교시 확인 전에는 구글 호출하지 않음", async () => {
   const calls: any[] = [];
   const db = {
     rpc: async (name: string, args: any) => {

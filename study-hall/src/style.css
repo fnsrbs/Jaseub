@@ -2136,3 +2136,7 @@ blockquote {
 .attendance-bulk-students input{width:auto;margin:0;accent-color:#197560}
 .attendance-bulk-students span{display:flex;flex-direction:column;flex:1;min-width:0}
 .attendance-bulk-students small{font-size:11px}
+
+.attendance-completion{padding:16px;margin:16px 0;border:1px solid #d9e4db;border-radius:12px;background:#f2f7f3}
+.attendance-completion p{margin:8px 0;overflow-wrap:anywhere}
+.attendance-completion .actions{margin-top:12px;flex-wrap:wrap}

@@ -1,3 +1,4 @@
+import { missingAttendancePeriods } from "../supabase/functions/api/attendance-completion";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -15,51 +16,140 @@ import {
   handlePeriodAttendance,
 } from "../supabase/functions/api/period-attendance";
 
-test("구글 반영은 마지막 교시 확인 후부터, 그전 저장은 외부 호출 없음", async () => {
-  assert.equal(
-    shouldSyncAttendance("2026-10-19", [{ period: 6, confirmed: true }]),
-    false,
-  );
+test("구글 반영은 모든 교시 확인 완료 후: 마지막 교시 선확인·기존 반영·부분 확인·주말은 전송 보류", async () => {
+  const all = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      period: i + 1,
+      confirmed: true,
+      synced_revision: 0,
+      entries: [],
+    }));
+  assert.equal(shouldSyncAttendance("2026-10-19", all(7)), true);
+  assert.equal(shouldSyncAttendance("2026-10-21", all(6)), true);
+  assert.equal(shouldSyncAttendance("2026-10-16", all(6)), true);
   assert.equal(
     shouldSyncAttendance("2026-10-19", [{ period: 7, confirmed: true }]),
-    true,
-  );
-  assert.equal(
-    shouldSyncAttendance("2026-10-16", [{ period: 6, confirmed: true }]),
-    true,
-  );
-  assert.equal(
-    shouldSyncAttendance("2026-10-16", [{ period: 6, confirmed: false }]),
     false,
   );
+  assert.equal(shouldSyncAttendance("2026-10-19", all(6)), false);
   assert.equal(
     shouldSyncAttendance("2026-10-16", [
       { period: 1, confirmed: true, synced_revision: 1 },
     ]),
-    true,
+    false,
   );
-  const operations: string[] = [];
+  assert.equal(shouldSyncAttendance("2026-10-17", all(7)), false);
+  assert.equal(shouldSyncAttendance("invalid", []), false);
+  assert.equal(
+    shouldSyncAttendance(
+      "2026-10-19",
+      all(7).map((s) =>
+        s.period === 4 ? { ...s, confirmed: false, synced_revision: 1 } : s,
+      ),
+    ),
+    false,
+  );
+  assert.deepEqual(
+    missingAttendancePeriods(
+      "2026-10-19",
+      [1, 2, 6].map((period) => ({ period, confirmed: true })),
+    ),
+    [3, 4, 5, 7],
+  );
+  assert.deepEqual(missingAttendancePeriods("2026-10-21", all(6)), []);
+  const operations: string[] = [],
+    network: string[] = [];
+  let sessions: any[] = all(7).filter((s) => s.period !== 2);
+  let sourceChanged = false;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (_url, options) => {
+    const outer = JSON.parse(String(options?.body)),
+      inner = JSON.parse(outer.payload);
+    network.push(inner.action);
+    return Response.json({
+      ok: true,
+      ready: true,
+      attendance: true,
+      updated: 1,
+      url: "https://docs.google.com/spreadsheets/d/test",
+    });
+  };
   const db = {
     rpc: async (_name: string, args: any) => {
       operations.push(args.p_action);
       return {
-        data: {
-          day: "2026-10-16",
-          sessions: [{ period: 1, confirmed: true, synced_revision: 0 }],
-        },
+        data:
+          args.p_action === "sync_payload"
+            ? {
+                day: "2026-10-19",
+                sessions: sourceChanged ? sessions.slice(0, 6) : sessions,
+                endpoint: "https://script.google.com/macros/s/test/exec",
+                secret: "test-secret",
+                spreadsheet_id: "test",
+                generation: 10,
+              }
+            : { day: "2026-10-19", sessions },
         error: null,
       };
     },
   };
-  const r = await handlePeriodAttendance(
-    db,
-    "period_attendance_save",
-    { day: "2026-10-16", period: 1 },
-    "admin",
-    null,
-  );
-  assert.equal(r.sheet_deferred, true);
-  assert.deepEqual(operations, ["save"]);
+  try {
+    for (const action of [
+      "period_attendance_save",
+      "period_attendance_reset",
+      "period_attendance_sync",
+    ]) {
+      operations.length = 0;
+      const r = await handlePeriodAttendance(
+        db,
+        action,
+        { day: "2026-10-19", period: 7 },
+        "admin",
+        null,
+      );
+      assert.equal(r.sheet_deferred, true);
+      assert.deepEqual(network, []);
+      assert.deepEqual(operations, [
+        action === "period_attendance_save"
+          ? "save"
+          : action === "period_attendance_reset"
+            ? "reset"
+            : "read",
+      ]);
+    }
+    sessions = all(7);
+    sourceChanged = true;
+    operations.length = 0;
+    const stale = await handlePeriodAttendance(
+      db,
+      "period_attendance_save",
+      { day: "2026-10-19", period: 2 },
+      "admin",
+      null,
+    );
+    assert.equal(stale.sheet_deferred, true);
+    assert.deepEqual(network, []);
+    assert.deepEqual(operations, ["save", "sync_payload", "read"]);
+    sourceChanged = false;
+    operations.length = 0;
+    const done = await handlePeriodAttendance(
+      db,
+      "period_attendance_save",
+      { day: "2026-10-19", period: 2 },
+      "admin",
+      null,
+    );
+    assert.equal(done.sheet_sync.ok, true);
+    assert.deepEqual(network, ["check", "attendance"]);
+    assert.deepEqual(operations, [
+      "save",
+      "sync_payload",
+      "mark_synced",
+      "read",
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("시간표: 월화 7교시·수목금 6교시, 시작·종료·쉬는시간·점심·주말", () => {

@@ -1,3 +1,4 @@
+import { shouldSyncAttendance } from "../supabase/functions/api/attendance-completion";
 import { summarizeDaily } from "../supabase/functions/api/attendance-daily";
 import {
   demoStudyRanking,
@@ -14,14 +15,6 @@ import {
   type SupervisionSlot,
 } from "./domain";
 import { validateDeskPairs } from "./seat-pairs";
-const shouldSyncAttendance = (
-  day: string,
-  sessions: AttendanceDay["sessions"],
-) =>
-  sessions.some(
-    (s) =>
-      (s.period === periodsForDay(day) && s.confirmed) || s.synced_revision > 0,
-  );
 import type { CleaningSlot } from "./cleaning-plan";
 let menuConfig = JSON.parse(
   localStorage.getItem("study-hall-demo-menu-order") || "null",
@@ -610,8 +603,7 @@ export async function demoApi(
     }
     if (
       action !== "period_attendance" &&
-      (action === "period_attendance_sync" ||
-        shouldSyncAttendance(p.day, record.sessions))
+      shouldSyncAttendance(p.day, record.sessions)
     ) {
       record.sessions.forEach((s) => {
         s.synced_revision = s.revision;
