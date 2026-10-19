@@ -2140,3 +2140,6 @@ blockquote {
 .attendance-completion{padding:16px;margin:16px 0;border:1px solid #d9e4db;border-radius:12px;background:#f2f7f3}
 .attendance-completion p{margin:8px 0;overflow-wrap:anywhere}
 .attendance-completion .actions{margin-top:12px;flex-wrap:wrap}
+
+.attendance-completion summary{cursor:pointer;font-weight:600;line-height:1.6}
+.attendance-completion .actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(135px,100%),1fr));gap:8px}

@@ -61,6 +61,13 @@ export function PeriodAttendance({
     day,
     result?.day === day ? result.sessions : [],
   );
+  const dueCount =
+    day < today
+      ? count
+      : day > today || clock.label === "수업 시작 전"
+        ? 0
+        : Math.min(count, clock.period);
+  const dueMissing = missingPeriods.filter((n) => n <= dueCount);
   const call = (action: string, payload: any = {}) =>
     api(action, { day, ...payload }, role, token);
   const refresh = async () => {
@@ -402,18 +409,35 @@ export function PeriodAttendance({
           {!editable ? " · 과거·미래 기록 수정은 관리자만 가능" : ""}
         </p>
         {!loading && result?.day === day && count > 0 && (
-          <div className="attendance-completion" aria-label="교시별 확인 현황">
-            <strong>
-              {day} · 확인 완료 {count - missingPeriods.length}/{count}교시
-            </strong>
+          <details
+            key={day}
+            className="attendance-completion"
+            aria-label="교시별 확인 현황"
+          >
+            <summary>
+              {day} ·{" "}
+              {dueCount === 0
+                ? "확인할 교시가 아직 없습니다"
+                : dueMissing.length
+                  ? `현재까지 미확인 ${dueMissing.length}교시`
+                  : "현재까지 확인 완료"}
+            </summary>
+            <p>
+              현재까지 확인 {dueCount - dueMissing.length}/{dueCount}교시 · 하루
+              전체 확인 {count - missingPeriods.length}/{count}교시
+            </p>
             {missingPeriods.length > 0 ? (
               <>
                 <p>
-                  미확인 교시: {missingPeriods.join("·")}교시 · 모두 확인하면
-                  구글 시트에 반영됩니다.
+                  {dueMissing.length
+                    ? `미확인 교시: ${dueMissing.join("·")}교시`
+                    : dueCount
+                      ? "현재까지 미확인 교시가 없습니다."
+                      : "수업 시작 전입니다."}{" "}
+                  · 하루 모든 교시를 확인하면 구글 시트에 반영됩니다.
                 </p>
                 <div className="actions">
-                  {missingPeriods.map((n) => (
+                  {dueMissing.map((n) => (
                     <button
                       key={n}
                       type="button"
@@ -439,7 +463,7 @@ export function PeriodAttendance({
                       : "구글 시트 반영을 확인해 주세요."}
               </p>
             )}
-          </div>
+          </details>
         )}
         {automatic && dirty && period !== clock.period && day === today && (
           <p role="status" className="alert">
