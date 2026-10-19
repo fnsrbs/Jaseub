@@ -19,7 +19,7 @@ type Ranking = {
   participants: number;
   eligible: number;
   average_seconds: number;
-  scope: "day" | "week";
+  scope: "day" | "week" | "previous_week";
   period_start: string;
   period_end: string;
   mine?: Entry;
@@ -44,8 +44,9 @@ export function WeeklyRanking({
   visits: Visit[];
   encouragement: string;
 }) {
-  const [scope, setScope] = useState<"day" | "week">("week");
-  const period = scope === "day" ? "오늘" : "이번 주";
+  const [scope, setScope] = useState<"day" | "week" | "previous_week">("week");
+  const period =
+    scope === "day" ? "오늘" : scope === "previous_week" ? "지난주" : "이번 주";
   const [ranking, setRanking] = useState<Ranking | null>(null),
     [error, setError] = useState("");
   const visitRevision = visits
@@ -94,11 +95,23 @@ export function WeeklyRanking({
         >
           이번 주
         </button>
+        <button
+          type="button"
+          aria-pressed={scope === "previous_week"}
+          onClick={() => setScope("previous_week")}
+        >
+          지난주
+        </button>
       </div>
       <p>
         {scope === "day" ? "오늘" : "월~금"} · 퇴실 처리된 기록으로 집계합니다.
         같은 공부시간은 공동 순위입니다.
       </p>
+      {ranking && (
+        <p className="muted">
+          조회 기간: {ranking.period_start} ~ {ranking.period_end}
+        </p>
+      )}
       <p>월·화 16:30 / 수·목·금 15:30에 자동으로 퇴실 처리됩니다.</p>
       {teacher ? (
         <p className="ranking-explanation">

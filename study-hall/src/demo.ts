@@ -635,7 +635,7 @@ export async function demoApi(
   if (action === "menu_order") return structuredClone(menuConfig);
   if (action === "weekly_ranking") {
     const scope = p.scope || "week";
-    if (!["day", "week"].includes(scope))
+    if (!["day", "week", "previous_week"].includes(scope))
       throw Error("순위 조회 기간을 확인하세요.");
     const ranking = demoStudyRanking(
       state.students,

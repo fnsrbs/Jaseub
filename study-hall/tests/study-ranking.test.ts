@@ -83,6 +83,17 @@ test("오늘·주간 순위: 공동 인원·1등 차이·자정·진행 중 제�
     "utf8",
   );
   await db.exec(averageMigration.replaceAll("now()", `'${now}'::timestamptz`));
+  const previousMigration = await readFile(
+    new URL(
+      "../supabase/migrations/20261019074955_previous_week_ranking.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  await db.exec(previousMigration);
+  await add(0, "2026-10-05T08:00:00+09:00", "2026-10-05T09:00:00+09:00");
+  await add(1, "2026-10-09T08:00:00+09:00", "2026-10-09T10:00:00+09:00");
+  await add(0, "2026-10-10T08:00:00+09:00", "2026-10-10T18:00:00+09:00");
   const read = async (
     scope = "week",
     a: string | null = admin,
@@ -97,13 +108,23 @@ test("오늘·주간 순위: 공동 인원·1등 차이·자정·진행 중 제�
         mine,
       ])
     ).rows[0].r;
-  for (const scope of ["day", "week"] as const) {
+  for (const scope of ["day", "week", "previous_week"] as const) {
     const r = await read(scope);
     assert.deepEqual(
       r,
       demoStudyRanking(students, visits, scope, Date.parse(now)),
     );
   }
+  const previous = await read("previous_week");
+  assert.equal(previous.period_start, "2026-10-05");
+  assert.equal(previous.period_end, "2026-10-09");
+  assert.equal(previous.participants, 2);
+  assert.equal(previous.rows[0].id, ids[1]);
+  assert.equal(previous.rows[0].seconds, 7200);
+  const ownPrevious = await read("previous_week", null, null, "mine");
+  assert.equal(ownPrevious.mine.rank, 1);
+  assert.equal(ownPrevious.rows, undefined);
+  assert.ok(!JSON.stringify(ownPrevious).includes(ids[0]));
   let r = await read("day", null, null, "mine");
   assert.equal(r.rows, undefined);
   assert.equal(r.mine.rank, 2);
@@ -143,6 +164,14 @@ test("오늘·주간 순위: 공동 인원·1등 차이·자정·진행 중 제�
     (await read("week")).rows.find((r: any) => r.id === ids[0]).seconds,
     21600,
   );
+  await db.exec(
+    averageMigration.replaceAll(
+      "now()",
+      "'2026-10-19T18:00:00+09:00'::timestamptz",
+    ),
+  );
+  await db.exec(previousMigration);
+  assert.equal((await read("previous_week")).period_start, "2026-10-12");
   await db.exec("truncate visits");
   r = await read("day", null, null, "mine");
   assert.equal(r.participants, 0);

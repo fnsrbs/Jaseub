@@ -125,7 +125,7 @@ export function rankingTime(seconds: number) {
 export function demoStudyRanking(
   students: Student[],
   visits: Visit[],
-  scope: "day" | "week",
+  scope: "day" | "week" | "previous_week",
   now: number,
 ) {
   const today = koreanDay(new Date(now)),
@@ -133,6 +133,16 @@ export function demoStudyRanking(
   const monday = koreanDay(
     new Date(dayStart(today) - ((weekday + 6) % 7) * 86400000),
   );
+  const first =
+    scope === "previous_week"
+      ? koreanDay(new Date(dayStart(monday) - 7 * 86400000))
+      : scope === "day"
+        ? today
+        : monday;
+  const last =
+    scope === "day"
+      ? today
+      : koreanDay(new Date(dayStart(first) + 4 * 86400000));
   const rows = students
     .filter((s) => s.active && !s.deleted_at)
     .map((s) => {
@@ -149,7 +159,11 @@ export function demoStudyRanking(
         id: s.id,
         name: s.name,
         number: s.number,
-        seconds: Math.floor(scope === "day" ? t.today : t.week),
+        seconds: Math.floor(
+          Object.entries(t.days)
+            .filter(([d]) => d >= first && d <= last && d <= today)
+            .reduce((n, [, v]) => n + v.confirmed, 0),
+        ),
       };
     })
     .sort(
@@ -160,11 +174,8 @@ export function demoStudyRanking(
   const leader = rows[0]?.seconds || 0;
   return {
     scope,
-    period_start: scope === "day" ? today : monday,
-    period_end:
-      scope === "day"
-        ? today
-        : koreanDay(new Date(dayStart(monday) + 4 * 86400000)),
+    period_start: first,
+    period_end: last,
     participants: rows.filter((r) => r.seconds > 0).length,
     eligible: rows.length,
     average_seconds: Math.floor(

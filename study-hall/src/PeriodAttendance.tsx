@@ -1,3 +1,4 @@
+import { AttendanceStudentBulk } from "./AttendanceStudentBulk";
 import { AttendanceExemption, validExemption } from "./AttendanceExemption";
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
@@ -42,6 +43,7 @@ export function PeriodAttendance({
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"seats" | "list">("seats");
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [studentBulkOpen, setStudentBulkOpen] = useState(false);
   const requestId = useRef(crypto.randomUUID());
   const dirtyRef = useRef(false);
   const dayRef = useRef(day);
@@ -99,11 +101,27 @@ export function PeriodAttendance({
     requestId.current = crypto.randomUUID();
   }, [result, day, period, data.students, data.visits, today, dirty]);
   useEffect(() => {
-    if (automatic && !dirty && !working && !selected && !bulkOpen) {
+    if (
+      automatic &&
+      !dirty &&
+      !working &&
+      !selected &&
+      !bulkOpen &&
+      !studentBulkOpen
+    ) {
       if (day !== today) setDay(today);
       setPeriod(clock.period);
     }
-  }, [automatic, dirty, working, selected, bulkOpen, today, clock.period]);
+  }, [
+    automatic,
+    dirty,
+    working,
+    selected,
+    bulkOpen,
+    studentBulkOpen,
+    today,
+    clock.period,
+  ]);
   useEffect(() => {
     const guard = (event: BeforeUnloadEvent) => {
       if (dirtyRef.current) {
@@ -144,6 +162,7 @@ export function PeriodAttendance({
       return;
     setDirty(false);
     setSelected(null);
+    setStudentBulkOpen(false);
     setMessage("");
     setError("");
     setDay(nextDay);
@@ -438,6 +457,13 @@ export function PeriodAttendance({
                 />
               </label>
             </div>
+            <button
+              type="button"
+              disabled={!editable || working || loading || !entries.length}
+              onClick={() => setStudentBulkOpen(true)}
+            >
+              이 교시 여러 학생 변경
+            </button>
             <p className="muted">
               {session
                 ? "이 교시를 처음 저장했을 때의 학생·좌석 기준입니다."
@@ -651,6 +677,30 @@ export function PeriodAttendance({
             업데이트용 연결코드 받기
           </button>
         </details>
+      )}
+      {studentBulkOpen && (
+        <AttendanceStudentBulk
+          period={period}
+          entries={entries}
+          close={() => setStudentBulkOpen(false)}
+          apply={(ids, status, note, exempt_reason) => {
+            const chosen = new Set(ids);
+            setEntries((current) =>
+              current.map((e) =>
+                chosen.has(e.student_id)
+                  ? { ...e, status, note: note || e.note, exempt_reason }
+                  : e,
+              ),
+            );
+            setDirty(true);
+            requestId.current = crypto.randomUUID();
+            setStudentBulkOpen(false);
+            setError("");
+            setMessage(
+              `${period}교시 ${ids.length}명에게 ${attendanceLabels[status]}을 적용했습니다. 확인 후 저장해 주세요.`,
+            );
+          }}
+        />
       )}
       {selected && entries.find((e) => e.student_id === selected) && (
         <AttendanceEditor

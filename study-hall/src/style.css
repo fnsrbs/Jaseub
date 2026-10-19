@@ -2126,3 +2126,13 @@ blockquote {
 .status-early{background:#fff0df;color:#8a480f}
 .status-missed{background:#f4eaff;color:#673697}
 .attendance-summary .alert p{margin:8px 0}
+
+.ranking-tabs{flex-wrap:wrap}
+
+.attendance-student-bulk{width:min(620px,calc(100% - 32px));box-sizing:border-box}
+.attendance-bulk-students{max-height:320px;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:6px;margin:12px 0 18px;padding:2px}
+.attendance-bulk-students label{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid #d5dfd9;border-radius:10px;cursor:pointer;min-width:0}
+.attendance-bulk-students label:has(input:checked){background:#e8f3ed;border-color:#197560}
+.attendance-bulk-students input{width:auto;margin:0;accent-color:#197560}
+.attendance-bulk-students span{display:flex;flex-direction:column;flex:1;min-width:0}
+.attendance-bulk-students small{font-size:11px}
