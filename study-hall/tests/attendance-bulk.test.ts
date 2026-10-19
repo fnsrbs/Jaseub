@@ -54,6 +54,11 @@ test("학생별 여러 교시 저장·재수정: 다른 학생 보존·부분 �
         await migration("20261018233858_student_period_bulk_edit.sql")
       ).replaceAll("now()", `'${now}'::timestamptz`),
     );
+    await db.exec(
+      (
+        await migration("20261019000000_selectable_attendance_periods.sql")
+      ).replaceAll("now()", `'${now}'::timestamptz`),
+    );
     await db.query(
       "insert into visits(student_id,entered_at) values($1,'2026-10-19T08:10:00+09:00')",
       [ids[1]],
@@ -76,6 +81,45 @@ test("학생별 여러 교시 저장·재수정: 다른 학생 보존·부분 �
           [JSON.stringify(p), who, viewer],
         )
       ).rows[0].r;
+    const arbitrary = {
+      day: "2026-10-19",
+      student_id: ids[0],
+      periods: [2, 4, 6],
+      status: "excused",
+      note: "선택 교시만 변경",
+      request_id: randomUUID(),
+      revisions: { 2: 0, 4: 0, 6: 0 },
+    };
+    const picked = await bulk(arbitrary);
+    assert.deepEqual(
+      picked.sessions.map((s: any) => s.period).sort(),
+      [2, 4, 6],
+    );
+    assert.equal(
+      picked.sessions.every(
+        (s: any) =>
+          s.entries.find((e: any) => e.student_id === ids[0]).note ===
+          arbitrary.note,
+      ),
+      true,
+    );
+    const revised = await bulk({
+      ...arbitrary,
+      note: "선택 교시 재수정",
+      request_id: randomUUID(),
+      revisions: { 2: 1, 4: 1, 6: 1 },
+    });
+    assert.deepEqual(
+      revised.sessions.map((s: any) => s.period).sort(),
+      [2, 4, 6],
+    );
+    for (const periods of [[], [2, 2], [8], [2.5], ["2"], null])
+      await assert.rejects(
+        bulk({ ...arbitrary, periods, request_id: randomUUID() }),
+      );
+    await db.exec(
+      "truncate period_attendance_sessions,period_attendance_events,period_attendance_bulk_requests",
+    );
     const make = (status = "excused", note = "병원 진료") => ({
       day: "2026-10-19",
       student_id: ids[0],

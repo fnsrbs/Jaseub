@@ -2116,3 +2116,9 @@ blockquote {
 .seat-room .seat.not-in-room{background-color:#eef0ef;border-color:#ccd3ce}
 .seat.not-in-room b,.seat.not-in-room small{color:#5e6c63}
 .attendance-bulk-editor{width:min(520px,calc(100% - 32px));box-sizing:border-box}.attendance-bulk-editor fieldset{border:0;padding:0;margin:0;min-width:0}.attendance-bulk-periods{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+.attendance-bulk-periods{display:flex;flex-direction:column;gap:10px;margin:16px 0}
+.attendance-period-options{display:flex;flex-wrap:wrap;gap:8px}
+.attendance-period-options label{display:flex;align-items:center;gap:6px;padding:10px 12px;border:1px solid var(--border,#d5dfd9);border-radius:10px;cursor:pointer}
+.attendance-period-options label:has(input:checked){background:#e8f3ed;border-color:#197560}
+.attendance-period-options input{width:auto;margin:0;accent-color:#197560}

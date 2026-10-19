@@ -450,15 +450,23 @@ export async function demoApi(
       const count = periodsForDay(p.day),
         start = p.start_period,
         end = p.end_period,
+        periods: number[] =
+          p.periods ??
+          (Number.isInteger(start) &&
+          Number.isInteger(end) &&
+          end >= start &&
+          end - start < 7
+            ? Array.from({ length: end - start + 1 }, (_, i) => start + i)
+            : []),
         note = String(p.note || "").trim();
       if (
-        !Number.isInteger(start) ||
-        !Number.isInteger(end) ||
-        start < 1 ||
-        end < start ||
-        end > count
+        !Array.isArray(periods) ||
+        !periods.length ||
+        periods.length > 7 ||
+        new Set(periods).size !== periods.length ||
+        periods.some((n) => !Number.isInteger(n) || n < 1 || n > count)
       )
-        throw Error("교시 범위를 확인하세요.");
+        throw Error("선택한 교시를 확인하세요.");
       if (
         !["present", "late", "absent", "excused"].includes(p.status) ||
         !note ||
@@ -471,7 +479,7 @@ export async function demoApi(
       if (previous && previous !== JSON.stringify(p))
         throw Error("저장 요청이 중복되었습니다. 다시 시도하세요.");
       if (!previous) {
-        for (let period = start; period <= end; period++)
+        for (const period of periods)
           if (
             (record.sessions.find((s) => s.period === period)?.revision ||
               0) !== p.revisions[period]
@@ -479,7 +487,7 @@ export async function demoApi(
             throw Error(
               "다른 교사가 출석을 변경했습니다. 다시 조회한 뒤 수정하세요.",
             );
-        for (let period = start; period <= end; period++) {
+        for (const period of periods) {
           const old = record.sessions.find((s) => s.period === period),
             roster =
               old?.entries ||
@@ -543,7 +551,9 @@ export async function demoApi(
       for (const entry of record.sessions
         .filter((s) =>
           action === "period_attendance_bulk"
-            ? s.period >= p.start_period && s.period <= p.end_period
+            ? p.periods
+              ? p.periods.includes(s.period)
+              : s.period >= p.start_period && s.period <= p.end_period
             : s.period === p.period,
         )
         .flatMap((s) => s.entries.filter((e) => s.confirmed || e.confirmed))) {

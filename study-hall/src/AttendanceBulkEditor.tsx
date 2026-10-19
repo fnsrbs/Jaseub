@@ -30,8 +30,7 @@ export function AttendanceBulkEditor({
     requestId = useRef(crypto.randomUUID());
   const [search, setSearch] = useState(""),
     [student, setStudent] = useState(""),
-    [start, setStart] = useState(period),
-    [end, setEnd] = useState(period),
+    [periods, setPeriods] = useState<number[]>([period]),
     [status, setStatus] = useState<AttendanceStatus>("excused"),
     [note, setNote] = useState(""),
     [busy, setBusy] = useState(false),
@@ -51,11 +50,11 @@ export function AttendanceBulkEditor({
   }, []);
   useEffect(() => {
     requestId.current = crypto.randomUUID();
-  }, [student, start, end, status, note]);
+  }, [student, periods, status, note]);
   useEffect(() => {
     if (!student) return;
-    const saved = Array.from({ length: end - start + 1 }, (_, i) => {
-      const session = result.sessions.find((s) => s.period === start + i);
+    const saved = periods.map((n) => {
+      const session = result.sessions.find((s) => s.period === n);
       const entry = session?.entries.find((e) => e.student_id === student);
       return session?.confirmed || entry?.confirmed ? entry : undefined;
     });
@@ -70,7 +69,7 @@ export function AttendanceBulkEditor({
       setStatus("excused");
       setNote("");
     }
-  }, [student, start, end]);
+  }, [student, periods]);
   return (
     <dialog
       ref={dialog}
@@ -89,15 +88,14 @@ export function AttendanceBulkEditor({
       <form
         onSubmit={async (e) => {
           e.preventDefault();
-          if (busy) return;
+          if (busy || !periods.length) return;
           setBusy(true);
           setError("");
           try {
             const revisions = Object.fromEntries(
-              Array.from({ length: end - start + 1 }, (_, i) => [
-                start + i,
-                result.sessions.find((s) => s.period === start + i)?.revision ??
-                  0,
+              periods.map((n) => [
+                n,
+                result.sessions.find((s) => s.period === n)?.revision ?? 0,
               ]),
             );
             const next = await api(
@@ -105,8 +103,7 @@ export function AttendanceBulkEditor({
               {
                 day,
                 student_id: student,
-                start_period: start,
-                end_period: end,
+                periods,
                 status,
                 note: note.trim(),
                 request_id: requestId.current,
@@ -153,39 +150,43 @@ export function AttendanceBulkEditor({
               ))}
             </select>
           </label>
-          <div className="attendance-bulk-periods">
-            <label className="field">
-              <span>시작 교시</span>
-              <select
-                aria-label="시작 교시"
-                value={start}
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  setStart(n);
-                  if (end < n) setEnd(n);
-                }}
+          <div
+            className="attendance-bulk-periods"
+            role="group"
+            aria-label="변경할 교시"
+          >
+            <span>변경할 교시 · 여러 개 선택</span>
+            <div className="attendance-period-options">
+              {Array.from({ length: count }, (_, i) => i + 1).map((n) => (
+                <label key={n}>
+                  <input
+                    type="checkbox"
+                    checked={periods.includes(n)}
+                    onChange={(e) =>
+                      setPeriods(
+                        e.target.checked
+                          ? [...periods, n].sort((a, b) => a - b)
+                          : periods.filter((p) => p !== n),
+                      )
+                    }
+                  />
+                  {n}교시
+                </label>
+              ))}
+            </div>
+            <div className="actions">
+              <button
+                type="button"
+                onClick={() =>
+                  setPeriods(Array.from({ length: count }, (_, i) => i + 1))
+                }
               >
-                {Array.from({ length: count }, (_, i) => (
-                  <option key={i} value={i + 1}>
-                    {i + 1}교시
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>종료 교시</span>
-              <select
-                aria-label="종료 교시"
-                value={end}
-                onChange={(e) => setEnd(Number(e.target.value))}
-              >
-                {Array.from({ length: count - start + 1 }, (_, i) => (
-                  <option key={i} value={start + i}>
-                    {start + i}교시
-                  </option>
-                ))}
-              </select>
-            </label>
+                전체 선택
+              </button>
+              <button type="button" onClick={() => setPeriods([])}>
+                선택 해제
+              </button>
+            </div>
           </div>
           <label className="field">
             <span>출결 상태</span>
@@ -215,8 +216,9 @@ export function AttendanceBulkEditor({
         </fieldset>
         {selected && (
           <p className="alert">
-            {selected.number} · {selected.name} / {start}~{end}교시 /{" "}
-            {attendanceLabels[status]}
+            {selected.number} · {selected.name} /{" "}
+            {periods.length ? periods.join("·") + "교시" : "교시를 선택하세요"}{" "}
+            / {attendanceLabels[status]}
           </p>
         )}
         <p className="muted">
@@ -231,7 +233,7 @@ export function AttendanceBulkEditor({
         <div className="actions">
           <button
             className="primary"
-            disabled={busy || !student || !note.trim()}
+            disabled={busy || !student || !periods.length || !note.trim()}
           >
             {busy ? "저장 중…" : "선택한 교시 저장"}
           </button>
