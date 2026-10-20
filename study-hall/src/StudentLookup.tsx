@@ -160,7 +160,7 @@ export function StudentLookup({
               onClick={() => (onClose ? onClose() : setSelected(""))}
               className="student-detail-back"
             >
-              {onClose ? "← 운영현황으로 돌아가기" : "← 학생 목록으로"}
+              {onClose ? "← 이전 화면으로 돌아가기" : "← 학생 목록으로"}
             </button>
             <h2 ref={detailHeading} tabIndex={-1}>
               {student.number} · {student.name}

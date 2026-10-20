@@ -436,7 +436,7 @@ export default function App() {
                     className={teacher ? "metrics" : "metrics student-metrics"}
                   >
                     {teacher ? (
-                      <CurrentStudents data={data} />
+                      <CurrentStudents onStudent={setDetailStudent} data={data} />
                     ) : (
                       <Metric
                         label="현재 입실 인원"
@@ -446,7 +446,7 @@ export default function App() {
                       />
                     )}
                     {teacher ? (
-                      <CurrentStudents data={data} todayOnly />
+                      <CurrentStudents onStudent={setDetailStudent} data={data} todayOnly />
                     ) : (
                       <Metric
                         label="오늘 출석 인원"
@@ -455,7 +455,7 @@ export default function App() {
                         caption="오늘 한 번 이상 입실한 학생"
                       />
                     )}
-                    {teacher ? <CurrentStudents data={data} departedOnly /> : <Metric
+                    {teacher ? <CurrentStudents onStudent={setDetailStudent} data={data} departedOnly /> : <Metric
                       label="나의 배정 좌석"
                       value={String(me?.seat_id || "미배정")}
                       unit="번"
@@ -498,6 +498,19 @@ export default function App() {
                             setDetailStudent(id);
                         }}
                       />
+                      <details className="panel">
+                        <summary>학생 조회 · 이름·학번 검색</summary>
+                        <StudentLookup
+                          data={data}
+                          renderDetails={(s) => (
+                            <>
+                              <AttendanceSummary students={data.students} studentId={s.id} />
+                              <StudentWarningIssue student={s} busy={busy} act={act} />
+                              <Stats data={data} studentId={s.id} now={currentNow} />
+                            </>
+                          )}
+                        />
+                      </details>
                       <ManualAttendance data={data} act={act} busy={busy} />
                     </>
                   ) : (
@@ -660,7 +673,7 @@ export default function App() {
               {page === "students" && admin && (
                 <>
                   <AttendanceSummary students={data.students} />
-                  <Students data={data} act={act} busy={busy} />
+                  <Students data={data} act={act} busy={busy} onStudent={setDetailStudent} />
                 </>
               )}
               {page === "warnings" && (
@@ -1158,10 +1171,12 @@ function Metric({
 }
 function CurrentStudents({
   data,
+  onStudent,
   todayOnly: todayRoster = false,
   departedOnly = false,
 }: {
   data: Snapshot;
+  onStudent: (id: string) => void;
   todayOnly?: boolean;
   departedOnly?: boolean;
 }) {
@@ -1313,7 +1328,7 @@ function CurrentStudents({
                 {visible.map((student) => (
                   <tr key={student.id}>
                     <td>{student.number}</td>
-                    <td>{student.name}</td>
+                    <td><button type="button" aria-label={`${student.number} ${student.name} 학생 상세보기`} onClick={() => onStudent(student.id)}>{student.name} · 상세 보기</button></td>
                     <td>
                       {student.seat_id ? `${student.seat_id}번` : "미배정"}
                     </td>
@@ -1737,10 +1752,12 @@ function Scanner({
 }
 function Students({
   data,
+  onStudent,
   act,
   busy,
 }: {
   data: Snapshot;
+  onStudent: (id: string) => void;
   act: (a: string, p: any) => Promise<any>;
   busy: boolean;
 }) {
@@ -1985,7 +2002,7 @@ function Students({
                     }
                   />
                 </td>
-                <td>{s.name}</td>
+                <td><button type="button" aria-label={`${s.number} ${s.name} 학생 상세보기`} onClick={() => onStudent(s.id)}>{s.name} · 상세 보기</button></td>
                 <td>{s.number}</td>
                 <td>
                   <select

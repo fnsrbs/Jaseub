@@ -14,6 +14,14 @@ export type DemoCollectionRecord = {
   rank: number | null;
   seconds: number | null;
 };
+export function collectionDayEligible(day: string, operation?: OperatingDay) {
+  const weekday = new Date(`${day}T12:00:00+09:00`).getUTCDay();
+  return weekday >= 1 && weekday <= 5 && (!operation || (
+    !operation.is_closed && operation.student_ids.length > 0 &&
+    operation.start_time.slice(0, 5) <= "08:50" &&
+    operation.end_time.slice(0, 5) >= (weekday <= 2 ? "16:30" : "15:30")
+  ));
+}
 export function demoCollections(
   students: Student[],
   visits: Visit[],
@@ -32,6 +40,7 @@ export function demoCollections(
     const attended = new Set<string>();
     for (const day of new Set(sessions.map((session) => session.day))) {
       const operation = operatingDays.find((d) => d.day === day);
+      if (!collectionDayEligible(day, operation)) continue;
       const expected = periodsForDay(day, operation);
       if (operation && !operation.student_ids.includes(s.id)) continue;
       if (!expected || day > koreanDay(new Date(now))) continue;
@@ -76,7 +85,10 @@ export function demoCollections(
         const cutoff = Date.parse(
           day + (weekday <= 2 ? "T16:30:00+09:00" : "T15:30:00+09:00"),
         );
+        const operation = operatingDays.find((d) => d.day === day);
         if (
+          collectionDayEligible(day, operation) &&
+          (!operation || operation.student_ids.includes(s.id)) &&
           weekday >= 1 &&
           weekday <= 5 &&
           now >= cutoff &&
