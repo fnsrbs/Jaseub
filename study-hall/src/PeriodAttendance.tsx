@@ -541,6 +541,44 @@ export function PeriodAttendance({
           <p>출석을 불러오지 못했습니다. 다시 조회해 주세요.</p>
         ) : (
           <>
+            <div className="attendance-savebar">
+              <div>
+                <strong>
+                  {dirty
+                    ? "저장하지 않은 변경사항이 있습니다."
+                    : session?.confirmed
+                      ? `${period}교시 확인 완료`
+                      : `${period}교시 확인 전`}
+                </strong>
+                <small>
+                  {session?.confirmed
+                    ? `저장: ${new Date(session.updated_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}`
+                    : "확인 완료 전에는 출석으로 기록되지 않습니다."}
+                </small>
+                <small>
+                  오늘 출석·지각을 처음 확인하면 QR 입실 기록이 없는 학생은 최초
+                  확인 시각으로 자동 입실 처리됩니다. 기존 입실 시각은
+                  유지됩니다.
+                </small>
+              </div>
+              <button
+                type="button"
+                className="primary"
+                disabled={
+                  !editable ||
+                  working ||
+                  !entries.length ||
+                  (!dirty && !!session?.confirmed)
+                }
+                onClick={() => void save()}
+              >
+                {working
+                  ? "처리 중…"
+                  : session?.confirmed
+                    ? "변경사항 저장"
+                    : "출석 확인 완료"}
+              </button>
+            </div>
             {session?.confirmed && (
               <div className="attendance-completed-banner">
                 <strong>{locked ? "✓ 출결 체크 완료" : "출결 수정 중"}</strong>
@@ -679,44 +717,6 @@ export function PeriodAttendance({
                 )}
               </>
             )}
-            <div className="attendance-savebar">
-              <div>
-                <strong>
-                  {dirty
-                    ? "저장하지 않은 변경사항이 있습니다."
-                    : session?.confirmed
-                      ? `${period}교시 확인 완료`
-                      : `${period}교시 확인 전`}
-                </strong>
-                <small>
-                  {session?.confirmed
-                    ? `저장: ${new Date(session.updated_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}`
-                    : "확인 완료 전에는 출석으로 기록되지 않습니다."}
-                </small>
-                <small>
-                  오늘 출석·지각을 처음 확인하면 QR 입실 기록이 없는 학생은 최초
-                  확인 시각으로 자동 입실 처리됩니다. 기존 입실 시각은
-                  유지됩니다.
-                </small>
-              </div>
-              <button
-                type="button"
-                className="primary"
-                disabled={
-                  !editable ||
-                  working ||
-                  !entries.length ||
-                  (!dirty && !!session?.confirmed)
-                }
-                onClick={() => void save()}
-              >
-                {working
-                  ? "처리 중…"
-                  : session?.confirmed
-                    ? "변경사항 저장"
-                    : "출석 확인 완료"}
-              </button>
-            </div>
             <div className="actions">
               <span className="muted">
                 구글 시트 (월·화 7교시 / 수·목·금 6교시 확인 완료 시 일괄 반영):{" "}

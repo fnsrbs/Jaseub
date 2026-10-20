@@ -2157,3 +2157,8 @@ blockquote {
 .operating-closed{display:flex;align-items:center;gap:10px;padding:14px;background:#f2f5f3;border-radius:10px;margin-bottom:16px}
 .attendance-completed-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;margin:12px 0;background:#eef1ef;border:1px solid #cad3ce;border-radius:12px}
 .attendance-seat.attendance-locked{background:#e7ebe8;color:#67736c;border-color:#c7d0ca;opacity:1;cursor:default}
+
+.attendance-seat.attendance-locked.status-present{background:#dce5df;color:#405d4e;border-color:#b5c6bb}
+.attendance-seat.attendance-locked.status-late{background:#eadcba;color:#715119;border-color:#c9b17b}
+.attendance-seat.attendance-locked.status-absent{background:#e5c6c6;color:#823737;border-color:#bc9292}
+.attendance-seat.attendance-locked.status-excused{background:#d6d3e5;color:#554c78;border-color:#b1aacb}
