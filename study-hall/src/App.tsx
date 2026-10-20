@@ -311,13 +311,6 @@ export default function App() {
   const active = data?.visits.find(
     (v) => v.student_id === me?.id && !v.exited_at,
   );
-  const missing =
-    data?.visits.filter(
-      (v) =>
-        !v.exited_at &&
-        currentNow - Date.parse(v.entered_at) >
-          data.settings.missing_hours * 3600000,
-    ) || [];
   const menu = orderedMenu(role, menuOrders);
   return (
     <div className="layout">
@@ -462,20 +455,12 @@ export default function App() {
                         caption="오늘 한 번 이상 입실한 학생"
                       />
                     )}
-                    <Metric
-                      label={teacher ? "퇴실 확인 필요" : "나의 배정 좌석"}
-                      value={
-                        teacher
-                          ? String(missing.length)
-                          : String(me?.seat_id || "미배정")
-                      }
-                      unit={teacher ? "명" : "번"}
-                      caption={
-                        teacher
-                          ? "설정된 확인 시간을 넘긴 이용 구간"
-                          : "고정 좌석 · 좌석 배치도에서 확인"
-                      }
-                    />
+                    {teacher ? <CurrentStudents data={data} departedOnly /> : <Metric
+                      label="나의 배정 좌석"
+                      value={String(me?.seat_id || "미배정")}
+                      unit="번"
+                      caption="고정 좌석 · 좌석 배치도에서 확인"
+                    />}
                     {!teacher && (
                       <Metric
                         label="누적 경고카드"
@@ -514,19 +499,6 @@ export default function App() {
                         }}
                       />
                       <ManualAttendance data={data} act={act} busy={busy} />
-                      {missing.length > 0 && (
-                        <div className="alert error">
-                          퇴실 확인 필요:{" "}
-                          {missing
-                            .map(
-                              (v) =>
-                                data.students.find((s) => s.id === v.student_id)
-                                  ?.name,
-                            )
-                            .join(", ")}
-                          . 출결 기록에서 실제 시각과 사유를 입력하세요.
-                        </div>
-                      )}
                     </>
                   ) : (
                     <>
@@ -553,10 +525,7 @@ export default function App() {
                                   {active ? "● 입실 중" : "○ 퇴실"}
                                 </span>{" "}
                                 {active &&
-                                  (currentNow - Date.parse(active.entered_at) >
-                                  data.settings.missing_hours * 3600000
-                                    ? "퇴실 확인 필요"
-                                    : `현재 이용 ${duration((currentNow - Date.parse(active.entered_at)) / 1000)}`)}
+                                  `현재 이용 ${duration((currentNow - Date.parse(active.entered_at)) / 1000)}`}
                               </span>
                             </p>
                             <p>
@@ -1188,11 +1157,14 @@ function Metric({
 }
 function CurrentStudents({
   data,
-  todayOnly = false,
+  todayOnly: todayRoster = false,
+  departedOnly = false,
 }: {
   data: Snapshot;
   todayOnly?: boolean;
+  departedOnly?: boolean;
 }) {
+  const todayOnly = todayRoster || departedOnly;
   const dialog = useRef<HTMLDialogElement>(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | "in" | "out">(
@@ -1212,7 +1184,7 @@ function CurrentStudents({
   );
   const students = data.students
     .filter((student) =>
-      todayOnly ? todayIds.has(student.id) : !student.deleted_at,
+      todayOnly ? todayIds.has(student.id) && (!departedOnly || !currentIds.has(student.id)) : !student.deleted_at,
     )
     .sort(
       (a, b) =>
@@ -1232,8 +1204,8 @@ function CurrentStudents({
   return (
     <>
       <Metric
-        label={todayOnly ? "오늘 출석 인원" : "현재 입실 인원"}
-        value={String(todayOnly ? data.today : data.current)}
+        label={departedOnly ? "오늘 퇴실 인원" : todayOnly ? "오늘 출석 인원" : "현재 입실 인원"}
+        value={String(departedOnly ? students.length : todayOnly ? data.today : data.current)}
         unit={`/ ${data.settings.capacity}명`}
         caption="학생 명단 보기 ↗"
         onClick={() => {
@@ -1246,7 +1218,7 @@ function CurrentStudents({
         ref={dialog}
         className="current-students"
         aria-labelledby={
-          todayOnly ? "today-students-title" : "current-students-title"
+          departedOnly ? "departed-students-title" : todayOnly ? "today-students-title" : "current-students-title"
         }
         onClick={(event) => {
           if (event.target === event.currentTarget) {
@@ -1264,15 +1236,15 @@ function CurrentStudents({
         <div className="current-students-head">
           <div>
             <h2
-              id={todayOnly ? "today-students-title" : "current-students-title"}
+              id={departedOnly ? "departed-students-title" : todayOnly ? "today-students-title" : "current-students-title"}
             >
-              {todayOnly ? "오늘 출석 학생 명단" : "학생 입실 현황"}{" "}
+              {departedOnly ? "오늘 퇴실 학생 명단" : todayOnly ? "오늘 출석 학생 명단" : "학생 입실 현황"}{" "}
               <span>
-                {todayOnly ? `${students.length}명 출석` : `${inside}명 입실`}
+                {departedOnly ? `${students.length}명 퇴실` : todayOnly ? `${students.length}명 출석` : `${inside}명 입실`}
               </span>
             </h2>
             <p>
-              {todayOnly
+              {departedOnly ? "오늘 입실한 학생 중 현재 퇴실 상태인 학생 · 학번순" : todayOnly
                 ? "오늘 한 번 이상 입실한 학생 · 학번순"
                 : "학번순 · 미입실은 현재 자습실에 없는 학생입니다."}
             </p>
@@ -1282,7 +1254,7 @@ function CurrentStudents({
             onClick={() => dialog.current?.close()}
             autoFocus
             aria-label={
-              todayOnly ? "오늘 출석 명단 닫기" : "입실 학생 명단 닫기"
+              departedOnly ? "오늘 퇴실 명단 닫기" : todayOnly ? "오늘 출석 명단 닫기" : "입실 학생 명단 닫기"
             }
           >
             닫기
@@ -1363,7 +1335,7 @@ function CurrentStudents({
             <p className="empty">
               {search.trim()
                 ? "검색 결과가 없습니다."
-                : todayOnly
+                : departedOnly ? "오늘 퇴실한 학생이 없습니다." : todayOnly
                   ? "오늘 입실한 학생이 없습니다."
                   : status === "in"
                     ? "현재 입실한 학생이 없습니다."
@@ -3297,18 +3269,6 @@ function SettingsPanel({
               onChange={(e) =>
                 setSettings({ ...settings, exam_date: e.target.value || null })
               }
-            />
-          </Field>
-          <Field label="퇴실 확인 필요 기준 (시간)">
-            <input
-              type="number"
-              min="1"
-              max="72"
-              value={settings.missing_hours}
-              onChange={(e) =>
-                setSettings({ ...settings, missing_hours: +e.target.value })
-              }
-              required
             />
           </Field>
           <button className="primary" disabled={busy}>
