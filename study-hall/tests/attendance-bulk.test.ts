@@ -331,7 +331,12 @@ test("학생별 여러 교시 저장·재수정: 다른 학생 보존·부분 �
     await assert.rejects(bulk({ ...make(), note: "" }), /사유/);
     await assert.rejects(bulk(make(), null, "expired"), /권한/);
     await assert.rejects(bulk(make(), null, null), /권한/);
-    await assert.rejects(bulk({ ...make(), day: "2026-10-16" }), /관리자/);
+    await db.exec(await migration("20261020020322_teacher_attendance_edit_admin_sheet.sql"));
+    await bulk({ ...make(), day: "2026-10-15", revisions:{2:0,3:0,4:0} });
+    await bulk({ ...make(), day: "2026-10-22", revisions:{2:0,3:0,4:0} });
+    for (const action of ["sync_payload", "mark_synced"]) {
+      await assert.rejects(db.query("select period_attendance_api($1,$2,null,'teacher-valid')", [action, JSON.stringify({day:"2026-10-16"})]), /관리자/);
+    }
     assert.equal(
       (await bulk({ ...make(), day: "2026-10-16" }, admin, null)).sessions
         .length,
@@ -700,7 +705,7 @@ test("여러 교시 변경은 RPC 한 번으로 저장하고 모든 교시 확�
     null,
     "viewer",
   );
-  assert.equal(r.sheet_deferred, true);
+  assert.equal(r.sheet_deferred, undefined);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].name, "period_attendance_bulk");
   assert.equal(calls[0].args.p_viewer_session, "viewer");

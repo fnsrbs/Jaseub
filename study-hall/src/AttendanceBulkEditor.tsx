@@ -239,8 +239,8 @@ export function AttendanceBulkEditor({
           </p>
         )}
         <p className="muted">
-          전체 교시 확인 전에도 이 학생의 기록만 저장됩니다. 구글 시트는 기존
-          모든 교시 확인 완료 후 반영됩니다.
+          전체 교시 확인 전에도 이 학생의 기록만 저장됩니다.
+          {role === "teacher" && " 구글 시트는 모든 교시 확인 완료 후 반영됩니다."}
         </p>
         {error && (
           <p role="alert" className="error-text">

@@ -53,7 +53,7 @@ export function PeriodAttendance({
   dirtyRef.current = dirty;
   dayRef.current = day;
   const admin = role === "teacher";
-  const editable = admin || day === today;
+  const editable = role === "teacher" || role === "viewer";
   const session =
     result?.day === day
       ? result.sessions.find((s) => s.period === period)
@@ -233,9 +233,9 @@ export function PeriodAttendance({
       setResult(next);
       requestId.current = crypto.randomUUID();
       setMessage(
-        `${period}교시 출석을 저장했습니다.${next.sheet_deferred ? " 구글 시트는 모든 교시 확인 완료 시 반영됩니다." : next.sheet_sync?.ok ? " 구글 시트 반영 완료." : " 구글 시트 반영 대기."}`,
+        `${period}교시 출석을 저장했습니다.${!admin ? "" : next.sheet_deferred ? " 구글 시트는 모든 교시 확인 완료 시 반영됩니다." : next.sheet_sync?.ok ? " 구글 시트 반영 완료." : " 구글 시트 반영 대기."}`,
       );
-      if (next.sheet_sync && !next.sheet_sync.ok)
+      if (admin && next.sheet_sync && !next.sheet_sync.ok)
         setError(`DB 저장 완료 · 시트 반영 대기: ${next.sheet_sync.error}`);
     } catch (e) {
       setError((e as Error).message);
@@ -285,7 +285,7 @@ export function PeriodAttendance({
       setEditing(false);
       setResult(next);
       setMessage("확인 전 상태로 초기화했습니다.");
-      if (next.sheet_sync && !next.sheet_sync.ok)
+      if (admin && next.sheet_sync && !next.sheet_sync.ok)
         setError(`시트 반영 대기: ${next.sheet_sync.error}`);
     } catch (e) {
       setError((e as Error).message);
@@ -452,7 +452,7 @@ export function PeriodAttendance({
               ? `${clock.label} · 현재 ${clock.period}교시`
               : "교시별 출석 확인 없음"
             : "선택한 날짜의 출석"}
-          {!editable ? " · 과거·미래 기록 수정은 관리자만 가능" : ""}
+
         </p>
         {!loading && result?.day === day && count > 0 && (
           <details
@@ -480,7 +480,7 @@ export function PeriodAttendance({
                     : dueCount
                       ? "현재까지 미확인 교시가 없습니다."
                       : "수업 시작 전입니다."}{" "}
-                  · 하루 모든 교시를 확인하면 구글 시트에 반영됩니다.
+                  {admin && "· 하루 모든 교시를 확인하면 구글 시트에 반영됩니다."}
                 </p>
                 <div className="actions">
                   {dueMissing.map((n) => (
@@ -500,6 +500,8 @@ export function PeriodAttendance({
                 모든 교시 확인 완료 ·{" "}
                 {dirty
                   ? "변경사항을 저장해 주세요."
+                  : !admin
+                    ? "출결이 저장되었습니다."
                   : !result.sheet_configured
                     ? "구글 시트 연결이 필요합니다."
                     : result.sessions
@@ -731,7 +733,7 @@ export function PeriodAttendance({
             )}
             </div>
             <div className="actions">
-              <span className="muted">
+              {admin && <span className="muted">
                 구글 시트 (월·화 7교시 / 수·목·금 6교시 확인 완료 시 일괄 반영):{" "}
                 {result.sessions.length &&
                 result.sessions.every((s) => s.synced_revision === s.revision)
@@ -739,7 +741,7 @@ export function PeriodAttendance({
                   : result.sessions.length
                     ? "반영 대기"
                     : "저장 후 반영"}
-              </span>
+              </span>}
               {admin && (
                 <>
                   <button
@@ -909,9 +911,9 @@ export function PeriodAttendance({
             setError("");
             setResult(next);
             setMessage(
-              `선택한 학생의 출결과 사유를 저장했습니다.${next.sheet_deferred ? " 구글 시트는 모든 교시 확인 완료 시 반영됩니다." : next.sheet_sync?.ok ? " 구글 시트 반영 완료." : " 구글 시트 반영 대기."}`,
+              `선택한 학생의 출결과 사유를 저장했습니다.${!admin ? "" : next.sheet_deferred ? " 구글 시트는 모든 교시 확인 완료 시 반영됩니다." : next.sheet_sync?.ok ? " 구글 시트 반영 완료." : " 구글 시트 반영 대기."}`,
             );
-            if (next.sheet_sync && !next.sheet_sync.ok)
+            if (admin && next.sheet_sync && !next.sheet_sync.ok)
               setError(
                 `DB 저장 완료 · 시트 반영 대기: ${next.sheet_sync.error}`,
               );

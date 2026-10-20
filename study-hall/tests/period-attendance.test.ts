@@ -529,3 +529,17 @@ test("교시별 DB: 역할·전체 저장·수정 이력·동시수정·초기�
   await db.exec("reset role;");
   await db.close();
 });
+
+
+test("교사 저장은 모든 교시 완료여도 구글을 호출하지 않고, 시트 요청은 차단", async () => {
+ const operations:string[]=[];
+ const saved={sessions:Array.from({length:7},(_,i)=>({period:i+1,confirmed:true}))};
+ const db={rpc:async (_name:string,args:any)=>{operations.push(args.p_action);return {data:saved,error:null}}};
+ for(const action of ["period_attendance_save","period_attendance_bulk"]){
+  operations.length=0;
+  assert.deepEqual(await handlePeriodAttendance(db,action,{day:"2026-10-19"},null,"teacher"),saved);
+  assert.equal(operations.length,1);
+ }
+ for(const action of ["period_attendance_sync","period_attendance_connection"])
+  await assert.rejects(handlePeriodAttendance(db,action,{day:"2026-10-19"},null,"teacher"),/관리자/);
+});

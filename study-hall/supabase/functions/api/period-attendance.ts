@@ -105,6 +105,7 @@ export async function handlePeriodAttendance(
                 ? "bulk"
                 : "reset",
           );
+    if (!admin) return saved;
     if (!shouldSyncAttendance(payload.day, saved.sessions, saved.operating_day))
       return { ...saved, sheet_deferred: true };
   }

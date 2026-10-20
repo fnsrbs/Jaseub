@@ -348,12 +348,6 @@ export async function demoApi(
     );
     const old = record.sessions.find((s) => s.period === p.period);
     if (
-      action !== "period_attendance" &&
-      !teacher &&
-      p.day !== koreanDay(new Date())
-    )
-      throw Error("과거·미래 날짜의 출석 변경은 관리자만 가능합니다.");
-    if (
       action === "period_attendance_save" ||
       action === "period_attendance_reset"
     ) {
@@ -618,7 +612,7 @@ export async function demoApi(
       save();
     }
     if (
-      action !== "period_attendance" &&
+      action !== "period_attendance" && teacher &&
       shouldSyncAttendance(p.day, record.sessions, operation)
     ) {
       record.sessions.forEach((s) => {
@@ -633,7 +627,7 @@ export async function demoApi(
     localStorage.setItem("study-hall-period-attendance", JSON.stringify(all));
     const result = structuredClone(record);
     if (
-      action !== "period_attendance" &&
+      action !== "period_attendance" && teacher &&
       !shouldSyncAttendance(p.day, record.sessions, operation)
     )
       (result as any).sheet_deferred = true;
