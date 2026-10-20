@@ -29,7 +29,8 @@ export function PeriodAttendance({
   now: number;
 }) {
   const today = koreanDay(new Date(now));
-  const clock = periodAt(now);
+  const todayOperation = data.operating_days.find((d) => d.day === today);
+  const clock = periodAt(now, todayOperation);
   const [day, setDay] = useState(today);
   const [period, setPeriod] = useState(clock.period);
   const [automatic, setAutomatic] = useState(true);
@@ -56,10 +57,12 @@ export function PeriodAttendance({
     result?.day === day
       ? result.sessions.find((s) => s.period === period)
       : undefined;
-  const count = periodsForDay(day);
+  const operation = data.operating_days.find((d) => d.day === day);
+  const count = periodsForDay(day, operation);
   const missingPeriods = missingAttendancePeriods(
     day,
     result?.day === day ? result.sessions : [],
+    operation,
   );
   const dueCount =
     day < today
@@ -97,21 +100,42 @@ export function PeriodAttendance({
   }, [day, role, token]);
   useEffect(() => {
     if (!result || result.day !== day || dirty) return;
+    const targetDefaults = defaultAttendance(
+      data.students.filter(
+        (s) => !operation || operation.student_ids.includes(s.id),
+      ),
+      day === today ? data.visits : undefined,
+    );
+    const savedEntries = session
+      ? operation
+        ? targetDefaults.map(
+            (e) =>
+              session.entries.find((old) => old.student_id === e.student_id) ||
+              e,
+          )
+        : session.entries
+      : undefined;
     setEntries(
       session?.confirmed
-        ? structuredClone(session.entries)
-        : session
+        ? structuredClone(savedEntries!)
+        : savedEntries
           ? attendancePreview(
-              session.entries,
+              savedEntries,
               day === today ? data.visits : undefined,
             )
-          : defaultAttendance(
-              data.students,
-              day === today ? data.visits : undefined,
-            ),
+          : targetDefaults,
     );
     requestId.current = crypto.randomUUID();
-  }, [result, day, period, data.students, data.visits, today, dirty]);
+  }, [
+    result,
+    day,
+    period,
+    data.students,
+    data.visits,
+    today,
+    dirty,
+    operation,
+  ]);
   useEffect(() => {
     if (
       automatic &&
@@ -344,7 +368,15 @@ export function PeriodAttendance({
                 if (e.target.value)
                   change(
                     e.target.value,
-                    Math.min(period, periodsForDay(e.target.value) || 1),
+                    Math.min(
+                      period,
+                      periodsForDay(
+                        e.target.value,
+                        data.operating_days.find(
+                          (d) => d.day === e.target.value,
+                        ),
+                      ) || 1,
+                    ),
                     false,
                   );
               }}
@@ -402,9 +434,14 @@ export function PeriodAttendance({
           </button>
         </div>
         <p className="muted">
-          월·화 7교시 / 수·목·금 6교시 ·{" "}
+          {operation
+            ? `등록된 운영일 · ${operation.start_time.slice(0, 5)}~${operation.end_time.slice(0, 5)} · 출석 확인 ${count}교시`
+            : "월·화 7교시 / 수·목·금 6교시"}{" "}
+          ·{" "}
           {day === today
-            ? `${clock.label} · 현재 ${clock.period}교시`
+            ? count
+              ? `${clock.label} · 현재 ${clock.period}교시`
+              : "교시별 출석 확인 없음"
             : "선택한 날짜의 출석"}
           {!editable ? " · 과거·미래 기록 수정은 관리자만 가능" : ""}
         </p>
@@ -482,7 +519,11 @@ export function PeriodAttendance({
           </p>
         )}
         {!count ? (
-          <p className="empty">토·일요일은 출석 확인 대상 교시가 없습니다.</p>
+          <p className="empty">
+            {operation
+              ? `운영 종료 ${operation.end_time.slice(0, 5)} 기준으로 교시별 출석 확인이 필요하지 않은 날입니다.`
+              : "토·일요일은 출석 확인 대상 교시가 없습니다."}
+          </p>
         ) : loading ? (
           <p role="status">출석을 불러오는 중입니다…</p>
         ) : !result ? (

@@ -452,6 +452,147 @@ test("학생별 여러 교시 저장·재수정: 다른 학생 보존·부분 �
       ).exempt_reason,
       "",
     );
+    await db.exec(`create table operating_days(day date primary key,start_time time,end_time time,student_ids uuid[]);
+      create table auto_checkout_runs(day date primary key,scheduled_at timestamptz,recorded_exit_at timestamptz,processed_at timestamptz,visit_ids uuid[],corrections jsonb default '[]');
+      create schema cron;create table cron.job(jobid bigserial primary key,jobname text unique,schedule text,command text);
+      create function cron.schedule(text,text,text) returns bigint language sql as 'insert into cron.job(jobname,schedule,command) values($1,$2,$3) on conflict(jobname) do update set schedule=excluded.schedule,command=excluded.command returning jobid';
+      create function cron.unschedule(bigint) returns boolean language plpgsql as 'begin delete from cron.job where jobid=$1;return found;end';`);
+    const collectionsSql = await migration(
+      "20261016134818_full_day_attendance_clovers.sql",
+    );
+    await db.exec(
+      collectionsSql
+        .slice(
+          collectionsSql.indexOf(
+            "create or replace function public.study_collection_records()",
+          ),
+        )
+        .replaceAll("now()", `'${now}'::timestamptz`),
+    );
+    await db.exec(
+      (
+        await migration("20261020011717_operating_day_runtime_policy.sql")
+      ).replaceAll("now()", `'${now}'::timestamptz`),
+    );
+    await db.query(
+      "insert into operating_days values('2026-10-20','06:00','08:00',$1)",
+      [ids],
+    );
+    assert.equal(
+      (
+        await db.query<{ n: number }>(
+          "select attendance_period_count('2026-10-20') n",
+        )
+      ).rows[0].n,
+      0,
+    );
+    assert.equal(
+      (
+        await db.query<{ schedule: string }>(
+          "select schedule from cron.job where jobname='study-hall-custom-checkout-2026-10-20'",
+        )
+      ).rows[0].schedule,
+      "0 23 19 10 *",
+    );
+    await assert.rejects(
+      bulk(
+        { ...make(), day: "2026-10-20", periods: [1], revisions: { 1: 0 } },
+        admin,
+        null,
+      ),
+      /교시/,
+    );
+    await db.query(
+      "insert into operating_days values('2026-10-19','06:00','08:00',$1)",
+      [ids],
+    );
+    assert.equal(
+      (
+        await db.query<{ n: number }>(
+          "select count(*)::int n from visits where exited_at is null",
+        )
+      ).rows[0].n,
+      0,
+    );
+    assert.equal(
+      (
+        await db.query<{ n: number }>("select weekday_auto_checkout($1) n", [
+          now,
+        ])
+      ).rows[0].n,
+      0,
+    );
+    await assert.rejects(
+      db.query("insert into visits(student_id,entered_at) values($1,$2)", [
+        ids[0],
+        now,
+      ]),
+      /운영이 종료/,
+    );
+    assert.equal(
+      (
+        await db.query<{ n: number }>(
+          "select count(*)::int n from full_attendance_days() where day='2026-10-19'",
+        )
+      ).rows[0].n,
+      0,
+    );
+    await db.query(
+      "insert into operating_days values('2026-10-14','06:00','13:00',$1)",
+      [[ids[0]]],
+    );
+    for (let period = 1; period <= 4; period++)
+      await db.query("select period_attendance_api('save',$1,$2,null)", [
+        {
+          day: "2026-10-14",
+          period,
+          revision: 0,
+          request_id: randomUUID(),
+          entries: [{ student_id: ids[0], status: "present", note: "" }],
+        },
+        admin,
+      ]);
+    const shortened = (
+      await db.query<{ r: any }>(
+        "select period_attendance_api('read',$1,$2,null) r",
+        [{ day: "2026-10-14" }, admin],
+      )
+    ).rows[0].r;
+    assert.equal(shortened.operating_day.end_time, "13:00:00");
+    assert.ok(shortened.sessions.every((s: any) => s.entries.length === 1));
+    assert.equal(
+      (
+        await db.query<{ n: number }>(
+          "select count(*)::int n from full_attendance_days() where day='2026-10-14'",
+        )
+      ).rows[0].n,
+      1,
+    );
+    await assert.rejects(
+      db.query("select period_attendance_api('save',$1,$2,null)", [
+        {
+          day: "2026-10-14",
+          period: 5,
+          revision: 0,
+          request_id: randomUUID(),
+          entries: [],
+        },
+        admin,
+      ]),
+      /교시/,
+    );
+    const raw = (
+      await db.query<{ r: any }>(
+        "select attendance_daily_source($1,$2,null,null) r",
+        [{ start: "2026-10-01", end: "2026-10-31" }, admin],
+      )
+    ).rows[0].r;
+    const shortenedSource = raw.daily_source.filter(
+      (d: any) => d.day === "2026-10-14",
+    );
+    assert.equal(shortenedSource.length, 1);
+    assert.equal(shortenedSource[0].period_count, 4);
+    assert.equal(shortenedSource[0].end_time, "13:00:00");
     await db.exec("set role anon");
     await assert.rejects(
       db.query("select period_attendance_bulk('{}')"),

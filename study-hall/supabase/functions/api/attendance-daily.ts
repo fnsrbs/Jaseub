@@ -17,6 +17,8 @@ export type DailySource = {
   student_id: string;
   entries: Entry[];
   last_exit?: string | null;
+  period_count?: number;
+  end_time?: string;
 };
 const countFor = (day: string) => {
   const n = new Date(day + "T12:00:00+09:00").getUTCDay();
@@ -52,12 +54,21 @@ export function summarizeDaily(
   });
   for (const day of source) {
     if (payload.student_id && day.student_id !== payload.student_id) continue;
-    const count = countFor(day.day);
-    if (!count || now < cutoffFor(day.day)) continue;
+    const count = day.period_count ?? countFor(day.day);
+    if (
+      !count ||
+      now <
+        (day.end_time
+          ? Date.parse(day.day + "T" + day.end_time + "+09:00")
+          : cutoffFor(day.day))
+    )
+      continue;
     const c = summaries.get(day.student_id) || fresh(day.student_id);
     summaries.set(day.student_id, c);
     const inRange = day.day >= payload.start && day.day <= payload.end;
-    const entries = [...day.entries].sort((a, b) => a.period - b.period);
+    const entries = day.entries
+      .filter((e) => e.period <= count)
+      .sort((a, b) => a.period - b.period);
     if (
       new Set(entries.map((e) => e.period)).size !== count ||
       entries.some((e) => e.period < 1 || e.period > count)
@@ -79,7 +90,10 @@ export function summarizeDaily(
     const exit = day.last_exit ? Date.parse(day.last_exit) : NaN;
     const earlyExit =
       positive.length > 0 &&
-      exit < cutoffFor(day.day) &&
+      exit <
+        (day.end_time
+          ? Date.parse(day.day + "T" + day.end_time + "+09:00")
+          : cutoffFor(day.day)) &&
       exit >= Date.parse(day.day + "T00:00:00+09:00");
     const details = entries.flatMap((e) => {
       let status = e.status;

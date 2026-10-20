@@ -2143,3 +2143,7 @@ blockquote {
 
 .attendance-completion summary{cursor:pointer;font-weight:600;line-height:1.6}
 .attendance-completion .actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(135px,100%),1fr));gap:8px}
+
+.operating-targets{max-height:340px;overflow-y:auto}
+.operating-targets label>span{display:flex;flex-direction:column;gap:3px}
+.operating-targets small{font-size:11px;color:#71847a}

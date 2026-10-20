@@ -1,4 +1,7 @@
-import { shouldSyncAttendance } from "./attendance-completion.ts";
+import {
+  shouldSyncAttendance,
+  scheduledPeriodCount,
+} from "./attendance-completion.ts";
 export { shouldSyncAttendance } from "./attendance-completion.ts";
 import { callSeatSheet } from "./seat-sheet-sync.ts";
 const labels: Record<string, string> = {
@@ -9,8 +12,10 @@ const labels: Record<string, string> = {
 };
 export function attendanceSheetRows(source: any) {
   const rows = new Map<string, any>();
-  const weekday = new Date(`${source.day}T12:00:00+09:00`).getUTCDay();
+  const expected = scheduledPeriodCount(source.day, source.operating_day);
   for (const session of source.sessions) {
+    if (session.period > scheduledPeriodCount(source.day, source.operating_day))
+      continue;
     for (const entry of session.entries) {
       if (!session.confirmed && !entry.confirmed) continue;
       let row = rows.get(entry.student_id);
@@ -20,7 +25,7 @@ export function attendanceSheetRows(source: any) {
           number: entry.number,
           name: entry.name,
           statuses: Array.from({ length: 7 }, (_, i) =>
-            i === 6 && weekday >= 3 ? "—" : "",
+            i >= expected ? "—" : "",
           ),
           notes: [] as string[],
         };
@@ -100,13 +105,15 @@ export async function handlePeriodAttendance(
                 ? "bulk"
                 : "reset",
           );
-    if (!shouldSyncAttendance(payload.day, saved.sessions))
+    if (!shouldSyncAttendance(payload.day, saved.sessions, saved.operating_day))
       return { ...saved, sheet_deferred: true };
   }
   let sheet_sync;
   try {
     const source = await run("sync_payload");
-    if (!shouldSyncAttendance(source.day, source.sessions))
+    if (
+      !shouldSyncAttendance(source.day, source.sessions, source.operating_day)
+    )
       return { ...(await run("read")), sheet_deferred: true };
     const check = await callSeatSheet(
       source.endpoint,

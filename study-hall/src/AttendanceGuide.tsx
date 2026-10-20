@@ -1,7 +1,9 @@
-export function CheckoutGuide() {
+export function CheckoutGuide({ endTime }: { endTime?: string } = {}) {
   return (
     <p className="checkout-guide">
-      월·화 오후 4시 30분, 수·목·금 오후 3시 30분에 자동으로 퇴실 처리됩니다.
+      {endTime
+        ? `오늘은 운영일 설정에 따라 ${endTime.slice(0, 5)}에 자동으로 퇴실 처리됩니다.`
+        : "월·화 오후 4시 30분, 수·목·금 오후 3시 30분에 자동으로 퇴실 처리됩니다. 운영일을 따로 설정한 날은 해당 종료 시각을 따릅니다."}
       퇴실 QR은 조퇴 등 해당 시각보다 일찍 나갈 때만 찍어 주세요.
     </p>
   );

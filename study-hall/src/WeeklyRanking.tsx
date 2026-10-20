@@ -112,7 +112,10 @@ export function WeeklyRanking({
           조회 기간: {ranking.period_start} ~ {ranking.period_end}
         </p>
       )}
-      <p>월·화 16:30 / 수·목·금 15:30에 자동으로 퇴실 처리됩니다.</p>
+      <p>
+        월·화 16:30 / 수·목·금 15:30에 자동으로 퇴실 처리됩니다. 별도로 등록한
+        운영일은 해당 종료 시각을 따릅니다.
+      </p>
       {teacher ? (
         <p className="ranking-explanation">
           👑 하루 최종 1위 · ⭐ 하루 최종 2~5위 · 🍀 하루 모든 교시에 출석하면

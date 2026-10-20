@@ -37,10 +37,14 @@ export function AttendanceBulkEditor({
     [exemption, setExemption] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  const count = periodsForDay(day),
+  const count = periodsForDay(day, result.operating_day),
     choices = students
       .filter(
-        (s) => !s.deleted_at && `${s.number} ${s.name}`.includes(search.trim()),
+        (s) =>
+          !s.deleted_at &&
+          (!result.operating_day ||
+            result.operating_day.student_ids.includes(s.id)) &&
+          `${s.number} ${s.name}`.includes(search.trim()),
       )
       .sort((a, b) =>
         a.number.localeCompare(b.number, "ko", { numeric: true }),

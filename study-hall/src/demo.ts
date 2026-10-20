@@ -238,6 +238,8 @@ export async function demoApi(
               localStorage.getItem("study-hall-period-attendance") || "{}",
             ),
           ).flatMap((d: any) => d.sessions),
+          undefined,
+          state.operating_days,
         )[sid!]?.clovers ?? 0;
     data.settings.site_copy = readDemoCopy();
     data.current = data.visits.filter((v) => !v.exited_at).length;
@@ -284,10 +286,15 @@ export async function demoApi(
             student_id: e.student_id,
             entries: [],
           };
+          const op = state.operating_days.find((o) => o.day === s.day);
+          if (op && !op.student_ids.includes(e.student_id)) continue;
           row.entries.push({ ...e, period: s.period });
           byStudent.set(e.student_id, row);
         }
       for (const row of byStudent.values()) {
+        const op = state.operating_days.find((d) => d.day === row.day);
+        row.period_count = periodsForDay(row.day, op);
+        row.end_time = op?.end_time;
         const visits = state.visits.filter(
           (v) =>
             v.student_id === row.student_id &&
@@ -334,6 +341,11 @@ export async function demoApi(
         sheet_configured: true,
       },
     );
+    const operation = state.operating_days.find((d) => d.day === p.day);
+    record.operating_day = operation || null;
+    const targetStudents = state.students.filter(
+      (s) => !operation || operation.student_ids.includes(s.id),
+    );
     const old = record.sessions.find((s) => s.period === p.period);
     if (
       action !== "period_attendance" &&
@@ -345,7 +357,11 @@ export async function demoApi(
       action === "period_attendance_save" ||
       action === "period_attendance_reset"
     ) {
-      if (!p.period || p.period > periodsForDay(p.day) || p.period < 1)
+      if (
+        !p.period ||
+        p.period > periodsForDay(p.day, operation) ||
+        p.period < 1
+      )
         throw Error("해당 요일에 없는 교시입니다.");
       if (old?.request_id !== p.request_id) {
         if ((old?.revision || 0) !== p.revision)
@@ -369,7 +385,7 @@ export async function demoApi(
             throw Error(
               "개별 저장된 출결이 있습니다. 새로고침 후 수정해 주세요.",
             );
-          const roster = old?.entries || defaultAttendance(state.students);
+          const roster = old?.entries || defaultAttendance(targetStudents);
           if (
             p.entries?.length !== roster.length ||
             new Set(p.entries.map((e: any) => e.student_id)).size !==
@@ -443,7 +459,7 @@ export async function demoApi(
       }
     }
     if (action === "period_attendance_bulk") {
-      const count = periodsForDay(p.day),
+      const count = periodsForDay(p.day, operation),
         start = p.start_period,
         end = p.end_period,
         periods: number[] =
@@ -488,7 +504,7 @@ export async function demoApi(
             roster =
               old?.entries ||
               defaultAttendance(
-                state.students,
+                targetStudents,
                 p.day === koreanDay(new Date()) ? state.visits : [],
               ),
             before = roster.find((e) => e.student_id === p.student_id);
@@ -603,7 +619,7 @@ export async function demoApi(
     }
     if (
       action !== "period_attendance" &&
-      shouldSyncAttendance(p.day, record.sessions)
+      shouldSyncAttendance(p.day, record.sessions, operation)
     ) {
       record.sessions.forEach((s) => {
         s.synced_revision = s.revision;
@@ -618,7 +634,7 @@ export async function demoApi(
     const result = structuredClone(record);
     if (
       action !== "period_attendance" &&
-      !shouldSyncAttendance(p.day, record.sessions)
+      !shouldSyncAttendance(p.day, record.sessions, operation)
     )
       (result as any).sheet_deferred = true;
     if (!teacher) result.history = [];
@@ -644,6 +660,8 @@ export async function demoApi(
           localStorage.getItem("study-hall-period-attendance") || "{}",
         ),
       ).flatMap((d: any) => d.sessions),
+      undefined,
+      state.operating_days,
     );
     const collectedRanking = {
       ...ranking,
@@ -689,6 +707,7 @@ export async function demoApi(
         ),
       ).flatMap((d: any) => d.sessions),
       records,
+      state.operating_days,
     );
     const matching = records
         .filter((r) => r.student_id === selected && r.kind === p.kind)
@@ -749,6 +768,9 @@ export async function demoApi(
       (v) => v.student_id === studentId && !v.exited_at,
     );
     if (p.direction === "in") {
+      const op = state.operating_days.find((d) => d.day === koreanDay(now()));
+      if (op && Date.now() >= Date.parse(`${op.day}T${op.end_time}+09:00`))
+        throw Error("오늘 자습실 운영이 종료되어 입실할 수 없습니다.");
       if (v) throw Error("이미 입실 중입니다.");
       state.visits.unshift({
         id: id(),
@@ -1129,7 +1151,25 @@ export async function demoApi(
     });
   } else if (action === "operating_day") {
     state.operating_days = state.operating_days.filter((d) => d.day !== p.day);
+    if (p.end_time <= p.start_time) throw Error("운영 종료 시각을 확인하세요.");
     state.operating_days.push(p);
+    const cutoff = Date.parse(`${p.day}T${p.end_time}+09:00`);
+    if (p.day === koreanDay(now()) && Date.now() >= cutoff) {
+      state.visits = state.visits.map((v) =>
+        Date.parse(v.entered_at) <= Date.now() &&
+        (!v.exited_at ||
+          (koreanDay(v.entered_at) === p.day &&
+            Date.parse(v.exited_at) >
+              Math.max(cutoff, Date.parse(v.entered_at))))
+          ? {
+              ...v,
+              exited_at: new Date(
+                Math.max(cutoff, Date.parse(v.entered_at)),
+              ).toISOString(),
+            }
+          : v,
+      );
+    }
   } else throw Error("지원하지 않는 요청");
   save();
   return {};

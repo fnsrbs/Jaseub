@@ -302,6 +302,10 @@ export default function App() {
     );
   const currentNow = now + offset;
   const today = koreanDay(new Date(currentNow));
+  const currentOperation = data?.operating_days.find((d) => d.day === today);
+  const operationClosed =
+    !!currentOperation &&
+    currentNow >= Date.parse(`${today}T${currentOperation.end_time}+09:00`);
   const me = data?.students[0];
   const active = data?.visits.find(
     (v) => v.student_id === me?.id && !v.exited_at,
@@ -569,9 +573,11 @@ export default function App() {
                           <button
                             className="primary"
                             onClick={() => setScan("in")}
-                            disabled={!!active || busy}
+                            disabled={!!active || busy || operationClosed}
                           >
-                            ▣ 입실 QR 찍기
+                            {operationClosed
+                              ? "오늘 운영 종료"
+                              : "▣ 입실 QR 찍기"}
                           </button>
                           <button
                             onClick={() => setScan("out")}
@@ -582,7 +588,14 @@ export default function App() {
                           <small>
                             출결은 서버 저장이 완료된 후 반영됩니다.
                           </small>
-                          <CheckoutGuide />
+                          <CheckoutGuide
+                            endTime={
+                              data.operating_days.find(
+                                (d) =>
+                                  d.day === koreanDay(new Date(currentNow)),
+                              )?.end_time
+                            }
+                          />
                           <CameraGuide />
                         </div>
                       </div>
@@ -3151,12 +3164,25 @@ function SettingsPanel({
   act: (a: string, p: any) => Promise<any>;
   busy: boolean;
 }) {
+  const savedToday = data.operating_days.find(
+    (d) => d.day === koreanDay(new Date()),
+  );
+  const [targetSearch, setTargetSearch] = useState("");
+  const [operationMessage, setOperationMessage] = useState("");
+  const [operationError, setOperationError] = useState("");
+  const targetOptions = data.students
+    .filter(
+      (s) =>
+        !s.deleted_at && `${s.number} ${s.name}`.includes(targetSearch.trim()),
+    )
+    .sort((a, b) => a.number.localeCompare(b.number, "ko", { numeric: true }));
   const [settings, setSettings] = useState(data.settings),
     [day, setDay] = useState(koreanDay(new Date())),
-    [start, setStart] = useState("06:00"),
-    [end, setEnd] = useState("17:00"),
+    [start, setStart] = useState(savedToday?.start_time.slice(0, 5) || "06:00"),
+    [end, setEnd] = useState(savedToday?.end_time.slice(0, 5) || "17:00"),
     [targets, setTargets] = useState(
-      data.students.filter((s) => s.active).map((s) => s.id),
+      savedToday?.student_ids ||
+        data.students.filter((s) => s.active && !s.deleted_at).map((s) => s.id),
     );
   const [settingsResult, setSettingsResult] = useState("");
   const [settingsError, setSettingsError] = useState("");
@@ -3177,7 +3203,8 @@ function SettingsPanel({
         <p>
           자동 일괄 퇴실: 월·화 오후 4시 30분 / 수·목·금 오후 3시 30분 (한국
           시간). 입실 중인 학생은 해당 시각에 자동 퇴실되며, 조퇴 등 중간 퇴실만
-          QR로 기록합니다.
+          QR로 기록합니다. 별도로 등록한 운영일은 해당 날짜의 종료 시각을 우선
+          적용합니다.
         </p>
         <p className="muted">
           전체 학생 인원수를 저장하면 운영현황의 현재 입실·오늘 출석 인원에
@@ -3257,18 +3284,34 @@ function SettingsPanel({
       <div className="panel">
         <h2>운영일·출석 대상 설정</h2>
         <p>
-          등록된 날짜와 대상 학생에 한해 지각·결석 여부를 확인합니다. 결석
-          여부는 운영 시간 이후에 확인할 수 있습니다.
+          등록한 종료 시각에 자동 퇴실됩니다. 1교시 시작 전 종료하면 교시별 출석
+          확인이 필요하지 않습니다. 입실 기준 시각은 지각 확인 기준이며, 대상
+          학생을 아래에서 선택하세요.
         </p>
         <form
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
-            void act("operating_day", {
-              day,
-              start_time: start,
-              end_time: end,
-              student_ids: targets,
-            }).catch(() => {});
+            setOperationMessage("");
+            setOperationError("");
+            if (end <= start) {
+              setOperationError(
+                "종료 시각은 입실 기준 시각보다 늦어야 합니다.",
+              );
+              return;
+            }
+            try {
+              await act("operating_day", {
+                day,
+                start_time: start,
+                end_time: end,
+                student_ids: targets,
+              });
+              setOperationMessage(
+                `${day} · ${start}~${end} · 대상 ${targets.length}명 저장 완료`,
+              );
+            } catch (error) {
+              setOperationError((error as Error).message);
+            }
           }}
         >
           <div className="form-grid">
@@ -3277,7 +3320,21 @@ function SettingsPanel({
                 type="date"
                 required
                 value={day}
-                onChange={(e) => setDay(e.target.value)}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setDay(next);
+                  const saved = data.operating_days.find((d) => d.day === next);
+                  setStart(saved?.start_time.slice(0, 5) || "06:00");
+                  setEnd(saved?.end_time.slice(0, 5) || "17:00");
+                  setTargets(
+                    saved?.student_ids ||
+                      data.students
+                        .filter((s) => s.active && !s.deleted_at)
+                        .map((s) => s.id),
+                  );
+                  setOperationMessage("");
+                  setOperationError("");
+                }}
               />
             </Field>
             <Field label="입실 기준 시각">
@@ -3297,8 +3354,40 @@ function SettingsPanel({
               />
             </Field>
           </div>
-          <div className="picker">
-            {data.students.map((s) => (
+          <label className="field">
+            <span>출석 대상 검색</span>
+            <input
+              aria-label="출석 대상 검색"
+              value={targetSearch}
+              onChange={(e) => setTargetSearch(e.target.value)}
+              placeholder="학번·이름 검색"
+            />
+          </label>
+          <div className="actions">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                setTargets(
+                  data.students
+                    .filter((s) => s.active && !s.deleted_at)
+                    .map((s) => s.id),
+                )
+              }
+            >
+              전체 선택
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setTargets([])}
+            >
+              선택 해제
+            </button>
+            <span>선택 {targets.length}명</span>
+          </div>
+          <div className="picker operating-targets">
+            {targetOptions.map((s) => (
               <label key={s.id}>
                 <input
                   type="checkbox"
@@ -3311,11 +3400,21 @@ function SettingsPanel({
                     )
                   }
                 />
-                {s.name}
+                <span>
+                  <small>{s.number}</small>
+                  <strong>{s.name}</strong>
+                </span>
               </label>
             ))}
           </div>
+          {!targetOptions.length && <p>검색 결과가 없습니다.</p>}
           <button disabled={busy}>운영일 저장 / 수정</button>
+          {operationError && (
+            <p role="alert" className="error-text">
+              {operationError}
+            </p>
+          )}
+          {operationMessage && <p role="status">{operationMessage}</p>}
         </form>
         <h3>등록된 운영일</h3>
         {data.operating_days.map((d) => (

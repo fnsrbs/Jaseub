@@ -1,4 +1,13 @@
-import { koreanDay, type Student, type Visit } from "./domain";
+import {
+  scheduledPeriodCount,
+  type OperatingPolicy,
+} from "../supabase/functions/api/attendance-completion";
+import {
+  koreanDay,
+  type OperatingDay,
+  type Student,
+  type Visit,
+} from "./domain";
 export const periodTimes = [
   ["08:50", "09:40"],
   ["09:50", "10:40"],
@@ -59,6 +68,7 @@ export type AttendanceHistory = {
     | { previous_revision: number };
 };
 export type AttendanceDay = {
+  operating_day?: OperatingDay | null;
   sheet_deferred?: boolean;
   day: string;
   sessions: AttendanceSession[];
@@ -66,13 +76,12 @@ export type AttendanceDay = {
   sheet_configured: boolean;
   sheet_sync?: { ok: boolean; error?: string; url?: string };
 };
-export function periodsForDay(day: string) {
-  const weekday = new Date(`${day}T12:00:00+09:00`).getUTCDay();
-  return weekday === 0 || weekday === 6 ? 0 : weekday <= 2 ? 7 : 6;
+export function periodsForDay(day: string, operation?: OperatingPolicy | null) {
+  return scheduledPeriodCount(day, operation);
 }
-export function periodAt(now: number) {
+export function periodAt(now: number, operation?: OperatingPolicy | null) {
   const day = koreanDay(new Date(now));
-  const count = periodsForDay(day);
+  const count = periodsForDay(day, operation);
   if (!count) return { period: 1, label: "수업 없는 날" };
   const minutes =
     new Date(now + 9 * 3600000).getUTCHours() * 60 +

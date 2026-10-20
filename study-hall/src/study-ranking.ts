@@ -2,6 +2,7 @@ import {
   dayStart,
   koreanDay,
   totals,
+  type OperatingDay,
   type Student,
   type Visit,
 } from "./domain";
@@ -19,6 +20,7 @@ export function demoCollections(
   now: number,
   sessions: AttendanceSession[] = [],
   records?: DemoCollectionRecord[],
+  operatingDays: OperatingDay[] = [],
 ) {
   const eligible = students.filter((s) => s.active && !s.deleted_at);
   const result: Record<
@@ -29,7 +31,9 @@ export function demoCollections(
   for (const s of eligible) {
     const attended = new Set<string>();
     for (const day of new Set(sessions.map((session) => session.day))) {
-      const expected = periodsForDay(day);
+      const operation = operatingDays.find((d) => d.day === day);
+      const expected = periodsForDay(day, operation);
+      if (operation && !operation.student_ids.includes(s.id)) continue;
       if (!expected || day > koreanDay(new Date(now))) continue;
       const daily = sessions.filter(
         (session) =>

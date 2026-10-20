@@ -1,3 +1,4 @@
+import { scheduledPeriodCount } from "../supabase/functions/api/attendance-completion";
 export type Student = {
   id: string;
   name: string;
@@ -131,6 +132,7 @@ export function attendanceVerdict(
   now: number,
 ) {
   if (!day || !day.student_ids.includes(studentId)) return "출석 확인 전";
+  if (scheduledPeriodCount(day.day, day) === 0) return "교시별 출석 확인 제외";
   const first = visits
     .filter(
       (v) => v.student_id === studentId && koreanDay(v.entered_at) === day.day,

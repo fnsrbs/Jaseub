@@ -95,9 +95,9 @@ export function AttendanceSummary({
     <section className="panel attendance-summary" aria-label="일별 출결 조회">
       <h2>{own ? "내 출결" : "학생별 출결"}</h2>
       <p>
-        월·화 16:30 / 수·목·금 15:30 이후 모든 교시의 확인 기록을 날짜별 1일로
-        집계합니다. 전 교시 결석은 결석, 일부 교시 불참은 기록 흐름에 따라
-        지각·결과·조퇴로 구분합니다.
+        운영일에 지정한 종료 시각 이후 (기본 월·화 16:30 / 수·목·금 15:30) 모든
+        교시의 확인 기록을 날짜별 1일로 집계합니다. 전 교시 결석은 결석, 일부
+        교시 불참은 기록 흐름에 따라 지각·결과·조퇴로 구분합니다.
       </p>
       <div className="form-grid">
         <label className="field">
