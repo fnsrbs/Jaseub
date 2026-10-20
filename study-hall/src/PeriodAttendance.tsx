@@ -579,7 +579,7 @@ export function PeriodAttendance({
                     : "출석 확인 완료"}
               </button>
             </div>
-            {session?.confirmed && (
+            {session?.confirmed && !locked && (
               <div className="attendance-completed-banner">
                 <strong>{locked ? "✓ 출결 체크 완료" : "출결 수정 중"}</strong>
                 {locked && editable && (
@@ -664,6 +664,17 @@ export function PeriodAttendance({
                 ? "이 교시를 처음 저장했을 때의 학생·좌석 기준입니다."
                 : "아직 저장하지 않은 교시는 현재 이용 가능한 학생 기준입니다."}
             </p>
+            <div className={`attendance-results ${locked ? "is-complete" : ""}`}>
+            {locked && (
+              <div className="attendance-complete-overlay">
+                <div className="attendance-complete-card" role="status">
+                  <span aria-hidden="true">✓</span>
+                  <strong>출결 체크 완료</strong>
+                  <p>{period}교시 출결이 저장되었습니다.</p>
+                  {editable && <button type="button" className="primary" disabled={working} onClick={() => setEditing(true)}>수정하기</button>}
+                </div>
+              </div>
+            )}
             {view === "list" || search.trim() ? (
               <div className="attendance-student-list">
                 {visible.map((e) => seatButton(e, e.seat_id || undefined))}
@@ -717,6 +728,7 @@ export function PeriodAttendance({
                 )}
               </>
             )}
+            </div>
             <div className="actions">
               <span className="muted">
                 구글 시트 (월·화 7교시 / 수·목·금 6교시 확인 완료 시 일괄 반영):{" "}

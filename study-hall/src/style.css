@@ -2162,3 +2162,12 @@ blockquote {
 .attendance-seat.attendance-locked.status-late{background:#eadcba;color:#715119;border-color:#c9b17b}
 .attendance-seat.attendance-locked.status-absent{background:#e5c6c6;color:#823737;border-color:#bc9292}
 .attendance-seat.attendance-locked.status-excused{background:#d6d3e5;color:#554c78;border-color:#b1aacb}
+
+.attendance-results{position:relative;isolation:isolate}
+.attendance-complete-overlay{position:absolute;inset:0;z-index:2;background:rgba(35,48,42,.16);border-radius:16px;display:flex;justify-content:center;align-items:flex-start;padding:64px 16px;pointer-events:none}
+.attendance-complete-card{position:sticky;top:100px;pointer-events:auto;display:flex;flex-direction:column;align-items:center;gap:12px;width:min(420px,100%);padding:32px 20px;border:1px solid #b7cbbf;border-radius:20px;background:rgba(255,255,255,.97);color:#214f40;box-shadow:0 12px 40px #203c322b;text-align:center}
+.attendance-complete-card>span{font-size:34px;line-height:1}
+.attendance-complete-card>strong{font-size:clamp(24px,4vw,34px)}
+.attendance-complete-card>p{margin:0;color:#596e63;font-size:14px}
+.attendance-complete-card>button{min-width:160px;min-height:46px;margin-top:8px}
+@media(max-width:600px){.attendance-complete-overlay{padding-top:36px}.attendance-complete-card{top:24px;padding:24px 16px}}
