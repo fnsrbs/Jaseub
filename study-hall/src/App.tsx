@@ -690,6 +690,7 @@ export default function App() {
                   data={data}
                   teacher={teacher}
                   canReply={admin}
+                  onStudent={setDetailStudent}
                   act={act}
                   busy={busy}
                 />
@@ -2827,12 +2828,14 @@ function Suggestions({
   data,
   teacher,
   canReply,
+  onStudent,
   act,
   busy,
 }: {
   data: Snapshot;
   teacher: boolean;
   canReply: boolean;
+  onStudent: (id: string) => void;
   act: (a: string, p: any) => Promise<any>;
   busy: boolean;
 }) {
@@ -2877,27 +2880,28 @@ function Suggestions({
           </form>
         </div>
       )}
-      {data.suggestions.map((s) => (
-        <article className="panel" key={s.id}>
-          <span className="badge">{s.status}</span>
-          <span className="muted">
-            {" "}
-            {teacher &&
-              data.students.find((st) => st.id === s.student_id)?.name}{" "}
-            · {time(s.created_at)}
-          </span>
-          <h3>{s.title}</h3>
-          <p className="text-body">{s.body}</p>
-          {s.reply && (
-            <blockquote>
-              <b>교사 답변</b>
-              <p className="text-body">{s.reply}</p>
-              <small>수정 {time(s.updated_at)}</small>
-            </blockquote>
-          )}
-          {canReply && <Reply suggestion={s} act={act} busy={busy} />}
-        </article>
-      ))}
+      {data.suggestions.map((s) => {
+        const student = data.students.find((st) => st.id === s.student_id);
+        return (
+          <article className="panel suggestion-post" key={s.id}>
+            <details>
+              <summary>
+                <span className="suggestion-post-title"><span className="badge">{s.status}</span><strong>{s.title}</strong></span>
+                <span className="suggestion-post-meta">
+                  {teacher && student && <button type="button" className="suggestion-author" aria-label={`${student.number} ${student.name} 학생 상세보기`} onClick={(event) => { event.preventDefault(); event.stopPropagation(); onStudent(student.id); }}><small>{student.number}</small><span>{student.name} ↗</span></button>}
+                  <time dateTime={s.created_at}>{time(s.created_at)}</time>
+                  <span className="suggestion-post-hint">내용 보기</span>
+                </span>
+              </summary>
+              <div className="suggestion-post-body">
+                <p className="text-body">{s.body}</p>
+                {s.reply && <blockquote><b>교사 답변</b><p className="text-body">{s.reply}</p><small>수정 {time(s.updated_at)}</small></blockquote>}
+                {canReply && <Reply suggestion={s} act={act} busy={busy} />}
+              </div>
+            </details>
+          </article>
+        );
+      })}
       {!data.suggestions.length && <Empty text="등록된 건의사항이 없습니다." />}
     </>
   );

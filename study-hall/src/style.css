@@ -2171,3 +2171,16 @@ blockquote {
 .attendance-complete-card>p{margin:0;color:#596e63;font-size:14px}
 .attendance-complete-card>button{min-width:160px;min-height:46px;margin-top:8px}
 @media(max-width:600px){.attendance-complete-overlay{padding-top:36px}.attendance-complete-card{top:24px;padding:24px 16px}}
+
+.suggestion-post details>summary{cursor:pointer;list-style:none;display:flex;flex-direction:column;gap:12px}
+.suggestion-post details>summary::-webkit-details-marker{display:none}
+.suggestion-post-title{display:flex;align-items:baseline;gap:10px;min-width:0}
+.suggestion-post-title strong{font-size:17px;overflow-wrap:anywhere}
+.suggestion-post-title .badge{flex-shrink:0}
+.suggestion-post-meta{display:flex;align-items:center;gap:14px;flex-wrap:wrap;color:#6e8073;font-size:12px}
+.suggestion-author{display:flex;align-items:center;gap:7px;padding:5px 9px;border-color:#d5e3dc;background:#f0f6f2;color:#215d4d}
+.suggestion-author small{font-size:11px;font-variant-numeric:tabular-nums}
+.suggestion-post-hint{margin-left:auto;color:#296e5b}
+.suggestion-post details[open] .suggestion-post-hint{font-size:0}
+.suggestion-post details[open] .suggestion-post-hint:after{content:"접기";font-size:12px}
+.suggestion-post-body{border-top:1px solid #e1e8e3;margin-top:16px;padding-top:8px}
