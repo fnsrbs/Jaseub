@@ -671,7 +671,8 @@ export function PeriodAttendance({
                   <span aria-hidden="true">✓</span>
                   <strong>출결 체크 완료</strong>
                   <p>{period}교시 출결이 저장되었습니다.</p>
-                  {editable && <button type="button" className="primary" disabled={working} onClick={() => setEditing(true)}>수정하기</button>}
+                  <button type="button" className="primary" disabled={working || !editable} onClick={() => setEditing(true)}>수정하기</button>
+                  {!editable && <p>이 날짜의 출결 수정은 관리자만 가능합니다.</p>}
                 </div>
               </div>
             )}
