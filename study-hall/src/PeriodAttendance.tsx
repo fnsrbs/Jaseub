@@ -37,6 +37,7 @@ export function PeriodAttendance({
   const [result, setResult] = useState<AttendanceDay | null>(null);
   const [entries, setEntries] = useState<AttendanceEntry[]>([]);
   const [dirty, setDirty] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
@@ -57,6 +58,8 @@ export function PeriodAttendance({
     result?.day === day
       ? result.sessions.find((s) => s.period === period)
       : undefined;
+  const locked = !!session?.confirmed && !editing && !dirty;
+  useEffect(() => setEditing(false), [day, period]);
   const operation = data.operating_days.find((d) => d.day === day);
   const count = periodsForDay(day, operation);
   const missingPeriods = missingAttendancePeriods(
@@ -143,7 +146,8 @@ export function PeriodAttendance({
       !working &&
       !selected &&
       !bulkOpen &&
-      !studentBulkOpen
+      !studentBulkOpen &&
+      !editing
     ) {
       if (day !== today) setDay(today);
       setPeriod(clock.period);
@@ -155,6 +159,7 @@ export function PeriodAttendance({
     selected,
     bulkOpen,
     studentBulkOpen,
+    editing,
     today,
     clock.period,
   ]);
@@ -224,6 +229,7 @@ export function PeriodAttendance({
         })),
       });
       setDirty(false);
+      setEditing(false);
       setResult(next);
       requestId.current = crypto.randomUUID();
       setMessage(
@@ -276,6 +282,7 @@ export function PeriodAttendance({
         reason,
       });
       setDirty(false);
+      setEditing(false);
       setResult(next);
       setMessage("확인 전 상태로 초기화했습니다.");
       if (next.sheet_sync && !next.sheet_sync.ok)
@@ -298,8 +305,8 @@ export function PeriodAttendance({
       type="button"
       key={entry?.student_id || `seat-${seatId}`}
       style={col ? { gridColumn: col } : undefined}
-      className={`attendance-seat status-${entry?.status || "empty"}`}
-      disabled={!entry || !editable || working || loading}
+      className={`attendance-seat status-${entry?.status || "empty"} ${locked ? "attendance-locked" : ""}`}
+      disabled={!entry || !editable || locked || working || loading}
       onClick={() => setSelected(entry!.student_id)}
       aria-label={
         entry
@@ -434,9 +441,11 @@ export function PeriodAttendance({
           </button>
         </div>
         <p className="muted">
-          {operation
-            ? `등록된 운영일 · ${operation.start_time.slice(0, 5)}~${operation.end_time.slice(0, 5)} · 출석 확인 ${count}교시`
-            : "월·화 7교시 / 수·목·금 6교시"}{" "}
+          {operation?.is_closed
+            ? "미운영일"
+            : operation
+              ? `등록된 운영일 · ${operation.start_time.slice(0, 5)}~${operation.end_time.slice(0, 5)} · 출석 확인 ${count}교시`
+              : "월·화 7교시 / 수·목·금 6교시"}{" "}
           ·{" "}
           {day === today
             ? count
@@ -520,9 +529,11 @@ export function PeriodAttendance({
         )}
         {!count ? (
           <p className="empty">
-            {operation
-              ? `운영 종료 ${operation.end_time.slice(0, 5)} 기준으로 교시별 출석 확인이 필요하지 않은 날입니다.`
-              : "토·일요일은 출석 확인 대상 교시가 없습니다."}
+            {operation?.is_closed
+              ? "미운영일로 교시별 출석 확인이 필요하지 않습니다."
+              : operation
+                ? `운영 종료 ${operation.end_time.slice(0, 5)} 기준으로 교시별 출석 확인이 필요하지 않은 날입니다.`
+                : "토·일요일은 출석 확인 대상 교시가 없습니다."}
           </p>
         ) : loading ? (
           <p role="status">출석을 불러오는 중입니다…</p>
@@ -530,6 +541,34 @@ export function PeriodAttendance({
           <p>출석을 불러오지 못했습니다. 다시 조회해 주세요.</p>
         ) : (
           <>
+            {session?.confirmed && (
+              <div className="attendance-completed-banner">
+                <strong>{locked ? "✓ 출결 체크 완료" : "출결 수정 중"}</strong>
+                {locked && editable && (
+                  <button
+                    type="button"
+                    disabled={working}
+                    onClick={() => setEditing(true)}
+                  >
+                    수정하기
+                  </button>
+                )}
+                {editing && editable && (
+                  <button
+                    type="button"
+                    disabled={working}
+                    onClick={() => {
+                      setDirty(false);
+                      setEditing(false);
+                      setSelected(null);
+                      setMessage("");
+                    }}
+                  >
+                    수정 취소
+                  </button>
+                )}
+              </div>
+            )}
             <div className="attendance-counts">
               {(Object.keys(attendanceLabels) as AttendanceStatus[]).map(
                 (status) => (
@@ -575,7 +614,9 @@ export function PeriodAttendance({
             </div>
             <button
               type="button"
-              disabled={!editable || working || loading || !entries.length}
+              disabled={
+                !editable || locked || working || loading || !entries.length
+              }
               onClick={() => setStudentBulkOpen(true)}
             >
               이 교시 여러 학생 변경

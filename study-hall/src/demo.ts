@@ -769,7 +769,11 @@ export async function demoApi(
     );
     if (p.direction === "in") {
       const op = state.operating_days.find((d) => d.day === koreanDay(now()));
-      if (op && Date.now() >= Date.parse(`${op.day}T${op.end_time}+09:00`))
+      if (
+        op &&
+        (op.is_closed ||
+          Date.now() >= Date.parse(`${op.day}T${op.end_time}+09:00`))
+      )
         throw Error("오늘 자습실 운영이 종료되어 입실할 수 없습니다.");
       if (v) throw Error("이미 입실 중입니다.");
       state.visits.unshift({
@@ -1153,7 +1157,9 @@ export async function demoApi(
     state.operating_days = state.operating_days.filter((d) => d.day !== p.day);
     if (p.end_time <= p.start_time) throw Error("운영 종료 시각을 확인하세요.");
     state.operating_days.push(p);
-    const cutoff = Date.parse(`${p.day}T${p.end_time}+09:00`);
+    const cutoff = Date.parse(
+      `${p.day}T${p.is_closed ? "00:00" : p.end_time}+09:00`,
+    );
     if (p.day === koreanDay(now()) && Date.now() >= cutoff) {
       state.visits = state.visits.map((v) =>
         Date.parse(v.entered_at) <= Date.now() &&

@@ -1,9 +1,14 @@
 type Session = { period: number; confirmed: boolean; synced_revision?: number };
-export type OperatingPolicy = { end_time: string; student_ids?: string[] };
+export type OperatingPolicy = {
+  is_closed?: boolean;
+  end_time: string;
+  student_ids?: string[];
+};
 export function scheduledPeriodCount(
   day: string,
   operation?: OperatingPolicy | null,
 ) {
+  if (operation?.is_closed) return 0;
   const weekday = new Date(`${day}T12:00:00+09:00`).getUTCDay();
   const max = weekday >= 1 && weekday <= 5 ? (weekday <= 2 ? 7 : 6) : 0;
   if (operation?.student_ids?.length === 0) return 0;

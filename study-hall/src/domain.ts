@@ -40,6 +40,7 @@ export type Settings = {
   missing_hours: number;
 };
 export type OperatingDay = {
+  is_closed?: boolean;
   day: string;
   start_time: string;
   end_time: string;

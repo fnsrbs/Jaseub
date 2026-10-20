@@ -305,7 +305,8 @@ export default function App() {
   const currentOperation = data?.operating_days.find((d) => d.day === today);
   const operationClosed =
     !!currentOperation &&
-    currentNow >= Date.parse(`${today}T${currentOperation.end_time}+09:00`);
+    (currentOperation.is_closed ||
+      currentNow >= Date.parse(`${today}T${currentOperation.end_time}+09:00`));
   const me = data?.students[0];
   const active = data?.visits.find(
     (v) => v.student_id === me?.id && !v.exited_at,
@@ -451,12 +452,16 @@ export default function App() {
                         caption="지금 자습실에서 공부하는 학생"
                       />
                     )}
-                    <Metric
-                      label="오늘 출석 인원"
-                      value={`${data.today}`}
-                      unit={`/ ${data.settings.capacity}명`}
-                      caption="오늘 한 번 이상 입실한 학생"
-                    />
+                    {teacher ? (
+                      <CurrentStudents data={data} todayOnly />
+                    ) : (
+                      <Metric
+                        label="오늘 출석 인원"
+                        value={`${data.today}`}
+                        unit={`/ ${data.settings.capacity}명`}
+                        caption="오늘 한 번 이상 입실한 학생"
+                      />
+                    )}
                     <Metric
                       label={teacher ? "퇴실 확인 필요" : "나의 배정 좌석"}
                       value={
@@ -589,6 +594,7 @@ export default function App() {
                             출결은 서버 저장이 완료된 후 반영됩니다.
                           </small>
                           <CheckoutGuide
+                            isClosed={!!currentOperation?.is_closed}
                             endTime={
                               data.operating_days.find(
                                 (d) =>
@@ -1180,17 +1186,34 @@ function Metric({
     </Tag>
   );
 }
-function CurrentStudents({ data }: { data: Snapshot }) {
+function CurrentStudents({
+  data,
+  todayOnly = false,
+}: {
+  data: Snapshot;
+  todayOnly?: boolean;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<"all" | "in" | "out">("in");
+  const [status, setStatus] = useState<"all" | "in" | "out">(
+    todayOnly ? "all" : "in",
+  );
   const currentIds = new Set(
     data.visits
       .filter((visit) => !visit.exited_at)
       .map((visit) => visit.student_id),
   );
+  const todayIds = new Set(
+    data.visits
+      .filter(
+        (v) => koreanDay(v.entered_at) === koreanDay(new Date(data.server_now)),
+      )
+      .map((v) => v.student_id),
+  );
   const students = data.students
-    .filter((student) => !student.deleted_at)
+    .filter((student) =>
+      todayOnly ? todayIds.has(student.id) : !student.deleted_at,
+    )
     .sort(
       (a, b) =>
         a.number.localeCompare(b.number, "ko", { numeric: true }) ||
@@ -1209,20 +1232,22 @@ function CurrentStudents({ data }: { data: Snapshot }) {
   return (
     <>
       <Metric
-        label="현재 입실 인원"
-        value={String(data.current)}
+        label={todayOnly ? "오늘 출석 인원" : "현재 입실 인원"}
+        value={String(todayOnly ? data.today : data.current)}
         unit={`/ ${data.settings.capacity}명`}
         caption="학생 명단 보기 ↗"
         onClick={() => {
           setSearch("");
-          setStatus("in");
+          setStatus(todayOnly ? "all" : "in");
           dialog.current?.showModal();
         }}
       />
       <dialog
         ref={dialog}
         className="current-students"
-        aria-labelledby="current-students-title"
+        aria-labelledby={
+          todayOnly ? "today-students-title" : "current-students-title"
+        }
         onClick={(event) => {
           if (event.target === event.currentTarget) {
             const rect = event.currentTarget.getBoundingClientRect();
@@ -1238,43 +1263,56 @@ function CurrentStudents({ data }: { data: Snapshot }) {
       >
         <div className="current-students-head">
           <div>
-            <h2 id="current-students-title">
-              학생 입실 현황 <span>{inside}명 입실</span>
+            <h2
+              id={todayOnly ? "today-students-title" : "current-students-title"}
+            >
+              {todayOnly ? "오늘 출석 학생 명단" : "학생 입실 현황"}{" "}
+              <span>
+                {todayOnly ? `${students.length}명 출석` : `${inside}명 입실`}
+              </span>
             </h2>
-            <p>학번순 · 미입실은 현재 자습실에 없는 학생입니다.</p>
+            <p>
+              {todayOnly
+                ? "오늘 한 번 이상 입실한 학생 · 학번순"
+                : "학번순 · 미입실은 현재 자습실에 없는 학생입니다."}
+            </p>
           </div>
           <button
             type="button"
             onClick={() => dialog.current?.close()}
             autoFocus
-            aria-label="입실 학생 명단 닫기"
+            aria-label={
+              todayOnly ? "오늘 출석 명단 닫기" : "입실 학생 명단 닫기"
+            }
           >
             닫기
           </button>
         </div>
         <div className="current-students-filters">
-          <div
-            className="current-students-tabs"
-            role="group"
-            aria-label="입실 상태 선택"
-          >
-            {(
-              [
-                ["in", "현재입실", inside],
-                ["out", "미입실", students.length - inside],
-                ["all", "전체", students.length],
-              ] as const
-            ).map(([value, label, count]) => (
-              <button
-                type="button"
-                key={value}
-                aria-pressed={status === value}
-                onClick={() => setStatus(value)}
-              >
-                {label} <span>{count}</span>
-              </button>
-            ))}
-          </div>
+          {!todayOnly && (
+            <div
+              className="current-students-tabs"
+              role="group"
+              aria-label="입실 상태 선택"
+            >
+              {(
+                [
+                  ["in", "현재입실", inside],
+                  ["out", "미입실", students.length - inside],
+                  ["all", "전체", students.length],
+                ] as const
+              ).map(([value, label, count]) => (
+                <button
+                  type="button"
+                  key={value}
+                  aria-pressed={status === value}
+                  onClick={() => setStatus(value)}
+                >
+                  {label} <span>{count}</span>
+                </button>
+              ))}
+            </div>
+          )}
           <Field label="이름·학번·좌석번호 검색">
             <input
               type="search"
@@ -1310,7 +1348,11 @@ function CurrentStudents({ data }: { data: Snapshot }) {
                       <span
                         className={`current-students-state ${currentIds.has(student.id) ? "is-in" : "is-out"}`}
                       >
-                        {currentIds.has(student.id) ? "현재입실" : "미입실"}
+                        {currentIds.has(student.id)
+                          ? "현재입실"
+                          : todayOnly
+                            ? "퇴실"
+                            : "미입실"}
                       </span>
                     </td>
                   </tr>
@@ -1321,11 +1363,13 @@ function CurrentStudents({ data }: { data: Snapshot }) {
             <p className="empty">
               {search.trim()
                 ? "검색 결과가 없습니다."
-                : status === "in"
-                  ? "현재 입실한 학생이 없습니다."
-                  : status === "out"
-                    ? "미입실 학생이 없습니다."
-                    : "등록된 학생이 없습니다."}
+                : todayOnly
+                  ? "오늘 입실한 학생이 없습니다."
+                  : status === "in"
+                    ? "현재 입실한 학생이 없습니다."
+                    : status === "out"
+                      ? "미입실 학생이 없습니다."
+                      : "등록된 학생이 없습니다."}
             </p>
           )}
         </div>
@@ -3167,6 +3211,7 @@ function SettingsPanel({
   const savedToday = data.operating_days.find(
     (d) => d.day === koreanDay(new Date()),
   );
+  const [isClosed, setIsClosed] = useState(savedToday?.is_closed || false);
   const [targetSearch, setTargetSearch] = useState("");
   const [operationMessage, setOperationMessage] = useState("");
   const [operationError, setOperationError] = useState("");
@@ -3305,15 +3350,26 @@ function SettingsPanel({
                 start_time: start,
                 end_time: end,
                 student_ids: targets,
+                is_closed: isClosed,
               });
               setOperationMessage(
-                `${day} · ${start}~${end} · 대상 ${targets.length}명 저장 완료`,
+                isClosed
+                  ? `${day} · 미운영 저장 완료`
+                  : `${day} · ${start}~${end} · 대상 ${targets.length}명 저장 완료`,
               );
             } catch (error) {
               setOperationError((error as Error).message);
             }
           }}
         >
+          <label className="operating-closed">
+            <input
+              type="checkbox"
+              checked={isClosed}
+              onChange={(e) => setIsClosed(e.target.checked)}
+            />
+            미운영일 (입실·교시별 출석 확인 제외)
+          </label>
           <div className="form-grid">
             <Field label="운영 날짜">
               <input
@@ -3324,6 +3380,7 @@ function SettingsPanel({
                   const next = e.target.value;
                   setDay(next);
                   const saved = data.operating_days.find((d) => d.day === next);
+                  setIsClosed(saved?.is_closed || false);
                   setStart(saved?.start_time.slice(0, 5) || "06:00");
                   setEnd(saved?.end_time.slice(0, 5) || "17:00");
                   setTargets(
@@ -3419,11 +3476,13 @@ function SettingsPanel({
         <h3>등록된 운영일</h3>
         {data.operating_days.map((d) => (
           <p key={d.day}>
-            {d.day} · {d.start_time} ~ {d.end_time} · 대상{" "}
+            {d.day} ·{" "}
+            {d.is_closed ? "미운영" : `${d.start_time} ~ ${d.end_time}`} · 대상{" "}
             {d.student_ids.length}명{" "}
             <button
               onClick={() => {
                 setDay(d.day);
+                setIsClosed(d.is_closed || false);
                 setStart(d.start_time);
                 setEnd(d.end_time);
                 setTargets(d.student_ids);

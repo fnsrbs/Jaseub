@@ -155,6 +155,10 @@ test("구글 반영은 모든 교시 확인 완료 후: 마지막 교시 선확�
 test("시간표: 월화 7교시·수목금 6교시, 시작·종료·쉬는시간·점심·주말", () => {
   assert.equal(periodsForDay("2026-10-19"), 7);
   assert.equal(periodsForDay("2026-10-20"), 7);
+  assert.equal(
+    periodsForDay("2026-10-20", { end_time: "17:00", is_closed: true }),
+    0,
+  );
   assert.equal(periodsForDay("2026-10-20", { end_time: "08:00" }), 0);
   assert.equal(periodsForDay("2026-10-20", { end_time: "09:50" }), 1);
   assert.equal(periodsForDay("2026-10-20", { end_time: "13:00" }), 4);

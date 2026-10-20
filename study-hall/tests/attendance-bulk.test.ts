@@ -593,6 +593,74 @@ test("학생별 여러 교시 저장·재수정: 다른 학생 보존·부분 �
     assert.equal(shortenedSource.length, 1);
     assert.equal(shortenedSource[0].period_count, 4);
     assert.equal(shortenedSource[0].end_time, "13:00:00");
+    await db.exec(`create function public.app_api(p_action text,p_payload jsonb,p_admin uuid,p_session text) returns jsonb language plpgsql as $body$ begin
+      insert into operating_days values((p_payload->>'day')::date,(p_payload->>'start_time')::time,(p_payload->>'end_time')::time,array(select jsonb_array_elements_text(p_payload->'student_ids')::uuid)) on conflict(day) do update set start_time=excluded.start_time,end_time=excluded.end_time,student_ids=excluded.student_ids;return '{}'::jsonb;end $body$;`);
+    await db.exec(
+      (
+        await migration("20261020013456_operating_day_closed_flag.sql")
+      ).replaceAll("now()", `'${now}'::timestamptz`),
+    );
+    await db.query("select app_api('operating_day',$1,$2,null)", [
+      {
+        day: "2026-10-20",
+        start_time: "06:00",
+        end_time: "17:00",
+        student_ids: ids,
+        is_closed: true,
+      },
+      admin,
+    ]);
+    assert.equal(
+      (
+        await db.query<{ n: number }>(
+          "select attendance_period_count('2026-10-20') n",
+        )
+      ).rows[0].n,
+      0,
+    );
+    assert.equal(
+      (
+        await db.query<{ t: string }>(
+          "select operating_day_end('2026-10-20')::text t",
+        )
+      ).rows[0].t,
+      "00:00:00",
+    );
+    assert.equal(
+      (
+        await db.query<{ schedule: string }>(
+          "select schedule from cron.job where jobname='study-hall-custom-checkout-2026-10-20'",
+        )
+      ).rows[0].schedule,
+      "0 15 19 10 *",
+    );
+    await db.query("select app_api('operating_day',$1,$2,null)", [
+      {
+        day: "2026-10-20",
+        start_time: "06:00",
+        end_time: "17:00",
+        student_ids: ids,
+      },
+      admin,
+    ]);
+    assert.equal(
+      (
+        await db.query<{ closed: boolean }>(
+          "select is_closed closed from operating_days where day='2026-10-20'",
+        )
+      ).rows[0].closed,
+      true,
+    );
+    await db.query(
+      "update operating_days set is_closed=true,end_time='17:00' where day='2026-10-19'",
+    );
+    await assert.rejects(
+      db.query("insert into visits(student_id,entered_at) values($1,$2)", [
+        ids[0],
+        now,
+      ]),
+      /운영이 종료/,
+    );
     await db.exec("set role anon");
     await assert.rejects(
       db.query("select period_attendance_bulk('{}')"),
