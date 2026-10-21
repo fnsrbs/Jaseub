@@ -20,7 +20,7 @@ function doPost(e) {
     if (data.action === "attendance") return jaseubAttendance(data.attendance);
     if (data.action === "supervision") {
       var book = SpreadsheetApp.openById(JASEUB_SPREADSHEET);
-      var dutySheet = book.getSheetByName("감독표") || book.getSheetByName("4주 감독표");
+      var dutySheet = book.getSheetByName("감독표(확정)") || book.getSheetByName("감독표") || book.getSheetByName("4주 감독표");
       if (!dutySheet) throw new Error("감독표 시트를 찾을 수 없습니다.");
       if (dutySheet.getLastRow() > 500) throw new Error("감독표 행 수를 확인하세요.");
       var range = dutySheet.getRange(1, 1, Math.max(1, dutySheet.getLastRow()), 7);

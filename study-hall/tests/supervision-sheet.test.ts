@@ -58,6 +58,24 @@ test("잘못된 날짜·중복·누락된 교시는 저장 전에 거부", () =>
   assert.throws(() => supervisionSheetSlots(period, existing), /1~7교시/);
 });
 
+test("x·×로 운영 없음 처리 후 이름을 넣으면 감독 배정 복구", () => {
+  for (const mark of ["x", "X", "×"]) {
+    const rows = grid();
+    rows[2][1] = mark;
+    const initial = supervisionSheetSlots(rows, []).map((s) => ({
+      ...s,
+      revision: 1,
+    }));
+    assert.equal(initial[0].status, "closed");
+    assert.equal(initial[0].teacher_name, "");
+    rows[2][1] = "가상교사 C";
+    const changes = supervisionSheetSlots(rows, initial);
+    assert.equal(changes.length, 1);
+    assert.equal(changes[0].status, "assigned");
+    assert.equal(changes[0].teacher_name, "가상교사 C");
+  }
+});
+
 test("서명된 구글 요청으로 감독표만 읽고 병합된 행사 값을 펼친다", () => {
   const values = grid();
   for (let i = 3; i < values.length; i++) values[i][2] = "";
@@ -84,7 +102,7 @@ test("서명된 구글 요청으로 감독표만 읽고 병합된 행사 값을 
     SpreadsheetApp: {
       openById: () => ({
         getSheetByName: (name: string) => {
-          assert.equal(name, "감독표");
+          assert.equal(name, "감독표(확정)");
           return { getLastRow: () => values.length, getRange: () => range };
         },
       }),

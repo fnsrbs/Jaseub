@@ -114,7 +114,8 @@ export function Supervision({
             {saving ? "처리 중…" : "구글에서 불러오기"}
           </button>
           <span>
-            구글 감독표를 수정한 뒤 불러오세요. 감독 횟수도 다시 계산됩니다.
+            구글 감독표를 수정한 뒤 불러오세요. x·×는 운영 없음, 이름은 감독
+            배정입니다.
           </span>
         </div>
       )}
@@ -166,7 +167,7 @@ export function Supervision({
                         }
                       >
                         {slot && (
-                          <>
+                          <div className="supervision-cell">
                             {admin ? (
                               <button
                                 type="button"
@@ -190,58 +191,13 @@ export function Supervision({
                             {slot.status !== "event" && slot.note && (
                               <small>{slot.note}</small>
                             )}
-                          </>
+                          </div>
                         )}
                       </td>
                     );
                   })}
                 </tr>
               ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {!!slots.length && (
-        <div className="table-wrap">
-          <h3>교사별 감독 횟수</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>교사</th>
-                <th>선택 주차</th>
-                <th>전체</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                ...new Set(
-                  slots
-                    .filter((s) => s.status === "assigned")
-                    .map((s) => s.teacher_name),
-                ),
-              ]
-                .sort((a, b) => a.localeCompare(b, "ko"))
-                .map((name) => (
-                  <tr key={name}>
-                    <th>{name}</th>
-                    <td>
-                      {
-                        shown.filter(
-                          (s) =>
-                            s.status === "assigned" && s.teacher_name === name,
-                        ).length
-                      }
-                    </td>
-                    <td>
-                      {
-                        slots.filter(
-                          (s) =>
-                            s.status === "assigned" && s.teacher_name === name,
-                        ).length
-                      }
-                    </td>
-                  </tr>
-                ))}
             </tbody>
           </table>
         </div>
