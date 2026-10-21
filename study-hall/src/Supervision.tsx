@@ -197,6 +197,51 @@ export function Supervision({
           </table>
         </div>
       )}
+      {admin && !!slots.length && (
+        <div className="table-wrap">
+          <h3>교사별 감독 횟수</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>교사</th>
+                <th>선택 주차</th>
+                <th>전체</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ...new Set(
+                  slots
+                    .filter((s) => s.status === "assigned")
+                    .map((s) => s.teacher_name),
+                ),
+              ]
+                .sort((a, b) => a.localeCompare(b, "ko"))
+                .map((name) => (
+                  <tr key={name}>
+                    <th>{name}</th>
+                    <td>
+                      {
+                        shown.filter(
+                          (s) =>
+                            s.status === "assigned" && s.teacher_name === name,
+                        ).length
+                      }
+                    </td>
+                    <td>
+                      {
+                        slots.filter(
+                          (s) =>
+                            s.status === "assigned" && s.teacher_name === name,
+                        ).length
+                      }
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {admin && edit && (
         <div
           className="panel seat-edit-controls"
