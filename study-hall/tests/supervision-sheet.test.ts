@@ -29,6 +29,7 @@ test("구글 감독표: 교체·미배정·미운영·행사와 재불러오기 
   const edits = supervisionSheetSlots(changed, current);
   assert.equal(edits.length, 2);
   assert.equal(edits[0].teacher_name, "가상교사 B");
+  assert.equal(edits[0].note, "교환");
   assert.equal(edits[0].revision, 1);
   assert.equal(edits[1].status, "unassigned");
   const saved = current.map((s) => {
@@ -40,6 +41,19 @@ test("구글 감독표: 교체·미배정·미운영·행사와 재불러오기 
   assert.deepEqual(supervisionSheetSlots(changed, saved), []);
   assert.equal(saved.filter((s) => s.teacher_name === "가상교사 A").length, 4);
   assert.equal(saved.filter((s) => s.teacher_name === "가상교사 B").length, 1);
+});
+
+test("기존 사유는 배정이나 운영 상태가 달라져도 유지한다", () => {
+  const current = supervisionSheetSlots(grid(), []).map((s) => ({
+    ...s,
+    revision: 1,
+  }));
+  current[0].note = "출장으로 변경";
+  const rows = grid();
+  rows[2][1] = "가상교사 B";
+  assert.equal(supervisionSheetSlots(rows, current)[0].note, "출장으로 변경");
+  rows[2][1] = "x";
+  assert.equal(supervisionSheetSlots(rows, current)[0].note, "출장으로 변경");
 });
 
 test("잘못된 날짜·중복·누락된 교시는 저장 전에 거부", () => {

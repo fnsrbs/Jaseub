@@ -65,6 +65,11 @@ export function supervisionSheetSlots(
               : event
                 ? "event"
                 : "assigned";
+        const changed =
+          !!old &&
+          (old.status !== status ||
+            old.teacher_name !== (status === "assigned" ? text : "") ||
+            old.week_label !== week);
         if (text.length > (status === "assigned" ? 80 : 500))
           throw Error("감독표 이름·행사명이 너무 깁니다.");
         slots.push({
@@ -74,7 +79,13 @@ export function supervisionSheetSlots(
           status,
           teacher_name: status === "assigned" ? text : "",
           note:
-            status === "event" ? text : old?.status === status ? old.note : "",
+            status === "event"
+              ? text
+              : old?.note?.trim()
+                ? old.note
+                : changed
+                  ? "교환"
+                  : "",
           revision: old?.revision || 0,
         });
       }

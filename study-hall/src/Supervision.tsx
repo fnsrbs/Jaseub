@@ -97,7 +97,7 @@ export function Supervision({
                   await load();
                   setMessage(
                     result.saved
-                      ? `구글 감독표를 불러왔습니다. ${result.saved}개 항목을 반영했습니다. 변경된 항목은 ‘수정’으로 표시합니다.`
+                      ? `구글 감독표를 불러왔습니다. ${result.saved}개 항목을 반영했습니다. 기존 사유를 유지하고 빈 사유에는 ‘교환’을 기록했습니다.`
                       : "불러오기 완료 · 기존 감독표와 동일합니다.",
                   );
                 })
@@ -183,11 +183,6 @@ export function Supervision({
                             ) : (
                               <span>{label(slot)}</span>
                             )}
-                            {slot.revision > 1 && (
-                              <small className="supervision-changed">
-                                수정
-                              </small>
-                            )}
                             {slot.status !== "event" && slot.note && (
                               <small>{slot.note}</small>
                             )}
@@ -216,7 +211,27 @@ export function Supervision({
               e.preventDefault();
               setSaving(true);
               setError("");
-              void act("supervision_save", { slots: [edit] })
+              const original = slots.find(
+                (s) => s.day === edit.day && s.period === edit.period,
+              );
+              const changed =
+                original &&
+                (original.teacher_name !== edit.teacher_name ||
+                  original.status !== edit.status);
+              const saved = {
+                ...edit,
+                note:
+                  edit.status === "event"
+                    ? edit.note
+                    : edit.note.trim()
+                      ? edit.note
+                      : original?.note?.trim()
+                        ? original.note
+                        : changed
+                          ? "교환"
+                          : edit.note,
+              };
+              void act("supervision_save", { slots: [saved] })
                 .then(async () => {
                   setEdit(null);
                   await load();
@@ -274,7 +289,7 @@ export function Supervision({
               </label>
             )}
             <label className="field">
-              <span>{edit.status === "event" ? "행사명" : "메모"}</span>
+              <span>{edit.status === "event" ? "행사명" : "사유"}</span>
               <input
                 maxLength={500}
                 required={edit.status === "event"}
