@@ -2184,3 +2184,12 @@ blockquote {
 .suggestion-post details[open] .suggestion-post-hint{font-size:0}
 .suggestion-post details[open] .suggestion-post-hint:after{content:"접기";font-size:12px}
 .suggestion-post-body{border-top:1px solid #e1e8e3;margin-top:16px;padding-top:8px}
+.supervision-table .supervision-changed {
+  display: inline-block;
+  margin: 4px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #fff0cf;
+  color: #794c00;
+  font-weight: 700;
+}

@@ -15,9 +15,26 @@ function doPost(e) {
     if (diff !== 0) throw new Error("인증 오류");
     var data = JSON.parse(envelope.payload);
     if (data.spreadsheetId !== JASEUB_SPREADSHEET || !Number.isFinite(data.issuedAt) || Math.abs(Date.now() - data.issuedAt) > 300000 || !/^[a-f0-9-]{36}$/.test(data.requestId || "")) throw new Error("요청 확인 필요");
-    if (data.action !== "check" && data.action !== "sync" && data.action !== "roster" && data.action !== "attendance") throw new Error("지원하지 않는 요청");
+    if (["check", "sync", "roster", "attendance", "supervision"].indexOf(data.action) < 0) throw new Error("지원하지 않는 요청");
     lock = LockService.getScriptLock(); lock.waitLock(20000); locked = true;
     if (data.action === "attendance") return jaseubAttendance(data.attendance);
+    if (data.action === "supervision") {
+      var book = SpreadsheetApp.openById(JASEUB_SPREADSHEET);
+      var dutySheet = book.getSheetByName("감독표") || book.getSheetByName("4주 감독표");
+      if (!dutySheet) throw new Error("감독표 시트를 찾을 수 없습니다.");
+      if (dutySheet.getLastRow() > 500) throw new Error("감독표 행 수를 확인하세요.");
+      var range = dutySheet.getRange(1, 1, Math.max(1, dutySheet.getLastRow()), 7);
+      var duty = range.getValues();
+      range.getMergedRanges().forEach(function(merged) {
+        var value = merged.getValue();
+        for (var r = merged.getRow()-1; r < Math.min(duty.length, merged.getLastRow()); r++)
+          for (var c = merged.getColumn()-1; c < Math.min(7, merged.getLastColumn()); c++) duty[r][c] = value;
+      });
+      duty = duty.map(function(row) { return row.map(function(value) {
+        return value instanceof Date ? Utilities.formatDate(value, "Asia/Seoul", "yyyy-MM-dd") : value;
+      }); });
+      return jaseubJson({ok:true,supervision:duty});
+    }
     if (data.action === "roster") {
       var roster = SpreadsheetApp.openById(JASEUB_SPREADSHEET).getSheetByName("출석부(확정)");
       if (!roster) throw new Error("연결된 출석부 시트를 찾을 수 없습니다.");

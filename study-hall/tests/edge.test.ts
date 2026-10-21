@@ -192,6 +192,7 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
         "sheet_sync_setup",
         "sheet_sync_configure",
         "roster_import",
+        "supervision_import",
         "cleaning_save",
         "cleaning_delete",
         "cleaning_notice_save",

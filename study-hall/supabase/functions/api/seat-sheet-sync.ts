@@ -38,7 +38,7 @@ export function seatSheetRows(
 export async function callSeatSheet(
   endpoint: string,
   secret: string,
-  action: "check" | "sync" | "roster" | "attendance",
+  action: "check" | "sync" | "roster" | "attendance" | "supervision",
   spreadsheetId: string,
   seats?: { id: number; number: string; name: string }[],
   attendance?: {
@@ -92,6 +92,7 @@ export async function callSeatSheet(
     before?: unknown;
     students?: { number: string; name: string }[];
     attendance?: boolean;
+    supervision?: unknown[][];
     url?: string;
   };
   try {
@@ -110,7 +111,9 @@ export async function callSeatSheet(
         ? result.updated !== 72
         : action === "roster"
           ? !Array.isArray(result.students)
-          : typeof result.updated !== "number"
+          : action === "supervision"
+            ? !Array.isArray(result.supervision)
+            : typeof result.updated !== "number"
   )
     throw Error("구글 시트 응답을 확인하세요.");
   return { ...result, requestId };

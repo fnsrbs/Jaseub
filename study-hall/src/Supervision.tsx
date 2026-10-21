@@ -18,6 +18,7 @@ export function Supervision({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const admin = role === "teacher";
   const load = async () => {
     const rows: SupervisionSlot[] = await api("supervision", {}, role, token);
@@ -70,6 +71,7 @@ export function Supervision({
           <select
             aria-label="감독표 주차"
             value={week}
+            disabled={saving}
             onChange={(e) => {
               setWeek(e.target.value);
               setEdit(null);
@@ -81,6 +83,42 @@ export function Supervision({
           </select>
         </label>
       </div>
+      {admin && (
+        <div className="actions">
+          <button
+            type="button"
+            disabled={saving || loading || !!edit}
+            onClick={() => {
+              setSaving(true);
+              setError("");
+              setMessage("");
+              void act("supervision_import", {})
+                .then(async (result) => {
+                  await load();
+                  setMessage(
+                    result.saved
+                      ? `구글 감독표를 불러왔습니다. ${result.saved}개 항목을 반영했습니다. 변경된 항목은 ‘수정’으로 표시합니다.`
+                      : "불러오기 완료 · 기존 감독표와 동일합니다.",
+                  );
+                })
+                .catch((e) =>
+                  setError(
+                    (e as Error).message === "지원하지 않는 요청"
+                      ? "구글 연결 코드 업데이트가 필요합니다. 좌석 관리 → 구글 시트 연결 설정에서 새 코드를 준비해 Apps Script에 붙여 넣고, 배포 관리에서 새 버전으로 업데이트하세요."
+                      : (e as Error).message,
+                  ),
+                )
+                .finally(() => setSaving(false));
+            }}
+          >
+            {saving ? "처리 중…" : "구글에서 불러오기"}
+          </button>
+          <span>
+            구글 감독표를 수정한 뒤 불러오세요. 감독 횟수도 다시 계산됩니다.
+          </span>
+        </div>
+      )}
+      {message && <p role="status">{message}</p>}
       {admin && <p>수정할 날짜·교시를 누르세요.</p>}
       {error && (
         <p role="alert" className="error-text">
@@ -133,6 +171,7 @@ export function Supervision({
                               <button
                                 type="button"
                                 aria-label={`${day} ${period}교시 감독 수정`}
+                                disabled={saving}
                                 onClick={() => {
                                   setEdit({ ...slot });
                                   setError("");
@@ -142,6 +181,11 @@ export function Supervision({
                               </button>
                             ) : (
                               <span>{label(slot)}</span>
+                            )}
+                            {slot.revision > 1 && (
+                              <small className="supervision-changed">
+                                수정
+                              </small>
                             )}
                             {slot.status !== "event" && slot.note && (
                               <small>{slot.note}</small>
@@ -153,6 +197,51 @@ export function Supervision({
                   })}
                 </tr>
               ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {!!slots.length && (
+        <div className="table-wrap">
+          <h3>교사별 감독 횟수</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>교사</th>
+                <th>선택 주차</th>
+                <th>전체</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ...new Set(
+                  slots
+                    .filter((s) => s.status === "assigned")
+                    .map((s) => s.teacher_name),
+                ),
+              ]
+                .sort((a, b) => a.localeCompare(b, "ko"))
+                .map((name) => (
+                  <tr key={name}>
+                    <th>{name}</th>
+                    <td>
+                      {
+                        shown.filter(
+                          (s) =>
+                            s.status === "assigned" && s.teacher_name === name,
+                        ).length
+                      }
+                    </td>
+                    <td>
+                      {
+                        slots.filter(
+                          (s) =>
+                            s.status === "assigned" && s.teacher_name === name,
+                        ).length
+                      }
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>

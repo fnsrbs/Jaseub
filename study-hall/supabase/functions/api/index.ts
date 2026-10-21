@@ -2,6 +2,7 @@ import { summarizeDaily } from "./attendance-daily.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { seatSheetScript } from "./seat-sheet-script.ts";
 import { handlePeriodAttendance, periodActions } from "./period-attendance.ts";
+import { supervisionSheetSlots } from "./supervision-sheet.ts";
 import {
   callSeatSheet,
   seatSheetRows,
@@ -338,6 +339,7 @@ Deno.serve(async (req) => {
         "sheet_sync_configure",
         "sheet_sync",
         "roster_import",
+        "supervision_import",
       ].includes(action)
     ) {
       const config = async (operation: string, input: unknown = {}) => {
@@ -350,6 +352,34 @@ Deno.serve(async (req) => {
         return data;
       };
       if (action === "sheet_sync_status") return reply(await config("status"));
+      if (action === "supervision_import") {
+        const credentials = await config("credentials");
+        if (!credentials.endpoint)
+          throw Error("좌석 관리에서 구글 시트 연결을 먼저 완료하세요.");
+        const { data: current, error: readError } = await db.rpc(
+          "supervision_api",
+          {
+            p_action: "read",
+            p_admin: admin,
+          },
+        );
+        if (readError) throw Error(readError.message);
+        const result = await callSeatSheet(
+          credentials.endpoint,
+          credentials.secret,
+          "supervision",
+          credentials.spreadsheet_id,
+        );
+        const slots = supervisionSheetSlots(result.supervision, current);
+        if (!slots.length) return reply({ saved: 0 });
+        const { data, error } = await db.rpc("supervision_api", {
+          p_action: "save",
+          p_payload: { slots },
+          p_admin: admin,
+        });
+        if (error) throw Error(error.message);
+        return reply(data);
+      }
       if (action === "sheet_sync_setup") {
         const credentials = await config("prepare");
         const script = seatSheetScript

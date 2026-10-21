@@ -913,7 +913,9 @@ export async function demoApi(
     );
     return { saved: p.slots.length };
   }
-  if (action === "roster_import")
+    if (action === "supervision_import")
+      throw Error("데모에서는 구글 감독표를 불러올 수 없습니다. 운영 앱에서 사용하세요.");
+    if (action === "roster_import")
     throw Error("데모에서는 구글 출석부를 불러올 수 없습니다.");
   if (action === "sheet_sync_status")
     return {
