@@ -33,6 +33,15 @@ test("구글 참여 중단: 관리자만 처리·좌석 해제·세션 폐기·�
       ),
     );
     const admin = "00000000-0000-0000-0000-000000000001";
+    await db.exec(
+      fs.readFileSync(
+        new URL(
+          "../supabase/migrations/20261023050537_roster_import_results.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
     const sync = async (stopped: boolean, who: string | null = admin) =>
       (
         await db.query<{ r: any }>(
@@ -47,7 +56,12 @@ test("구글 참여 중단: 관리자만 처리·좌석 해제·세션 폐기·�
         )
       ).rows[0].r;
     await assert.rejects(sync(true, null), /관리자/);
-    assert.equal((await sync(true)).stopped, 2);
+    const stopResult = await sync(true);
+    assert.equal(stopResult.stopped, 2);
+    assert.equal(stopResult.participation_changes.length, 2);
+    assert.equal(stopResult.participation_changes[0].name, "가상학생");
+    assert.equal(stopResult.participation_changes[0].kind, "stopped");
+    assert.equal(stopResult.participation_changes[0].previous_seat, 1);
     const st = (
       await db.query<any>("select * from students where number='30101'")
     ).rows[0];
@@ -66,8 +80,16 @@ test("구글 참여 중단: 관리자만 처리·좌석 해제·세션 폐기·�
     assert.ok(
       (await db.query<any>("select exited_at from visits")).rows[0].exited_at,
     );
-    assert.equal((await sync(true)).stopped, 0);
-    assert.equal((await sync(false)).restored, 2);
+    const unchanged = await sync(true);
+    assert.equal(unchanged.stopped, 0);
+    assert.deepEqual(unchanged.participation_changes, []);
+    const restoreResult = await sync(false);
+    assert.equal(restoreResult.restored, 2);
+    assert.equal(
+      restoreResult.participation_changes.find((s: any) => s.number === "30102")
+        .active,
+      false,
+    );
     assert.equal(
       (await db.query<any>("select active from students where number='30101'"))
         .rows[0].active,

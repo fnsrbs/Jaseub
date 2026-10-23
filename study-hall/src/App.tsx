@@ -1,4 +1,5 @@
 import { ManualAttendance } from "./ManualAttendance";
+import { RosterImportResult, type RosterImportSummary } from "./RosterImportResult";
 import { AttendanceSummary } from "./AttendanceSummary";
 import { CheckoutGuide, CameraGuide } from "./AttendanceGuide";
 import { pollWhileVisible } from "./visible-polling";
@@ -1767,6 +1768,8 @@ function Students({
     [code, setCode] = useState("");
   const [codeOwner, setCodeOwner] = useState("");
   const [importMessage, setImportMessage] = useState("");
+  const [importResult, setImportResult] = useState<RosterImportSummary | null>(null);
+  const importButton = useRef<HTMLButtonElement>(null);
   const [genderFilter, setGenderFilter] = useState("all"),
     [picked, setPicked] = useState<string[]>([]),
     [bulkGender, setBulkGender] = useState("unknown");
@@ -1818,6 +1821,7 @@ function Students({
         <h2>{edit.id ? "학생 정보 수정" : "학생 등록"}</h2>
         <button
           type="button"
+          ref={importButton}
           disabled={busy}
           onClick={() => {
             if (
@@ -1828,11 +1832,12 @@ function Students({
               return;
             setImportMessage("");
             void act("roster_import", {})
-              .then((r) =>
+              .then((r) => {
+                setImportResult(r);
                 setImportMessage(
                   `신규 ${r.added}명 추가 · 참여 중단 ${r.stopped || 0}명 · 중단 해제 ${r.restored || 0}명. 새 학생의 코드는 학생 목록에서 확인하세요. 복구된 학생은 좌석을 다시 배정하세요.`,
-                ),
-              )
+                );
+              })
               .catch(() => {});
           }}
         >
@@ -1843,6 +1848,10 @@ function Students({
           성별 미확인·좌석 미배정으로 등록됩니다. 각 반 N열의 참여 중단 체크가 전체 명단을 통해 반영됩니다.
         </p>
         {importMessage && <p role="status">{importMessage}</p>}
+        {importResult && <RosterImportResult result={importResult} onClose={() => {
+          setImportResult(null);
+          importButton.current?.focus();
+        }} />}
         <form
           className="form-grid"
           onSubmit={(e) => {

@@ -2194,3 +2194,6 @@ blockquote {
   min-width: 0;
   white-space: normal;
 }
+.roster-import-result { width: min(720px, 100%); }
+.roster-import-result td small { display: block; margin-top: 4px; }
+.roster-import-result > button { margin-top: 16px; }
