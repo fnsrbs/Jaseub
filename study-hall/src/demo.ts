@@ -227,6 +227,7 @@ export async function demoApi(
   }
   if (action === "snapshot") {
     const data = structuredClone(state);
+    data.settings.participant_count = data.students.filter(s => s.active && !s.deleted_at).length;
     if (!teacher && !viewer)
       data.clovers =
         demoCollections(

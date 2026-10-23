@@ -35,6 +35,7 @@ export type Suggestion = {
   updated_at: string;
 };
 export type Settings = {
+  participant_count?: number;
   site_copy?: Record<string, string>;
   capacity: number;
   exam_date: string | null;
@@ -70,6 +71,8 @@ export type Snapshot = {
 };
 export const koreanDay = (value: Date | string) =>
   new Date(new Date(value).getTime() + 9 * 3600000).toISOString().slice(0, 10);
+export const participantCount = (data: Pick<Snapshot, "students" | "settings">) =>
+  data.settings.participant_count ?? data.students.filter(s => s.active && !s.deleted_at).length;
 export const dayStart = (day: string) => Date.parse(`${day}T00:00:00+09:00`);
 export const csvTime = (value: string | null) =>
   value

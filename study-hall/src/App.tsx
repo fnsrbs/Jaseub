@@ -8,6 +8,7 @@ import type { Html5Qrcode } from "html5-qrcode";
 import { api, mode, supabase } from "./api";
 import {
   attendanceVerdict,
+  participantCount,
   csv,
   csvTime,
   dailyUsage,
@@ -442,7 +443,7 @@ export default function App() {
                       <Metric
                         label="현재 입실 인원"
                         value={`${data.current}`}
-                        unit={`/ ${data.settings.capacity}명`}
+                        unit={`/ ${participantCount(data)}명`}
                         caption="지금 자습실에서 공부하는 학생"
                       />
                     )}
@@ -452,7 +453,7 @@ export default function App() {
                       <Metric
                         label="오늘 출석 인원"
                         value={`${data.today}`}
-                        unit={`/ ${data.settings.capacity}명`}
+                        unit={`/ ${participantCount(data)}명`}
                         caption="오늘 한 번 이상 입실한 학생"
                       />
                     )}
@@ -1223,7 +1224,7 @@ function CurrentStudents({
       <Metric
         label={departedOnly ? "오늘 퇴실 인원" : todayOnly ? "오늘 출석 인원" : "현재 입실 인원"}
         value={String(departedOnly ? students.length : todayOnly ? data.today : data.current)}
-        unit={`/ ${data.settings.capacity}명`}
+        unit={`/ ${participantCount(data)}명`}
         caption="학생 명단 보기 ↗"
         onClick={() => {
           setSearch("");
@@ -3255,9 +3256,8 @@ function SettingsPanel({
           적용합니다.
         </p>
         <p className="muted">
-          전체 학생 인원수를 저장하면 운영현황의 현재 입실·오늘 출석 인원에
-          표시되는 전체 인원(/○명)이 변경됩니다. 활동 학생 수보다 작게 설정할 수
-          없습니다.
+          전체 학생 인원수는 현재 참여 중인 학생 수로 자동 계산됩니다.
+          신규 등록·참여 중단·복구를 반영하면 운영관리와 홈의 전체 인원도 함께 바뀝니다.
         </p>
         <form
           className="form-grid"
@@ -3265,32 +3265,22 @@ function SettingsPanel({
             e.preventDefault();
             setSettingsResult("");
             setSettingsError("");
-            if (settings.capacity < activeCount) {
-              setSettingsError(
-                `활동 학생이 ${activeCount}명이므로 ${activeCount}명 이상으로 입력해 주세요.`,
-              );
-              return;
-            }
             try {
-              await act("settings", settings);
+              await act("settings", { ...settings, capacity: data.settings.capacity });
               setSettingsResult(
-                `전체 학생 인원수 ${settings.capacity}명 저장 완료. 운영현황에 /${settings.capacity}명으로 반영됩니다.`,
+                `운영 설정 저장 완료. 전체 학생 인원수는 현재 참여 중인 ${activeCount}명으로 자동 반영됩니다.`,
               );
             } catch (error) {
               setSettingsError((error as Error).message);
             }
           }}
         >
-          <Field label="전체 학생 인원수">
+          <Field label="전체 학생 인원수 (자동)">
             <input
               type="number"
-              min="1"
-              max="1000"
-              value={settings.capacity}
-              onChange={(e) =>
-                setSettings({ ...settings, capacity: +e.target.value })
-              }
-              required
+              min="0"
+              value={activeCount}
+              readOnly
             />
           </Field>
           <Field label="수능 날짜">
@@ -3307,8 +3297,7 @@ function SettingsPanel({
           </button>
         </form>
         <p className="muted">
-          현재 저장된 전체 학생 인원수: {data.settings.capacity}명 · 활동 학생:{" "}
-          {activeCount}명
+          전체 학생 인원수: {activeCount}명 · 참여 중단·이용 중지·삭제 학생 제외
         </p>
         {settingsError && (
           <p role="alert" className="error-text">
