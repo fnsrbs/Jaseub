@@ -1822,7 +1822,7 @@ function Students({
           onClick={() => {
             if (
               !confirm(
-                "구글 출석부에서 앱에 없는 학생만 추가할까요? 기존 학생 정보와 삭제한 학생은 유지합니다.",
+                "구글 출석부의 신규 학생과 전체 명단의 참여 중단·복구 상태를 가져올까요? 중단된 학생의 좌석을 해제하고 입실 중이면 퇴실 처리합니다. 기존 기록은 보존합니다.",
               )
             )
               return;
@@ -1830,17 +1830,17 @@ function Students({
             void act("roster_import", {})
               .then((r) =>
                 setImportMessage(
-                  `신규 ${r.added}명 추가 · 기존 ${r.skipped}명 유지. 새 학생의 코드는 학생 목록에서 확인하세요.`,
+                  `신규 ${r.added}명 추가 · 참여 중단 ${r.stopped || 0}명 · 중단 해제 ${r.restored || 0}명. 새 학생의 코드는 학생 목록에서 확인하세요. 복구된 학생은 좌석을 다시 배정하세요.`,
                 ),
               )
               .catch(() => {});
           }}
         >
-          구글 출석부에서 새 학생 불러오기
+          구글 명단 불러오기 · 신규·중단·복구
         </button>
         <p>
           최초 연결은 좌석 관리의 구글 시트 연결 설정에서 진행하세요. 새 학생은
-          성별 미확인·좌석 미배정으로 등록됩니다.
+          성별 미확인·좌석 미배정으로 등록됩니다. 각 반 N열의 참여 중단 체크가 전체 명단을 통해 반영됩니다.
         </p>
         {importMessage && <p role="status">{importMessage}</p>}
         <form
@@ -1887,6 +1887,7 @@ function Students({
             <Field label="이용 상태">
               <select
                 value={String(edit.active)}
+                disabled={!!edit.participation_stopped}
                 onChange={(e) =>
                   setEdit({ ...edit, active: e.target.value === "true" })
                 }
@@ -2032,7 +2033,7 @@ function Students({
                     장
                   </a>
                 </td>
-                <td>{s.active ? "이용 가능" : "이용 중지"}</td>
+                <td>{s.participation_stopped ? "참여 중단" : s.active ? "이용 가능" : "이용 중지"}</td>
                 <td>
                   <button
                     onClick={() => {

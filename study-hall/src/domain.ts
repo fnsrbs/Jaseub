@@ -1,5 +1,6 @@
 import { scheduledPeriodCount } from "../supabase/functions/api/attendance-completion";
 export type Student = {
+  participation_stopped?: boolean;
   id: string;
   name: string;
   number: string;

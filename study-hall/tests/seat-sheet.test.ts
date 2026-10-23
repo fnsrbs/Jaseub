@@ -70,6 +70,18 @@ function fixture(failOnce = false) {
         return {
           getSheets: () => [sheet],
           getSheetByName: (name: string) => {
+            if (name === "전체 명단(자동 반영)")
+              return {
+                getMaxRows: () => 10,
+                getRange: (r: number) =>
+                  r === 2
+                    ? { getDisplayValue: () => "참여 중단" }
+                    : {
+                        getValues: () => [
+                          ["30101", ...Array(11).fill(""), false],
+                        ],
+                      },
+              };
             assert.equal(name, "출석부(확정)");
             return {
               getRange: (r: number, c: number, h: number, w: number) => {

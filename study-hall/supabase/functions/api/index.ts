@@ -409,9 +409,10 @@ Deno.serve(async (req) => {
           "roster",
           credentials.spreadsheet_id,
         );
-        const { data, error } = await db.rpc("import_roster_students", {
+        const { data, error } = await db.rpc("sync_roster_participation", {
           p_admin: admin,
           p_students: result.students,
+          p_participation: result.participation,
         });
         if (error) throw Error(error.message);
         return reply(data);

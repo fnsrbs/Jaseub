@@ -91,6 +91,7 @@ export async function callSeatSheet(
     error?: string;
     before?: unknown;
     students?: { number: string; name: string }[];
+    participation?: { number: string; stopped: boolean }[];
     attendance?: boolean;
     supervision?: unknown[][];
     url?: string;
@@ -110,7 +111,8 @@ export async function callSeatSheet(
       : action === "sync"
         ? result.updated !== 72
         : action === "roster"
-          ? !Array.isArray(result.students)
+          ? !Array.isArray(result.students) ||
+            !Array.isArray(result.participation)
           : action === "supervision"
             ? !Array.isArray(result.supervision)
             : typeof result.updated !== "number"

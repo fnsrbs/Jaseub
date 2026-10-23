@@ -48,7 +48,19 @@ function doPost(e) {
         numbers[number] = true; students.push({number:number,name:name});
       });
       if (!students.length) throw new Error("출석부에 학생이 없습니다.");
-      return jaseubJson({ok:true,students:students});
+      var master = SpreadsheetApp.openById(JASEUB_SPREADSHEET).getSheetByName("전체 명단(자동 반영)");
+      if (!master || master.getRange(2,14).getDisplayValue() !== "참여 중단") throw new Error("전체 명단의 참여 중단 열을 확인하세요.");
+      SpreadsheetApp.flush();
+      var masterRows = master.getRange(3,2,Math.min(2400,master.getMaxRows()-2),13).getValues();
+      var participation = [], seenParticipation = {};
+      masterRows.forEach(function(row) {
+        var number = String(row[0] || "").trim(), stopped = row[12];
+        if (!number) return;
+        if (!/^\d{5}$/.test(number) || seenParticipation[number] || typeof stopped !== "boolean") throw new Error("전체 명단의 학번·중복·참여 중단 수식을 확인하세요.");
+        seenParticipation[number] = true; participation.push({number:number,stopped:stopped});
+      });
+      if (!participation.length) throw new Error("전체 명단에 학생이 없습니다.");
+      return jaseubJson({ok:true,students:students,participation:participation});
     }
     var sheet = SpreadsheetApp.openById(JASEUB_SPREADSHEET).getSheets().filter(function(s) { return s.getSheetId() === JASEUB_SEAT_SHEET; })[0];
     if (!sheet) throw new Error("좌석배치 시트를 찾을 수 없습니다.");
