@@ -141,3 +141,13 @@ export function defaultAttendance(
     visits,
   );
 }
+
+export function manualAttendancePreview(
+  entries: AttendanceEntry[],
+): AttendanceEntry[] {
+  return entries.map((entry) =>
+    entry.confirmed
+      ? { ...entry }
+      : { ...entry, status: "present", note: "", exempt_reason: "" },
+  );
+}

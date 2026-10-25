@@ -9,12 +9,25 @@ import {
   periodAt,
   defaultAttendance,
   attendancePreview,
+  manualAttendancePreview,
 } from "../src/period-attendance";
 import {
   attendanceSheetRows,
   shouldSyncAttendance,
   handlePeriodAttendance,
 } from "../supabase/functions/api/period-attendance";
+
+test("자동 퇴실 후 직접 출석체크: 미확인 학생만 출석으로 시작하고 저장한 출결은 보존", () => {
+  const entries = defaultAttendance(["a", "b"].map((id) => ({
+    id, name: id, number: id, seat_id: null, active: true,
+  })), []);
+  entries[1] = { ...entries[1], confirmed: true, status: "excused", note: "병원", exempt_reason: "진료" };
+  const next = manualAttendancePreview(entries);
+  assert.equal(next[0].status, "present");
+  assert.equal(next[0].confirmed, undefined);
+  assert.deepEqual(next[1], entries[1]);
+  assert.equal(entries[0].status, "absent");
+});
 
 test("구글 반영은 모든 교시 확인 완료 후: 마지막 교시 선확인·기존 반영·부분 확인·주말은 전송 보류", async () => {
   const all = (n: number) =>

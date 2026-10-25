@@ -9,6 +9,7 @@ import {
   attendanceLabels,
   attendancePreview,
   defaultAttendance,
+  manualAttendancePreview,
   periodAt,
   periodsForDay,
   periodTimes,
@@ -346,22 +347,26 @@ export function PeriodAttendance({
           <div>
             <h2>출석관리</h2>
             <p>
-              {day === today
-                ? "입실 중인 학생은 출석, 미입실·퇴실 학생은 결석으로 표시됩니다. 확인 후 필요한 출결을 수정하고 저장해 주세요."
-                : "출결을 확인하고 필요한 학생을 수정한 뒤 확인 완료해 주세요."}
+              {!count
+                ? "미운영일로 출석 확인이 필요하지 않습니다."
+                : day === today
+                  ? "입실 중인 학생은 출석, 미입실·퇴실 학생은 결석으로 표시됩니다. 확인 후 필요한 출결을 수정하고 저장해 주세요."
+                  : "출결을 확인하고 필요한 학생을 수정한 뒤 확인 완료해 주세요."}
             </p>
           </div>
           <span
-            className={`attendance-confirmed ${session?.confirmed ? "done" : ""}`}
+            className={`attendance-confirmed ${!count || session?.confirmed ? "done" : ""}`}
           >
-            {session?.confirmed
-              ? "확인 완료"
-              : session?.entries.some((e) => e.confirmed)
-                ? "확인 전 · 일부 학생 저장됨"
-                : day === today
-                  ? "확인 전 · 입실 현황 기준"
-                  : "확인 전"}
-            {dirty ? " · 변경 중" : ""}
+            {!count
+              ? "미운영일"
+              : session?.confirmed
+                ? "확인 완료"
+                : session?.entries.some((e) => e.confirmed)
+                  ? "확인 전 · 일부 학생 저장됨"
+                  : day === today
+                    ? "확인 전 · 입실 현황 기준"
+                    : "확인 전"}
+            {count > 0 && dirty ? " · 변경 중" : ""}
           </span>
         </div>
         <div className="attendance-toolbar">
@@ -397,6 +402,7 @@ export function PeriodAttendance({
               disabled={working || !count}
               onChange={(e) => change(day, Number(e.target.value), false)}
             >
+              {!count && <option value={period}>미운영일 · 출석 확인 없음</option>}
               {periodTimes.slice(0, count).map(([start, end], i) => (
                 <option value={i + 1} key={start}>
                   {i + 1}교시 · {start}~{end}
@@ -441,7 +447,7 @@ export function PeriodAttendance({
           </button>
         </div>
         <p className="muted">
-          {operation?.is_closed
+          {!count
             ? "미운영일"
             : operation
               ? `등록된 운영일 · ${operation.start_time.slice(0, 5)}~${operation.end_time.slice(0, 5)} · 출석 확인 ${count}교시`
@@ -452,7 +458,6 @@ export function PeriodAttendance({
               ? `${clock.label} · 현재 ${clock.period}교시`
               : "교시별 출석 확인 없음"
             : "선택한 날짜의 출석"}
-
         </p>
         {!loading && result?.day === day && count > 0 && (
           <details
@@ -480,7 +485,8 @@ export function PeriodAttendance({
                     : dueCount
                       ? "현재까지 미확인 교시가 없습니다."
                       : "수업 시작 전입니다."}{" "}
-                  {admin && "· 하루 모든 교시를 확인하면 구글 시트에 반영됩니다."}
+                  {admin &&
+                    "· 하루 모든 교시를 확인하면 구글 시트에 반영됩니다."}
                 </p>
                 <div className="actions">
                   {dueMissing.map((n) => (
@@ -502,13 +508,15 @@ export function PeriodAttendance({
                   ? "변경사항을 저장해 주세요."
                   : !admin
                     ? "출결이 저장되었습니다."
-                  : !result.sheet_configured
-                    ? "구글 시트 연결이 필요합니다."
-                    : result.sessions
-                          .filter((s) => s.period >= 1 && s.period <= count)
-                          .every((s) => (s.synced_revision || 0) >= s.revision)
-                      ? "구글 시트 반영 완료"
-                      : "구글 시트 반영을 확인해 주세요."}
+                    : !result.sheet_configured
+                      ? "구글 시트 연결이 필요합니다."
+                      : result.sessions
+                            .filter((s) => s.period >= 1 && s.period <= count)
+                            .every(
+                              (s) => (s.synced_revision || 0) >= s.revision,
+                            )
+                        ? "구글 시트 반영 완료"
+                        : "구글 시트 반영을 확인해 주세요."}
               </p>
             )}
           </details>
@@ -532,10 +540,8 @@ export function PeriodAttendance({
         {!count ? (
           <p className="empty">
             {operation?.is_closed
-              ? "미운영일로 교시별 출석 확인이 필요하지 않습니다."
-              : operation
-                ? `운영 종료 ${operation.end_time.slice(0, 5)} 기준으로 교시별 출석 확인이 필요하지 않은 날입니다.`
-                : "토·일요일은 출석 확인 대상 교시가 없습니다."}
+              ? "운영설정에서 미운영일로 지정한 날짜입니다. 출석 확인이 필요하지 않습니다."
+              : "미운영일로 교시별 출석 확인이 필요하지 않습니다."}
           </p>
         ) : loading ? (
           <p role="status">출석을 불러오는 중입니다…</p>
@@ -581,7 +587,39 @@ export function PeriodAttendance({
                     : "출석 확인 완료"}
               </button>
             </div>
-            {session?.confirmed && !locked && (
+            {!session?.confirmed && editable && (
+              <div className="attendance-completed-banner">
+                <div>
+                  <strong>입실 기록 없이 직접 출석체크</strong>
+                  <p>
+                    자동 퇴실 후에도 미확인 학생을 출석으로 놓고 시작할 수
+                    있습니다. 결석·지각 학생을 수정한 뒤 출석 확인 완료를 눌러
+                    주세요. 이미 저장한 학생의 출결은 유지됩니다.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={working || dirty || !entries.length}
+                  title={
+                    dirty
+                      ? "변경사항을 먼저 저장하거나 다시 조회해 주세요."
+                      : undefined
+                  }
+                  onClick={() => {
+                    setEntries(manualAttendancePreview(entries));
+                    setDirty(true);
+                    setAutomatic(false);
+                    setMessage(
+                      "직접 출석체크 중입니다. 결석·지각 학생을 수정한 뒤 출석 확인 완료를 눌러 주세요.",
+                    );
+                    setError("");
+                  }}
+                >
+                  미확인 학생 출석으로 시작
+                </button>
+              </div>
+            )}
+            {session?.confirmed && (
               <div className="attendance-completed-banner">
                 <strong>{locked ? "✓ 출결 체크 완료" : "출결 수정 중"}</strong>
                 {locked && editable && (
@@ -666,82 +704,96 @@ export function PeriodAttendance({
                 ? "이 교시를 처음 저장했을 때의 학생·좌석 기준입니다."
                 : "아직 저장하지 않은 교시는 현재 이용 가능한 학생 기준입니다."}
             </p>
-            <div className={`attendance-results ${locked ? "is-complete" : ""}`}>
-            {locked && (
-              <div className="attendance-complete-overlay">
-                <div className="attendance-complete-card" role="status">
-                  <span aria-hidden="true">✓</span>
-                  <strong>출결 체크 완료</strong>
-                  <p>{period}교시 출결이 저장되었습니다.</p>
-                  <button type="button" className="primary" disabled={working || !editable} onClick={() => setEditing(true)}>수정하기</button>
-                  {!editable && <p>이 날짜의 출결 수정은 관리자만 가능합니다.</p>}
-                </div>
-              </div>
-            )}
-            {view === "list" || search.trim() ? (
-              <div className="attendance-student-list">
-                {visible.map((e) => seatButton(e, e.seat_id || undefined))}
-                {!visible.length && <p>검색 결과가 없습니다.</p>}
-              </div>
-            ) : (
-              <>
-                <div className="attendance-seat-map">
-                  {[...new Set(data.seats.map((s) => s.row))]
-                    .sort((a, b) => a - b)
-                    .map((row) => (
-                      <div
-                        className={`attendance-seat-row ${row === 5 ? "cross-aisle" : ""}`}
-                        key={row}
-                      >
-                        {data.seats
-                          .filter((s) => s.row === row)
-                          .sort((a, b) => a.col - b.col)
-                          .map((seat) =>
-                            seatButton(
-                              entries.find((e) => e.seat_id === seat.id),
-                              seat.id,
-                              seat.col,
-                            ),
-                          )}
-                      </div>
-                    ))}
-                  <div className="room-front">
-                    <span>출입문</span>
-                    <span>칠판 · 교탁</span>
-                    <span>운동장</span>
+            <div
+              className={`attendance-results ${locked ? "is-complete" : ""}`}
+            >
+              {locked && (
+                <div className="attendance-complete-overlay">
+                  <div className="attendance-complete-card" role="status">
+                    <span aria-hidden="true">✓</span>
+                    <strong>출결 체크 완료</strong>
+                    <p>{period}교시 출결이 저장되었습니다.</p>
+                    <button
+                      type="button"
+                      className="primary"
+                      disabled={working || !editable}
+                      onClick={() => setEditing(true)}
+                    >
+                      수정하기
+                    </button>
+                    {!editable && (
+                      <p>이 날짜의 출결 수정은 관리자만 가능합니다.</p>
+                    )}
                   </div>
                 </div>
-                {entries.some(
-                  (e) =>
-                    e.seat_id === null ||
-                    !data.seats.some((s) => s.id === e.seat_id),
-                ) && (
-                  <>
-                    <h3>좌석 미배정 학생</h3>
-                    <div className="attendance-student-list">
-                      {entries
-                        .filter(
-                          (e) =>
-                            e.seat_id === null ||
-                            !data.seats.some((s) => s.id === e.seat_id),
-                        )
-                        .map((e) => seatButton(e))}
+              )}
+              {view === "list" || search.trim() ? (
+                <div className="attendance-student-list">
+                  {visible.map((e) => seatButton(e, e.seat_id || undefined))}
+                  {!visible.length && <p>검색 결과가 없습니다.</p>}
+                </div>
+              ) : (
+                <>
+                  <div className="attendance-seat-map">
+                    {[...new Set(data.seats.map((s) => s.row))]
+                      .sort((a, b) => a - b)
+                      .map((row) => (
+                        <div
+                          className={`attendance-seat-row ${row === 5 ? "cross-aisle" : ""}`}
+                          key={row}
+                        >
+                          {data.seats
+                            .filter((s) => s.row === row)
+                            .sort((a, b) => a.col - b.col)
+                            .map((seat) =>
+                              seatButton(
+                                entries.find((e) => e.seat_id === seat.id),
+                                seat.id,
+                                seat.col,
+                              ),
+                            )}
+                        </div>
+                      ))}
+                    <div className="room-front">
+                      <span>출입문</span>
+                      <span>칠판 · 교탁</span>
+                      <span>운동장</span>
                     </div>
-                  </>
-                )}
-              </>
-            )}
+                  </div>
+                  {entries.some(
+                    (e) =>
+                      e.seat_id === null ||
+                      !data.seats.some((s) => s.id === e.seat_id),
+                  ) && (
+                    <>
+                      <h3>좌석 미배정 학생</h3>
+                      <div className="attendance-student-list">
+                        {entries
+                          .filter(
+                            (e) =>
+                              e.seat_id === null ||
+                              !data.seats.some((s) => s.id === e.seat_id),
+                          )
+                          .map((e) => seatButton(e))}
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
             </div>
             <div className="actions">
-              {admin && <span className="muted">
-                구글 시트 (월·화 7교시 / 수·목·금 6교시 확인 완료 시 일괄 반영):{" "}
-                {result.sessions.length &&
-                result.sessions.every((s) => s.synced_revision === s.revision)
-                  ? "반영 완료"
-                  : result.sessions.length
-                    ? "반영 대기"
-                    : "저장 후 반영"}
-              </span>}
+              {admin && (
+                <span className="muted">
+                  구글 시트 (월·화 7교시 / 수·목·금 6교시 확인 완료 시 일괄
+                  반영):{" "}
+                  {result.sessions.length &&
+                  result.sessions.every((s) => s.synced_revision === s.revision)
+                    ? "반영 완료"
+                    : result.sessions.length
+                      ? "반영 대기"
+                      : "저장 후 반영"}
+                </span>
+              )}
               {admin && (
                 <>
                   <button
