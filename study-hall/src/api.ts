@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { ReadCache } from "./read-cache";
 const rankingReads = new ReadCache();
 const readActions = new Set([
+  "polls",
   "snapshot",
   "weekly_ranking",
   "public_copy",

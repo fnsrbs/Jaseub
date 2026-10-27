@@ -221,6 +221,80 @@ export async function demoApi(
   const viewer = role === "viewer" && sid === "viewer";
   if (!teacher && !sid)
     throw Error("데모 세션이 만료되었습니다. 다시 로그인하세요.");
+  if (["polls", "poll_create", "poll_vote", "poll_close"].includes(action)) {
+    const polls: any[] = JSON.parse(
+      localStorage.getItem("study-hall-polls") || "[]",
+    );
+    if (action === "poll_create") {
+      if (!teacher) throw Error("관리자만 투표를 만들 수 있습니다.");
+      const title = String(p.title || "").trim();
+      const options = Array.isArray(p.options)
+        ? p.options.map((s: unknown) => (typeof s === "string" ? s.trim() : ""))
+        : [];
+      if (
+        !title ||
+        title.length > 120 ||
+        options.length < 2 ||
+        options.length > 10 ||
+        options.some((s: string) => !s || s.length > 100) ||
+        new Set(options).size !== options.length ||
+        typeof p.anonymous !== "boolean"
+      )
+        throw Error("제목·선택지·공개 방식을 확인하세요.");
+      polls.unshift({
+        id: id(),
+        title,
+        options,
+        anonymous: p.anonymous,
+        closed: false,
+        created_at: now(),
+        votes: [],
+      });
+    } else if (action !== "polls") {
+      const poll = polls.find((x) => x.id === p.id);
+      if (!poll) throw Error("투표를 찾을 수 없습니다.");
+      if (action === "poll_close") {
+        if (!teacher) throw Error("관리자만 마감할 수 있습니다.");
+        poll.closed = true;
+      } else {
+        if (teacher || viewer) throw Error("학생만 참여할 수 있습니다.");
+        if (poll.closed) throw Error("마감된 투표입니다.");
+        if (poll.votes.some((v: any) => v.student_id === sid))
+          throw Error("이미 참여한 투표입니다.");
+        if (
+          !Number.isInteger(p.choice) ||
+          p.choice < 0 ||
+          p.choice >= poll.options.length
+        )
+          throw Error("선택지를 확인하세요.");
+        poll.votes.push({ student_id: sid, choice: p.choice });
+      }
+    }
+    if (action !== "polls") {
+      localStorage.setItem("study-hall-polls", JSON.stringify(polls));
+      return {};
+    }
+    return polls.map(({ votes, ...poll }) => ({
+      ...poll,
+      total: votes.length,
+      counts: poll.options.map(
+        (_: string, i: number) =>
+          votes.filter((v: any) => v.choice === i).length,
+      ),
+      my_choice: votes.find((v: any) => v.student_id === sid)?.choice ?? null,
+      voters:
+        teacher && !poll.anonymous
+          ? votes.map((v: any) => {
+              const s = state.students.find((s) => s.id === v.student_id);
+              return {
+                number: s?.number || "",
+                name: s?.name || "삭제된 학생",
+                choice: v.choice,
+              };
+            })
+          : [],
+    }));
+  }
   if (action === "logout") {
     if (session) sessions.delete(session);
     return {};

@@ -61,6 +61,7 @@ test("교사 뷰어: 코드·조회 범위·쓰기 차단·재발급·로그아�
     await db.exec(migration("_period_attendance.sql"));
     await db.exec(migration("_attendance_summary.sql"));
     await db.exec(migration("_ranking_collections.sql"));
+    await db.exec(migration("_student_polls.sql"));
     await assert.rejects(db.query("select code_digest('AB12')"), /형식/);
     const admin = crypto.randomUUID(),
       outsider = crypto.randomUUID(),

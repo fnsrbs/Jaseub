@@ -591,6 +591,29 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
       }
     }
   });
+  await t.test("투표 RPC는 요청 본문의 위조 신원 대신 검증한 로그인만 사용", async () => {
+    for (const headers of [
+      { "x-student-session": "a".repeat(64) },
+      { "x-teacher-session": "b".repeat(64) },
+      { Authorization: "Bearer verified-teacher" },
+    ] as Record<string, string>[]) {
+      for (const action of ["polls", "poll_create", "poll_vote", "poll_close"]) {
+        const result = await send(action, { p_admin: "forged", p_student_session: "forged" }, headers);
+        assert.equal(result.status, 200);
+        const last = calls.at(-1);
+        assert.equal(last.name, "poll_api");
+        assert.equal(last.args.p_action, action);
+        assert.notEqual(last.args.p_admin, "forged");
+        assert.notEqual(last.args.p_student_session, "forged");
+        if (headers["x-student-session"]) {
+          assert.match(last.args.p_student_session, /^[a-f0-9]{64}$/);
+          assert.notEqual(last.args.p_student_session, headers["x-student-session"]);
+        } else if (headers["x-teacher-session"]) {
+          assert.match(last.args.p_viewer_session, /^[a-f0-9]{64}$/);
+        } else assert.equal(last.args.p_admin, "teacher-id");
+      }
+    }
+  });
   await t.test("Vault 모드에서 비밀키 없이 서버 해시 RPC 사용", async () => {
     const originalGet = globals.Deno.env.get;
     globals.Deno.env.get = (key: string) =>

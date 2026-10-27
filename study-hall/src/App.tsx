@@ -42,6 +42,7 @@ const PeriodAttendance = deferredPanel(() =>
   import("./PeriodAttendance").then((m) => ({ default: m.PeriodAttendance })),
 );
 import { StudentLookup } from "./StudentLookup";
+const Polls = deferredPanel(() => import("./Polls").then(m => ({ default: m.Polls })));
 const Supervision = deferredPanel(() =>
   import("./Supervision").then((m) => ({ default: m.Supervision })),
 );
@@ -372,7 +373,9 @@ export default function App() {
               </p>
               <h1>{menu.find((m) => m[0] === page)?.[2] || "자습실"}</h1>
               <p>
-                {page === "supervision"
+                {page === "polls"
+                  ? "투표에 참여하고 결과를 확인하세요."
+                  : page === "supervision"
                   ? "날짜와 교시별 감독 일정을 확인하세요."
                   : page === "cleaning"
                     ? "청소 날짜와 당번 순서를 확인하세요."
@@ -639,6 +642,7 @@ export default function App() {
                   act={act}
                 />
               )}
+              {page === "polls" && <Polls role={role} token={token} />}
               {page === "cleaning" && (
                 <Cleaning role={role} token={token} data={data} act={act} />
               )}

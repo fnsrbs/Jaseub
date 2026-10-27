@@ -2197,3 +2197,36 @@ blockquote {
 .roster-import-result { width: min(720px, 100%); }
 .roster-import-result td small { display: block; margin-top: 4px; }
 .roster-import-result > button { margin-top: 16px; }
+
+.polls {
+  display: grid;
+  gap: 1rem;
+}
+.polls .panel {
+  padding: 1.25rem;
+}
+.polls fieldset {
+  border: 0;
+  padding: 0;
+  margin: 1rem 0;
+  min-width: 0;
+}
+.poll-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem;
+  border-bottom: 1px solid var(--line, #ddd);
+  overflow-wrap: anywhere;
+}
+.poll-option input {
+  width: auto;
+  flex-shrink: 0;
+}
+.poll-option span:last-child {
+  margin-left: auto;
+  white-space: nowrap;
+}
+.polls details {
+  margin-top: 1rem;
+}
