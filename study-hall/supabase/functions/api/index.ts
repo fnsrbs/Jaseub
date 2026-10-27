@@ -147,7 +147,7 @@ Deno.serve(async (req) => {
     if (viewerToken) {
       if (!/^[a-f0-9]{64}$/.test(viewerToken)) throw Error("교사 세션 오류");
       if (
-        ["polls", "poll_create", "poll_vote", "poll_close"].includes(action)
+        ["polls", "poll_create", "poll_update", "poll_vote", "poll_close"].includes(action)
       ) {
         const { data, error } = await db.rpc("poll_api", {
           p_action: action,
@@ -275,7 +275,7 @@ Deno.serve(async (req) => {
         return reply({ error: "인증이 만료되었습니다." }, 401);
       admin = data.user.id;
     }
-    if (["polls", "poll_create", "poll_vote", "poll_close"].includes(action)) {
+    if (["polls", "poll_create", "poll_update", "poll_vote", "poll_close"].includes(action)) {
       const { data, error } = await db.rpc("poll_api", {
         p_action: action,
         p_payload: payload,

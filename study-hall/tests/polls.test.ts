@@ -21,11 +21,28 @@ test("투표 DB: 인증·중복·익명·기명·마감·직접 접근 차단", 
       insert into teacher_viewer_code values(true,1);
       insert into teacher_viewer_sessions values(1,'viewer',now()+interval '1 hour');
     `);
-    await db.exec(await readFile(new URL("../supabase/migrations/20261015115424_role_menu_order.sql", import.meta.url), "utf8"));
+    await db.exec(
+      await readFile(
+        new URL(
+          "../supabase/migrations/20261015115424_role_menu_order.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
     await db.exec(
       await readFile(
         new URL(
           "../supabase/migrations/20261027055250_student_polls.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    await db.exec(
+      await readFile(
+        new URL(
+          "../supabase/migrations/20261027060816_poll_results_after_close.sql",
           import.meta.url,
         ),
         "utf8",
@@ -81,13 +98,47 @@ test("투표 DB: 인증·중복·익명·기명·마감·직접 접근 차단", 
     assert.deepEqual((await call("polls"))[0].voters, []);
     poll = (await call("polls", {}, null, "10101"))[0];
     assert.equal(poll.my_choice, 0);
-    assert.deepEqual(poll.counts, [1, 0]);
+    assert.equal(poll.counts, null);
+    assert.equal(poll.total, null);
+    const original = (await call("polls"))[0];
+    assert.deepEqual(original.counts, [1, 0]);
+    const update = {
+      id: original.id,
+      title: "자리 변경할까요?",
+      options: original.options,
+      anonymous: original.anonymous,
+      expected_title: original.title,
+      expected_options: original.options,
+    };
+    await assert.rejects(call("poll_update", update, null, "10101"), /관리자/);
+    await assert.rejects(
+      call("poll_update", { ...update, options: ["새 찬성", "반대"] }),
+      /제목만/,
+    );
+    await assert.rejects(
+      call("poll_update", { ...update, anonymous: false }),
+      /공개 방식/,
+    );
+    await call("poll_update", update);
+    await assert.rejects(call("poll_update", update), /다른 변경/);
+    assert.equal((await call("polls"))[0].title, update.title);
+    const viewerPoll = (await call("polls", {}, null, null, "viewer"))[0];
+    assert.equal(viewerPoll.counts, null);
+    assert.equal(viewerPoll.total, null);
     assert.equal((await call("polls", {}, null, "10102"))[0].my_choice, null);
     await assert.rejects(
       call("poll_close", { id: poll.id }, null, "10101"),
       /관리자/,
     );
     await call("poll_close", { id: poll.id });
+    for (const result of [
+      await call("polls", {}, null, "10101"),
+      await call("polls", {}, null, "10102"),
+      await call("polls", {}, null, null, "viewer"),
+    ]) {
+      assert.deepEqual(result[0].counts, [1, 0]);
+      assert.equal(result[0].total, 1);
+    }
     await assert.rejects(
       call("poll_vote", { id: poll.id, choice: 1 }, null, "10102"),
       /마감/,
@@ -98,6 +149,14 @@ test("투표 DB: 인증·중복·익명·기명·마감·직접 접근 차단", 
       anonymous: false,
     });
     const named = (await call("polls")).find((p: any) => !p.anonymous);
+    await call("poll_update", {
+      id: named.id,
+      title: named.title,
+      options: ["선택 A", "선택 B", "선택 C"],
+      anonymous: false,
+      expected_title: named.title,
+      expected_options: named.options,
+    });
     await call("poll_vote", { id: named.id, choice: 1 }, null, "10102");
     assert.deepEqual(
       (await call("polls")).find((p: any) => p.id === named.id).voters,

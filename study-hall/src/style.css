@@ -2223,7 +2223,7 @@ blockquote {
   width: auto;
   flex-shrink: 0;
 }
-.poll-option span:last-child {
+.poll-option .poll-result {
   margin-left: auto;
   white-space: nowrap;
 }

@@ -597,7 +597,7 @@ test("Edge HTTP 인증·허용 origin·형식·해시·서버 신원 선택", as
       { "x-teacher-session": "b".repeat(64) },
       { Authorization: "Bearer verified-teacher" },
     ] as Record<string, string>[]) {
-      for (const action of ["polls", "poll_create", "poll_vote", "poll_close"]) {
+      for (const action of ["polls", "poll_create", "poll_update", "poll_vote", "poll_close"]) {
         const result = await send(action, { p_admin: "forged", p_student_session: "forged" }, headers);
         assert.equal(result.status, 200);
         const last = calls.at(-1);

@@ -221,11 +221,11 @@ export async function demoApi(
   const viewer = role === "viewer" && sid === "viewer";
   if (!teacher && !sid)
     throw Error("데모 세션이 만료되었습니다. 다시 로그인하세요.");
-  if (["polls", "poll_create", "poll_vote", "poll_close"].includes(action)) {
+  if (["polls", "poll_create", "poll_update", "poll_vote", "poll_close"].includes(action)) {
     const polls: any[] = JSON.parse(
       localStorage.getItem("study-hall-polls") || "[]",
     );
-    if (action === "poll_create") {
+    if (action === "poll_create" || action === "poll_update") {
       if (!teacher) throw Error("관리자만 투표를 만들 수 있습니다.");
       const title = String(p.title || "").trim();
       const options = Array.isArray(p.options)
@@ -241,7 +241,14 @@ export async function demoApi(
         typeof p.anonymous !== "boolean"
       )
         throw Error("제목·선택지·공개 방식을 확인하세요.");
-      polls.unshift({
+      if (action === "poll_update") {
+        const poll = polls.find(x => x.id === p.id);
+        if (!poll) throw Error("투표를 찾을 수 없습니다.");
+        if (poll.anonymous !== p.anonymous) throw Error("공개 방식은 변경할 수 없습니다.");
+        if (poll.votes.length && JSON.stringify(poll.options) !== JSON.stringify(options)) throw Error("참여자가 있는 투표는 제목만 수정할 수 있습니다.");
+        if (poll.title !== p.expected_title || JSON.stringify(poll.options) !== JSON.stringify(p.expected_options)) throw Error("다른 변경이 있습니다. 새로고침 후 다시 수정하세요.");
+        poll.title = title; poll.options = options;
+      } else polls.unshift({
         id: id(),
         title,
         options,
@@ -276,11 +283,11 @@ export async function demoApi(
     }
     return polls.map(({ votes, ...poll }) => ({
       ...poll,
-      total: votes.length,
-      counts: poll.options.map(
+      total: teacher || poll.closed ? votes.length : null,
+      counts: teacher || poll.closed ? poll.options.map(
         (_: string, i: number) =>
           votes.filter((v: any) => v.choice === i).length,
-      ),
+      ) : null,
       my_choice: votes.find((v: any) => v.student_id === sid)?.choice ?? null,
       voters:
         teacher && !poll.anonymous

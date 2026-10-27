@@ -9,8 +9,8 @@ export type Poll = {
   anonymous: boolean;
   closed: boolean;
   created_at: string;
-  counts: number[];
-  total: number;
+  counts: number[] | null;
+  total: number | null;
   my_choice: number | null;
   voters: { number: string; name: string; choice: number }[];
 };
@@ -31,6 +31,9 @@ export function Polls({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [editing, setEditing] = useState<Poll | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editOptions, setEditOptions] = useState("");
   useEffect(() => {
     let alive = true;
     const stop = pollWhileVisible(async () => {
@@ -60,12 +63,15 @@ export function Polls({
       await api(action, payload, role, token);
       setPolls(await api("polls", {}, role, token));
       if (action === "poll_create") setTitle("");
+      if (action === "poll_update") setEditing(null);
       setMessage(
         action === "poll_vote"
           ? "투표에 참여했습니다."
-          : action === "poll_close"
-            ? "투표를 마감했습니다."
-            : "투표를 만들었습니다.",
+          : action === "poll_update"
+            ? "투표를 수정했습니다."
+            : action === "poll_close"
+              ? "투표를 마감했습니다."
+              : "투표를 만들었습니다.",
       );
     } catch (e) {
       setError((e as Error).message);
@@ -150,9 +156,79 @@ export function Polls({
         <section className="panel" key={p.id}>
           <h2>{p.title}</h2>
           <p className="muted">
-            {p.closed ? "마감" : "진행 중"} · {p.anonymous ? "익명" : "기명"} ·{" "}
-            {p.total}명 참여
+            {p.closed ? "마감" : "진행 중"} · {p.anonymous ? "익명" : "기명"}
+            {(role === "teacher" || p.closed) && p.total !== null && (
+              <> · {p.total}명 참여</>
+            )}
           </p>
+          {role !== "teacher" && !p.closed && (
+            <p className="muted">투표 결과는 마감 후 공개됩니다.</p>
+          )}
+          {role === "teacher" &&
+            (editing?.id === p.id ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void submit("poll_update", {
+                    id: p.id,
+                    title: editTitle,
+                    options: editOptions
+                      .split("\n")
+                      .map((s) => s.trim())
+                      .filter(Boolean),
+                    anonymous: p.anonymous,
+                    expected_title: editing.title,
+                    expected_options: editing.options,
+                  });
+                }}
+              >
+                <label className="field">
+                  <span>투표 제목</span>
+                  <input
+                    required
+                    maxLength={120}
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                  />
+                </label>
+                <label className="field">
+                  <span>선택지 · 한 줄에 하나</span>
+                  <textarea
+                    required
+                    rows={4}
+                    maxLength={1010}
+                    disabled={p.total !== 0}
+                    value={editOptions}
+                    onChange={(e) => setEditOptions(e.target.value)}
+                  />
+                </label>
+                <p className="muted">
+                  참여자가 있는 투표는 제목만 수정할 수 있습니다. 익명·기명
+                  설정은 변경할 수 없습니다.
+                </p>
+                <button disabled={busy} type="submit">
+                  수정 저장
+                </button>{" "}
+                <button
+                  disabled={busy}
+                  type="button"
+                  onClick={() => setEditing(null)}
+                >
+                  취소
+                </button>
+              </form>
+            ) : (
+              <button
+                disabled={busy}
+                onClick={() => {
+                  setEditing(p);
+                  setEditTitle(p.title);
+                  setEditOptions(p.options.join("\n"));
+                }}
+              >
+                투표 수정
+              </button>
+            ))}
           <p>
             {p.anonymous
               ? "응답자 이름은 공개되지 않습니다."
@@ -179,10 +255,12 @@ export function Polls({
                   {label}
                   {p.my_choice === i ? " · 내 선택" : ""}
                 </span>
-                <span>
-                  {p.counts[i]}표 (
-                  {p.total ? Math.round((p.counts[i] / p.total) * 100) : 0}%)
-                </span>
+                {(role === "teacher" || p.closed) && p.counts !== null && (
+                  <span className="poll-result">
+                    {p.counts[i]}표 (
+                    {p.total ? Math.round((p.counts[i] / p.total) * 100) : 0}%)
+                  </span>
+                )}
               </label>
             ))}
           </fieldset>
