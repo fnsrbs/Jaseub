@@ -283,8 +283,8 @@ export async function demoApi(
     }
     return polls.map(({ votes, ...poll }) => ({
       ...poll,
-      total: teacher || poll.closed ? votes.length : null,
-      counts: teacher || poll.closed ? poll.options.map(
+      total: teacher || viewer || poll.closed ? votes.length : null,
+      counts: teacher || viewer || poll.closed ? poll.options.map(
         (_: string, i: number) =>
           votes.filter((v: any) => v.choice === i).length,
       ) : null,

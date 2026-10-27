@@ -157,11 +157,11 @@ export function Polls({
           <h2>{p.title}</h2>
           <p className="muted">
             {p.closed ? "마감" : "진행 중"} · {p.anonymous ? "익명" : "기명"}
-            {(role === "teacher" || p.closed) && p.total !== null && (
+            {(role !== "student" || p.closed) && p.total !== null && (
               <> · {p.total}명 참여</>
             )}
           </p>
-          {role !== "teacher" && !p.closed && (
+          {role === "student" && !p.closed && (
             <p className="muted">투표 결과는 마감 후 공개됩니다.</p>
           )}
           {role === "teacher" &&
@@ -255,7 +255,7 @@ export function Polls({
                   {label}
                   {p.my_choice === i ? " · 내 선택" : ""}
                 </span>
-                {(role === "teacher" || p.closed) && p.counts !== null && (
+                {(role !== "student" || p.closed) && p.counts !== null && (
                   <span className="poll-result">
                     {p.counts[i]}표 (
                     {p.total ? Math.round((p.counts[i] / p.total) * 100) : 0}%)

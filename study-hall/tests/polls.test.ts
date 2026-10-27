@@ -48,6 +48,7 @@ test("투표 DB: 인증·중복·익명·기명·마감·직접 접근 차단", 
         "utf8",
       ),
     );
+    await db.exec(await readFile(new URL("../supabase/migrations/20261027061351_teacher_live_poll_results.sql", import.meta.url), "utf8"));
     const admin = "00000000-0000-0000-0000-000000000001";
     const call = async (
       action: string,
@@ -123,8 +124,12 @@ test("투표 DB: 인증·중복·익명·기명·마감·직접 접근 차단", 
     await assert.rejects(call("poll_update", update), /다른 변경/);
     assert.equal((await call("polls"))[0].title, update.title);
     const viewerPoll = (await call("polls", {}, null, null, "viewer"))[0];
-    assert.equal(viewerPoll.counts, null);
-    assert.equal(viewerPoll.total, null);
+    assert.deepEqual(viewerPoll.counts, [1, 0]);
+    assert.equal(viewerPoll.total, 1);
+    assert.deepEqual(viewerPoll.voters, []);
+    await assert.rejects(call("polls", {}, null, null, "invalid-viewer"), /로그인/);
+    await assert.rejects(call("poll_update", update, null, null, "viewer"), /관리자/);
+    await assert.rejects(call("poll_close", { id: poll.id }, null, null, "viewer"), /관리자/);
     assert.equal((await call("polls", {}, null, "10102"))[0].my_choice, null);
     await assert.rejects(
       call("poll_close", { id: poll.id }, null, "10101"),
@@ -167,6 +172,8 @@ test("투표 DB: 인증·중복·익명·기명·마감·직접 접근 차단", 
       await call("polls", {}, null, null, "viewer"),
     ])
       assert.deepEqual(result.find((p: any) => p.id === named.id).voters, []);
+    await db.exec("update teacher_viewer_code set version=2");
+    await assert.rejects(call("polls", {}, null, null, "viewer"), /로그인/);
     await db.exec("update student_codes set version=2");
     await assert.rejects(call("polls", {}, null, "10101"), /로그인/);
     await db.exec("set role anon");
