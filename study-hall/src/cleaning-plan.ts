@@ -27,7 +27,7 @@ export function cleaningPlan(
   )
     throw Error("시작일을 확인하세요.");
   const members = students
-    .filter((s) => s.active && !s.deleted_at)
+    .filter((s) => s.active && !s.deleted_at && !s.participation_stopped)
     .sort(
       (a, b) =>
         a.number.localeCompare(b.number, "ko", { numeric: true }) ||

@@ -1,5 +1,8 @@
 import { ManualAttendance } from "./ManualAttendance";
-import { RosterImportResult, type RosterImportSummary } from "./RosterImportResult";
+import {
+  RosterImportResult,
+  type RosterImportSummary,
+} from "./RosterImportResult";
 import { AttendanceSummary } from "./AttendanceSummary";
 import { CheckoutGuide, CameraGuide } from "./AttendanceGuide";
 import { pollWhileVisible } from "./visible-polling";
@@ -42,7 +45,9 @@ const PeriodAttendance = deferredPanel(() =>
   import("./PeriodAttendance").then((m) => ({ default: m.PeriodAttendance })),
 );
 import { StudentLookup } from "./StudentLookup";
-const Polls = deferredPanel(() => import("./Polls").then(m => ({ default: m.Polls })));
+const Polls = deferredPanel(() =>
+  import("./Polls").then((m) => ({ default: m.Polls })),
+);
 const Supervision = deferredPanel(() =>
   import("./Supervision").then((m) => ({ default: m.Supervision })),
 );
@@ -376,16 +381,16 @@ export default function App() {
                 {page === "polls"
                   ? "투표에 참여하고 결과를 확인하세요."
                   : page === "supervision"
-                  ? "날짜와 교시별 감독 일정을 확인하세요."
-                  : page === "cleaning"
-                    ? "청소 날짜와 당번 순서를 확인하세요."
-                    : page === "warnings"
-                      ? teacher
-                        ? "학생별 경고 내역을 확인하고 자습실 이용 규칙을 안내해 주세요."
-                        : "경고 사유와 누적 횟수를 확인하고 자습실 이용 규칙을 지켜 주세요."
-                      : teacher
-                        ? "오늘의 학습 공간을 한눈에 살펴보세요."
-                        : "오늘도 나만의 속도로 한 걸음 나아가요."}
+                    ? "날짜와 교시별 감독 일정을 확인하세요."
+                    : page === "cleaning"
+                      ? "청소 날짜와 당번 순서를 확인하세요."
+                      : page === "warnings"
+                        ? teacher
+                          ? "학생별 경고 내역을 확인하고 자습실 이용 규칙을 안내해 주세요."
+                          : "경고 사유와 누적 횟수를 확인하고 자습실 이용 규칙을 지켜 주세요."
+                        : teacher
+                          ? "오늘의 학습 공간을 한눈에 살펴보세요."
+                          : "오늘도 나만의 속도로 한 걸음 나아가요."}
               </p>
             </div>
             <div className="exam">
@@ -441,7 +446,10 @@ export default function App() {
                     className={teacher ? "metrics" : "metrics student-metrics"}
                   >
                     {teacher ? (
-                      <CurrentStudents onStudent={setDetailStudent} data={data} />
+                      <CurrentStudents
+                        onStudent={setDetailStudent}
+                        data={data}
+                      />
                     ) : (
                       <Metric
                         label="현재 입실 인원"
@@ -451,7 +459,11 @@ export default function App() {
                       />
                     )}
                     {teacher ? (
-                      <CurrentStudents onStudent={setDetailStudent} data={data} todayOnly />
+                      <CurrentStudents
+                        onStudent={setDetailStudent}
+                        data={data}
+                        todayOnly
+                      />
                     ) : (
                       <Metric
                         label="오늘 출석 인원"
@@ -460,12 +472,20 @@ export default function App() {
                         caption="오늘 한 번 이상 입실한 학생"
                       />
                     )}
-                    {teacher ? <CurrentStudents onStudent={setDetailStudent} data={data} departedOnly /> : <Metric
-                      label="나의 배정 좌석"
-                      value={String(me?.seat_id || "미배정")}
-                      unit="번"
-                      caption="고정 좌석 · 좌석 배치도에서 확인"
-                    />}
+                    {teacher ? (
+                      <CurrentStudents
+                        onStudent={setDetailStudent}
+                        data={data}
+                        departedOnly
+                      />
+                    ) : (
+                      <Metric
+                        label="나의 배정 좌석"
+                        value={String(me?.seat_id || "미배정")}
+                        unit="번"
+                        caption="고정 좌석 · 좌석 배치도에서 확인"
+                      />
+                    )}
                     {!teacher && (
                       <Metric
                         label="누적 경고카드"
@@ -509,9 +529,20 @@ export default function App() {
                           data={data}
                           renderDetails={(s) => (
                             <>
-                              <AttendanceSummary students={data.students} studentId={s.id} />
-                              <StudentWarningIssue student={s} busy={busy} act={act} />
-                              <Stats data={data} studentId={s.id} now={currentNow} />
+                              <AttendanceSummary
+                                students={data.students}
+                                studentId={s.id}
+                              />
+                              <StudentWarningIssue
+                                student={s}
+                                busy={busy}
+                                act={act}
+                              />
+                              <Stats
+                                data={data}
+                                studentId={s.id}
+                                now={currentNow}
+                              />
                             </>
                           )}
                         />
@@ -678,8 +709,12 @@ export default function App() {
               )}
               {page === "students" && admin && (
                 <>
-                  <AttendanceSummary students={data.students} />
-                  <Students data={data} act={act} busy={busy} onStudent={setDetailStudent} />
+                  <Students
+                    data={data}
+                    act={act}
+                    busy={busy}
+                    onStudent={setDetailStudent}
+                  />
                 </>
               )}
               {page === "warnings" && (
@@ -1206,7 +1241,10 @@ function CurrentStudents({
   );
   const students = data.students
     .filter((student) =>
-      todayOnly ? todayIds.has(student.id) && (!departedOnly || !currentIds.has(student.id)) : !student.deleted_at,
+      todayOnly
+        ? todayIds.has(student.id) &&
+          (!departedOnly || !currentIds.has(student.id))
+        : !student.deleted_at,
     )
     .sort(
       (a, b) =>
@@ -1226,8 +1264,20 @@ function CurrentStudents({
   return (
     <>
       <Metric
-        label={departedOnly ? "오늘 퇴실 인원" : todayOnly ? "오늘 출석 인원" : "현재 입실 인원"}
-        value={String(departedOnly ? students.length : todayOnly ? data.today : data.current)}
+        label={
+          departedOnly
+            ? "오늘 퇴실 인원"
+            : todayOnly
+              ? "오늘 출석 인원"
+              : "현재 입실 인원"
+        }
+        value={String(
+          departedOnly
+            ? students.length
+            : todayOnly
+              ? data.today
+              : data.current,
+        )}
         unit={`/ ${participantCount(data)}명`}
         caption="학생 명단 보기 ↗"
         onClick={() => {
@@ -1240,7 +1290,11 @@ function CurrentStudents({
         ref={dialog}
         className="current-students"
         aria-labelledby={
-          departedOnly ? "departed-students-title" : todayOnly ? "today-students-title" : "current-students-title"
+          departedOnly
+            ? "departed-students-title"
+            : todayOnly
+              ? "today-students-title"
+              : "current-students-title"
         }
         onClick={(event) => {
           if (event.target === event.currentTarget) {
@@ -1258,17 +1312,33 @@ function CurrentStudents({
         <div className="current-students-head">
           <div>
             <h2
-              id={departedOnly ? "departed-students-title" : todayOnly ? "today-students-title" : "current-students-title"}
+              id={
+                departedOnly
+                  ? "departed-students-title"
+                  : todayOnly
+                    ? "today-students-title"
+                    : "current-students-title"
+              }
             >
-              {departedOnly ? "오늘 퇴실 학생 명단" : todayOnly ? "오늘 출석 학생 명단" : "학생 입실 현황"}{" "}
+              {departedOnly
+                ? "오늘 퇴실 학생 명단"
+                : todayOnly
+                  ? "오늘 출석 학생 명단"
+                  : "학생 입실 현황"}{" "}
               <span>
-                {departedOnly ? `${students.length}명 퇴실` : todayOnly ? `${students.length}명 출석` : `${inside}명 입실`}
+                {departedOnly
+                  ? `${students.length}명 퇴실`
+                  : todayOnly
+                    ? `${students.length}명 출석`
+                    : `${inside}명 입실`}
               </span>
             </h2>
             <p>
-              {departedOnly ? "오늘 입실한 학생 중 현재 퇴실 상태인 학생 · 학번순" : todayOnly
-                ? "오늘 한 번 이상 입실한 학생 · 학번순"
-                : "학번순 · 미입실은 현재 자습실에 없는 학생입니다."}
+              {departedOnly
+                ? "오늘 입실한 학생 중 현재 퇴실 상태인 학생 · 학번순"
+                : todayOnly
+                  ? "오늘 한 번 이상 입실한 학생 · 학번순"
+                  : "학번순 · 미입실은 현재 자습실에 없는 학생입니다."}
             </p>
           </div>
           <button
@@ -1276,7 +1346,11 @@ function CurrentStudents({
             onClick={() => dialog.current?.close()}
             autoFocus
             aria-label={
-              departedOnly ? "오늘 퇴실 명단 닫기" : todayOnly ? "오늘 출석 명단 닫기" : "입실 학생 명단 닫기"
+              departedOnly
+                ? "오늘 퇴실 명단 닫기"
+                : todayOnly
+                  ? "오늘 출석 명단 닫기"
+                  : "입실 학생 명단 닫기"
             }
           >
             닫기
@@ -1334,7 +1408,15 @@ function CurrentStudents({
                 {visible.map((student) => (
                   <tr key={student.id}>
                     <td>{student.number}</td>
-                    <td><button type="button" aria-label={`${student.number} ${student.name} 학생 상세보기`} onClick={() => onStudent(student.id)}>{student.name} · 상세 보기</button></td>
+                    <td>
+                      <button
+                        type="button"
+                        aria-label={`${student.number} ${student.name} 학생 상세보기`}
+                        onClick={() => onStudent(student.id)}
+                      >
+                        {student.name} · 상세 보기
+                      </button>
+                    </td>
                     <td>
                       {student.seat_id ? `${student.seat_id}번` : "미배정"}
                     </td>
@@ -1357,13 +1439,15 @@ function CurrentStudents({
             <p className="empty">
               {search.trim()
                 ? "검색 결과가 없습니다."
-                : departedOnly ? "오늘 퇴실한 학생이 없습니다." : todayOnly
-                  ? "오늘 입실한 학생이 없습니다."
-                  : status === "in"
-                    ? "현재 입실한 학생이 없습니다."
-                    : status === "out"
-                      ? "미입실 학생이 없습니다."
-                      : "등록된 학생이 없습니다."}
+                : departedOnly
+                  ? "오늘 퇴실한 학생이 없습니다."
+                  : todayOnly
+                    ? "오늘 입실한 학생이 없습니다."
+                    : status === "in"
+                      ? "현재 입실한 학생이 없습니다."
+                      : status === "out"
+                        ? "미입실 학생이 없습니다."
+                        : "등록된 학생이 없습니다."}
             </p>
           )}
         </div>
@@ -1767,13 +1851,17 @@ function Students({
   act: (a: string, p: any) => Promise<any>;
   busy: boolean;
 }) {
+  const [tool, setTool] = useState<"add" | "sync" | null>(null);
+  const [statusFilter, setStatusFilter] = useState("all");
   const [sortOrder, setSortOrder] = useState("number-asc");
   const [search, setSearch] = useState(""),
     [edit, setEdit] = useState<Partial<Student>>({ name: "", number: "" }),
     [code, setCode] = useState("");
   const [codeOwner, setCodeOwner] = useState("");
   const [importMessage, setImportMessage] = useState("");
-  const [importResult, setImportResult] = useState<RosterImportSummary | null>(null);
+  const [importResult, setImportResult] = useState<RosterImportSummary | null>(
+    null,
+  );
   const importButton = useRef<HTMLButtonElement>(null);
   const [genderFilter, setGenderFilter] = useState("all"),
     [picked, setPicked] = useState<string[]>([]),
@@ -1782,6 +1870,12 @@ function Students({
     .filter(
       (s) =>
         !s.deleted_at &&
+        (statusFilter === "all" ||
+          (statusFilter === "stopped"
+            ? s.participation_stopped
+            : statusFilter === "active"
+              ? s.active && !s.participation_stopped
+              : !s.active && !s.participation_stopped)) &&
         `${s.name} ${s.number}`.includes(search) &&
         (genderFilter === "all" || (s.gender || "unknown") === genderFilter),
     )
@@ -1822,106 +1916,157 @@ function Students({
           caption="이용이 중지된 학생"
         />
       </div>
-      <div className="panel">
-        <h2>{edit.id ? "학생 정보 수정" : "학생 등록"}</h2>
-        <button
-          type="button"
-          ref={importButton}
-          disabled={busy}
-          onClick={() => {
-            if (
-              !confirm(
-                "구글 출석부의 신규 학생과 전체 명단의 참여 중단·복구 상태를 가져올까요? 중단된 학생의 좌석을 해제하고 입실 중이면 퇴실 처리합니다. 기존 기록은 보존합니다.",
-              )
-            )
-              return;
-            setImportMessage("");
-            void act("roster_import", {})
-              .then((r) => {
-                setImportResult(r);
-                setImportMessage(
-                  `신규 ${r.added}명 추가 · 참여 중단 ${r.stopped || 0}명 · 중단 해제 ${r.restored || 0}명. 새 학생의 코드는 학생 목록에서 확인하세요. 복구된 학생은 좌석을 다시 배정하세요.`,
-                );
-              })
-              .catch(() => {});
-          }}
-        >
-          구글 명단 불러오기 · 신규·중단·복구
-        </button>
-        <p>
-          최초 연결은 좌석 관리의 구글 시트 연결 설정에서 진행하세요. 새 학생은
-          성별 미확인·좌석 미배정으로 등록됩니다. 각 반 N열의 참여 중단 체크가 전체 명단을 통해 반영됩니다.
-        </p>
-        {importMessage && <p role="status">{importMessage}</p>}
-        {importResult && <RosterImportResult result={importResult} onClose={() => {
-          setImportResult(null);
-          importButton.current?.focus();
-        }} />}
-        <form
-          className="form-grid"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void act("student", edit)
-              .then(() => setEdit({ name: "", number: "" }))
-              .catch(() => {});
-          }}
-        >
-          <Field label="이름">
-            <input
-              required
-              maxLength={80}
-              value={edit.name}
-              onChange={(e) => setEdit({ ...edit, name: e.target.value })}
-            />
-          </Field>
-          <Field label="학번">
-            <input
-              required
-              maxLength={40}
-              value={edit.number}
-              onChange={(e) => setEdit({ ...edit, number: e.target.value })}
-            />
-          </Field>
-          <Field label="성별">
-            <select
-              value={edit.gender || "unknown"}
-              onChange={(e) =>
-                setEdit({
-                  ...edit,
-                  gender: e.target.value as Student["gender"],
-                })
-              }
-            >
-              <option value="unknown">미확인</option>
-              <option value="male">남자</option>
-              <option value="female">여자</option>
-            </select>
-          </Field>
-          {edit.id && (
-            <Field label="이용 상태">
-              <select
-                value={String(edit.active)}
-                disabled={!!edit.participation_stopped}
-                onChange={(e) =>
-                  setEdit({ ...edit, active: e.target.value === "true" })
-                }
-              >
-                <option value="true">이용 가능</option>
-                <option value="false">이용 중지</option>
-              </select>
-            </Field>
-          )}
-          <button disabled={busy} className="primary">
-            저장
-          </button>
+      <div className="panel student-toolbar">
+        <div>
+          <h2>학생 명단</h2>
+          <p>
+            학생 추가와 구글 명단 매칭을 관리합니다. 출석 확인·수정은{" "}
+            <a href="#attendance">출석 관리</a>에서 하세요.
+          </p>
+        </div>
+        <div className="actions">
           <button
-            type="button"
-            onClick={() => setEdit({ name: "", number: "" })}
+            className="primary"
+            onClick={() => {
+              setEdit({ name: "", number: "" });
+              setTool("add");
+            }}
           >
-            새 학생
+            + 학생 추가
           </button>
-        </form>
+          <button onClick={() => setTool(tool === "sync" ? null : "sync")}>
+            구글 명단 매칭
+          </button>
+        </div>
       </div>
+      {tool && (
+        <div className="panel">
+          <div className="student-toolbar">
+            <h2>
+              {tool === "sync"
+                ? "구글 명단 매칭"
+                : edit.id
+                  ? "학생 정보 수정"
+                  : "새 학생 추가"}
+            </h2>
+            <button onClick={() => setTool(null)}>닫기</button>
+          </div>
+          {tool === "sync" && (
+            <>
+              <button
+                type="button"
+                ref={importButton}
+                disabled={busy}
+                onClick={() => {
+                  if (
+                    !confirm(
+                      "구글 출석부의 신규 학생과 전체 명단의 참여 중단·복구 상태를 가져올까요? 중단된 학생의 좌석을 해제하고 입실 중이면 퇴실 처리합니다. 기존 기록은 보존합니다.",
+                    )
+                  )
+                    return;
+                  setImportMessage("");
+                  void act("roster_import", {})
+                    .then((r) => {
+                      setImportResult(r);
+                      setImportMessage(
+                        `신규 ${r.added}명 추가 · 참여 중단 ${r.stopped || 0}명 · 중단 해제 ${r.restored || 0}명. 새 학생의 코드는 학생 목록에서 확인하세요. 복구된 학생은 좌석을 다시 배정하세요.`,
+                      );
+                    })
+                    .catch(() => {});
+                }}
+              >
+                구글 명단 불러와 반영
+              </button>
+              <p>
+                최초 연결은 좌석 관리의 구글 시트 연결 설정에서 진행하세요. 새
+                학생은 성별 미확인·좌석 미배정으로 등록됩니다. 각 반 N열의 참여
+                중단 체크가 전체 명단을 통해 반영됩니다.
+              </p>
+              <p>
+                참여 중단 학생은 명단에 색으로 표시되며 청소 배정에서
+                제외됩니다. 단순히 시트에서 이름이 보이지 않는 학생은 자동
+                중단하지 않습니다.
+              </p>
+              {importMessage && <p role="status">{importMessage}</p>}
+            </>
+          )}
+          {tool === "add" && (
+            <form
+              className="form-grid"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void act("student", edit)
+                  .then(() => setEdit({ name: "", number: "" }))
+                  .catch(() => {});
+              }}
+            >
+              <Field label="이름">
+                <input
+                  required
+                  maxLength={80}
+                  value={edit.name}
+                  onChange={(e) => setEdit({ ...edit, name: e.target.value })}
+                />
+              </Field>
+              <Field label="학번">
+                <input
+                  required
+                  maxLength={40}
+                  value={edit.number}
+                  onChange={(e) => setEdit({ ...edit, number: e.target.value })}
+                />
+              </Field>
+              <Field label="성별">
+                <select
+                  value={edit.gender || "unknown"}
+                  onChange={(e) =>
+                    setEdit({
+                      ...edit,
+                      gender: e.target.value as Student["gender"],
+                    })
+                  }
+                >
+                  <option value="unknown">미확인</option>
+                  <option value="male">남자</option>
+                  <option value="female">여자</option>
+                </select>
+              </Field>
+              {edit.id && (
+                <Field label="이용 상태">
+                  <select
+                    value={String(edit.active)}
+                    disabled={!!edit.participation_stopped}
+                    onChange={(e) =>
+                      setEdit({ ...edit, active: e.target.value === "true" })
+                    }
+                  >
+                    <option value="true">이용 가능</option>
+                    <option value="false">이용 중지</option>
+                  </select>
+                </Field>
+              )}
+              <button disabled={busy} className="primary">
+                저장
+              </button>
+              <button
+                type="button"
+                onClick={() => setEdit({ name: "", number: "" })}
+              >
+                새 학생
+              </button>
+            </form>
+          )}
+        </div>
+      )}
+      {importResult && (
+        <RosterImportResult
+          result={importResult}
+          onClose={() => {
+            setImportResult(null);
+            importButton.current?.focus();
+          }}
+        />
+      )}
       {code && (
         <div className="alert success">
           <b>{codeOwner} · 개인 접속 코드</b>
@@ -1932,14 +2077,25 @@ function Students({
           <small>재발급 시 이전 코드와 세션이 폐기됩니다.</small>
         </div>
       )}
-      <Field label="이름·학번 검색">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="학생 검색"
-        />
-      </Field>
       <div className="panel form-grid">
+        <Field label="상태 필터">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="all">전체 학생</option>
+            <option value="active">참여 중</option>
+            <option value="stopped">구글 참여 중단</option>
+            <option value="inactive">기타 이용 중지</option>
+          </select>
+        </Field>
+        <Field label="이름·학번 검색">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="학생 검색"
+          />
+        </Field>
         <Field label="학생 정렬">
           <select
             value={sortOrder}
@@ -1961,32 +2117,37 @@ function Students({
             <option value="unknown">미확인</option>
           </select>
         </Field>
-        <button onClick={() => setPicked(visible.map((s) => s.id))}>
-          검색 결과 전체 선택
-        </button>
-        <button onClick={() => setPicked([])}>선택 해제</button>
-        <Field label={`선택 ${picked.length}명 일괄 지정`}>
-          <select
-            value={bulkGender}
-            onChange={(e) => setBulkGender(e.target.value)}
-          >
-            <option value="unknown">미확인</option>
-            <option value="male">남자</option>
-            <option value="female">여자</option>
-          </select>
-        </Field>
-        <button
-          disabled={busy || !picked.length}
-          onClick={() =>
-            void act("student_gender", { ids: picked, gender: bulkGender })
-              .then(() => setPicked([]))
-              .catch(() => {})
-          }
-        >
-          성별 적용
-        </button>
       </div>
-      <div className="table-wrap panel">
+      <details className="panel">
+        <summary>성별 일괄 수정 · 선택 {picked.length}명</summary>
+        <div className="form-grid">
+          <button onClick={() => setPicked(visible.map((s) => s.id))}>
+            검색 결과 전체 선택
+          </button>
+          <button onClick={() => setPicked([])}>선택 해제</button>
+          <Field label={`선택 ${picked.length}명 일괄 지정`}>
+            <select
+              value={bulkGender}
+              onChange={(e) => setBulkGender(e.target.value)}
+            >
+              <option value="unknown">미확인</option>
+              <option value="male">남자</option>
+              <option value="female">여자</option>
+            </select>
+          </Field>
+          <button
+            disabled={busy || !picked.length}
+            onClick={() =>
+              void act("student_gender", { ids: picked, gender: bulkGender })
+                .then(() => setPicked([]))
+                .catch(() => {})
+            }
+          >
+            성별 적용
+          </button>
+        </div>
+      </details>
+      <div className="table-wrap panel student-table">
         <table>
           <thead>
             <tr>
@@ -2001,8 +2162,22 @@ function Students({
             </tr>
           </thead>
           <tbody>
+            {!visible.length && (
+              <tr>
+                <td colSpan={8}>조건에 맞는 학생이 없습니다.</td>
+              </tr>
+            )}
             {visible.map((s) => (
-              <tr key={s.id}>
+              <tr
+                key={s.id}
+                className={
+                  s.participation_stopped
+                    ? "student-stopped"
+                    : !s.active
+                      ? "student-inactive"
+                      : ""
+                }
+              >
                 <td>
                   <input
                     type="checkbox"
@@ -2017,7 +2192,15 @@ function Students({
                     }
                   />
                 </td>
-                <td><button type="button" aria-label={`${s.number} ${s.name} 학생 상세보기`} onClick={() => onStudent(s.id)}>{s.name} · 상세 보기</button></td>
+                <td>
+                  <button
+                    type="button"
+                    aria-label={`${s.number} ${s.name} 학생 상세보기`}
+                    onClick={() => onStudent(s.id)}
+                  >
+                    {s.name} · 상세 보기
+                  </button>
+                </td>
                 <td>{s.number}</td>
                 <td>
                   <select
@@ -2047,11 +2230,20 @@ function Students({
                     장
                   </a>
                 </td>
-                <td>{s.participation_stopped ? "참여 중단" : s.active ? "이용 가능" : "이용 중지"}</td>
+                <td>
+                  <span className="student-status">
+                    {s.participation_stopped
+                      ? "구글 · 참여 중단"
+                      : s.active
+                        ? "참여 중"
+                        : "이용 중지"}
+                  </span>
+                </td>
                 <td>
                   <button
                     onClick={() => {
                       setEdit(s);
+                      setTool("add");
                       window.scrollTo({ top: 0, behavior: "smooth" });
                     }}
                   >
@@ -2071,44 +2263,47 @@ function Students({
                   >
                     코드 확인
                   </button>
-                  <button
-                    disabled={busy || !s.active}
-                    onClick={() => {
-                      if (
-                        confirm(
-                          `${s.name}의 접속 코드를 발급/재발급합니다. 기존 세션은 차단됩니다.`,
+                  <details className="student-more">
+                    <summary>더 보기</summary>
+                    <button
+                      disabled={busy || !s.active}
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `${s.name}의 접속 코드를 발급/재발급합니다. 기존 세션은 차단됩니다.`,
+                          )
                         )
-                      )
-                        void act("code", { student_id: s.id })
-                          .then((r) => {
-                            setCode(r.code);
-                            setCodeOwner(`${s.name} (${s.number})`);
-                            window.scrollTo({ top: 0, behavior: "smooth" });
-                          })
-                          .catch(() => {});
-                    }}
-                  >
-                    코드 발급 / 재발급
-                  </button>
-                  <button
-                    disabled={busy}
-                    onClick={() => {
-                      if (
-                        confirm(
-                          `${s.name} (${s.number}) 학생을 삭제할까요? 로그인과 좌석 배정을 해제하며 기존 출결 기록은 보존합니다.`,
+                          void act("code", { student_id: s.id })
+                            .then((r) => {
+                              setCode(r.code);
+                              setCodeOwner(`${s.name} (${s.number})`);
+                              window.scrollTo({ top: 0, behavior: "smooth" });
+                            })
+                            .catch(() => {});
+                      }}
+                    >
+                      코드 발급 / 재발급
+                    </button>
+                    <button
+                      disabled={busy}
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `${s.name} (${s.number}) 학생을 삭제할까요? 로그인과 좌석 배정을 해제하며 기존 출결 기록은 보존합니다.`,
+                          )
                         )
-                      )
-                        void act("student_delete", { id: s.id })
-                          .then(() => {
-                            setPicked(picked.filter((id) => id !== s.id));
-                            if (edit.id === s.id)
-                              setEdit({ name: "", number: "" });
-                          })
-                          .catch(() => {});
-                    }}
-                  >
-                    삭제
-                  </button>
+                          void act("student_delete", { id: s.id })
+                            .then(() => {
+                              setPicked(picked.filter((id) => id !== s.id));
+                              if (edit.id === s.id)
+                                setEdit({ name: "", number: "" });
+                            })
+                            .catch(() => {});
+                      }}
+                    >
+                      삭제
+                    </button>
+                  </details>
                 </td>
               </tr>
             ))}
@@ -2918,16 +3113,39 @@ function Suggestions({
           <article className="panel suggestion-post" key={s.id}>
             <details>
               <summary>
-                <span className="suggestion-post-title"><span className="badge">{s.status}</span><strong>{s.title}</strong></span>
+                <span className="suggestion-post-title">
+                  <span className="badge">{s.status}</span>
+                  <strong>{s.title}</strong>
+                </span>
                 <span className="suggestion-post-meta">
-                  {teacher && student && <button type="button" className="suggestion-author" aria-label={`${student.number} ${student.name} 학생 상세보기`} onClick={(event) => { event.preventDefault(); event.stopPropagation(); onStudent(student.id); }}><small>{student.number}</small><span>{student.name} ↗</span></button>}
+                  {teacher && student && (
+                    <button
+                      type="button"
+                      className="suggestion-author"
+                      aria-label={`${student.number} ${student.name} 학생 상세보기`}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        onStudent(student.id);
+                      }}
+                    >
+                      <small>{student.number}</small>
+                      <span>{student.name} ↗</span>
+                    </button>
+                  )}
                   <time dateTime={s.created_at}>{time(s.created_at)}</time>
                   <span className="suggestion-post-hint">내용 보기</span>
                 </span>
               </summary>
               <div className="suggestion-post-body">
                 <p className="text-body">{s.body}</p>
-                {s.reply && <blockquote><b>교사 답변</b><p className="text-body">{s.reply}</p><small>수정 {time(s.updated_at)}</small></blockquote>}
+                {s.reply && (
+                  <blockquote>
+                    <b>교사 답변</b>
+                    <p className="text-body">{s.reply}</p>
+                    <small>수정 {time(s.updated_at)}</small>
+                  </blockquote>
+                )}
                 {canReply && <Reply suggestion={s} act={act} busy={busy} />}
               </div>
             </details>
@@ -3260,8 +3478,9 @@ function SettingsPanel({
           적용합니다.
         </p>
         <p className="muted">
-          전체 학생 인원수는 현재 참여 중인 학생 수로 자동 계산됩니다.
-          신규 등록·참여 중단·복구를 반영하면 운영관리와 홈의 전체 인원도 함께 바뀝니다.
+          전체 학생 인원수는 현재 참여 중인 학생 수로 자동 계산됩니다. 신규
+          등록·참여 중단·복구를 반영하면 운영관리와 홈의 전체 인원도 함께
+          바뀝니다.
         </p>
         <form
           className="form-grid"
@@ -3270,7 +3489,10 @@ function SettingsPanel({
             setSettingsResult("");
             setSettingsError("");
             try {
-              await act("settings", { ...settings, capacity: data.settings.capacity });
+              await act("settings", {
+                ...settings,
+                capacity: data.settings.capacity,
+              });
               setSettingsResult(
                 `운영 설정 저장 완료. 전체 학생 인원수는 현재 참여 중인 ${activeCount}명으로 자동 반영됩니다.`,
               );
@@ -3280,12 +3502,7 @@ function SettingsPanel({
           }}
         >
           <Field label="전체 학생 인원수 (자동)">
-            <input
-              type="number"
-              min="0"
-              value={activeCount}
-              readOnly
-            />
+            <input type="number" min="0" value={activeCount} readOnly />
           </Field>
           <Field label="수능 날짜">
             <input

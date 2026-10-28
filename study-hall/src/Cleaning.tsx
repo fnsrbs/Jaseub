@@ -63,7 +63,9 @@ export function Cleaning({
           day: s.day,
           note: s.note,
           revision: s.revision,
-          student_ids: s.students.map((s) => s.id),
+          student_ids: s.students
+            .filter((s) => eligible(s.id))
+            .map((s) => s.id),
         })),
       });
       await load();
@@ -75,9 +77,25 @@ export function Cleaning({
       setSaving(false);
     }
   };
-  const shown = draft || rows;
+  const eligible = (id: string) => {
+    const student = data.students.find((s) => s.id === id);
+    // Student snapshots contain only the signed-in student; preserve other members.
+    return role === "student"
+      ? !student ||
+          (student.active &&
+            !student.deleted_at &&
+            !student.participation_stopped)
+      : !!student &&
+          student.active &&
+          !student.deleted_at &&
+          !student.participation_stopped;
+  };
+  const shown = (draft || rows).map((slot) => ({
+    ...slot,
+    students: slot.students.filter((s) => eligible(s.id)),
+  }));
   const active = data.students
-    .filter((s) => s.active && !s.deleted_at)
+    .filter((s) => s.active && !s.deleted_at && !s.participation_stopped)
     .sort((a, b) => a.number.localeCompare(b.number, "ko", { numeric: true }));
   const myId = role === "student" ? data.students[0]?.id : null;
   return (
