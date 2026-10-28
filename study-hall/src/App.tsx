@@ -28,6 +28,7 @@ import {
   type Notice,
 } from "./domain";
 import "./style.css";
+import { SeatSettingsDialog } from "./SeatSettingsDialog";
 import { SeatPicker } from "./SeatPicker";
 import { deferredPanel } from "./deferred-panel";
 const SeatArrangement = deferredPanel(() =>
@@ -2341,6 +2342,27 @@ function SeatAdmin({
     [seat, setSeat] = useState<Seat>(
       data.seats[0] || { id: 1, row: 1, col: 1, enabled: true },
     );
+  const [seatSettingsOpen, setSeatSettingsOpen] = useState(false);
+  const [seatSaveError, setSeatSaveError] = useState("");
+  const seatSettingsTrigger = useRef<HTMLElement | null>(null);
+  const openSeatSettings = (id?: number) => {
+    seatSettingsTrigger.current = document.activeElement as HTMLElement;
+    const current = data.seats.find((s) => s.id === (id ?? seat.id));
+    if (current) setSeat({ ...current });
+    setSeatSaveError("");
+    setSeatSettingsOpen(true);
+  };
+  const closeSeatSettings = () => {
+    setSeatSettingsOpen(false);
+    requestAnimationFrame(() => {
+      const trigger = seatSettingsTrigger.current;
+      if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+      else
+        document
+          .querySelector<HTMLButtonElement>(`[data-seat-id="${seat.id}"]`)
+          ?.focus({ preventScroll: true });
+    });
+  };
   const toggle = (array: any[], value: any) =>
     array.includes(value)
       ? array.filter((v) => v !== value)
@@ -2380,7 +2402,12 @@ function SeatAdmin({
   return (
     <>
       <div className="panel">
-        <h2>좌석 배정 · 클릭해서 변경</h2>
+        <div className="student-toolbar">
+          <h2>좌석 배정 · 클릭해서 변경</h2>
+          <button type="button" onClick={() => openSeatSettings()}>
+            좌석 사용 여부·사유 설정
+          </button>
+        </div>
         <SeatPrint data={data} />
         <SeatSheetSync hasDraft={!!preview?.length} busy={busy} act={act} />
         <label className="pair-option">
@@ -2430,13 +2457,7 @@ function SeatAdmin({
           data={data}
           draft={preview || []}
           fixed={fixed}
-          onSeatSettings={(id) => {
-            const current = data.seats.find((s) => s.id === id);
-            if (current) setSeat({ ...current });
-            document
-              .getElementById("seat-settings")
-              ?.scrollIntoView({ behavior: "smooth", block: "start" });
-          }}
+          onSeatSettings={openSeatSettings}
           onChange={(pairs) => {
             setPreview(pairs);
             setError("");
@@ -2448,87 +2469,113 @@ function SeatAdmin({
           </p>
         )}
       </div>
-      <div className="panel">
-        <h2 id="seat-settings">좌석 사용 여부·사유 관리</h2>
-        <p>
-          사용 안 함으로 저장하면 추첨에서 제외하고 교사·학생 좌석표와
-          인쇄물에서 숨깁니다. 학생이 배정된 자리는 먼저 배정을 해제하세요.
-        </p>
-        <form
-          className="form-grid"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void act("seat", {
-              ...seat,
-              disabled_reason: seat.enabled ? "" : seat.disabled_reason?.trim(),
-            })
-              .then(() => {
-                setAvailable((ids) =>
-                  seat.enabled
-                    ? [...new Set([...ids, seat.id])]
-                    : ids.filter((id) => id !== seat.id),
-                );
+      {seatSettingsOpen && (
+        <SeatSettingsDialog busy={busy} onClose={closeSeatSettings}>
+          <p>
+            사용 안 함으로 저장하면 추첨에서 제외하고 교사·학생 좌석표와
+            인쇄물에서 숨깁니다. 학생이 배정된 자리는 먼저 배정을 해제하세요.
+          </p>
+          <form
+            className="seat-settings-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setSeatSaveError("");
+              void act("seat", {
+                ...seat,
+                disabled_reason: seat.enabled
+                  ? ""
+                  : seat.disabled_reason?.trim(),
               })
-              .catch(() => {});
-          }}
-        >
-          <Field label="좌석 번호">
-            <input
-              type="number"
-              min="1"
-              value={seat.id}
-              onChange={(e) => {
-                const id = +e.target.value;
-                setSeat(
-                  data.seats.find((s) => s.id === id) || {
-                    id,
-                    row: 10,
-                    col: 1,
-                    enabled: true,
-                  },
+                .then(() => {
+                  closeSeatSettings();
+                  setAvailable((ids) =>
+                    seat.enabled
+                      ? [...new Set([...ids, seat.id])]
+                      : ids.filter((id) => id !== seat.id),
+                  );
+                })
+                .catch((error) =>
+                  setSeatSaveError(
+                    (error as Error).message ||
+                      "저장하지 못했습니다. 다시 시도해 주세요.",
+                  ),
                 );
-              }}
-            />
-          </Field>
-          <Field label="행">
-            <input
-              type="number"
-              min="1"
-              value={seat.row}
-              onChange={(e) => setSeat({ ...seat, row: +e.target.value })}
-            />
-          </Field>
-          <Field label="열">
-            <input
-              type="number"
-              min="1"
-              value={seat.col}
-              onChange={(e) => setSeat({ ...seat, col: +e.target.value })}
-            />
-          </Field>
-          <label>
-            <input
-              type="checkbox"
-              checked={seat.enabled}
-              onChange={(e) => setSeat({ ...seat, enabled: e.target.checked })}
-            />{" "}
-            사용 가능 · 체크 해제 시 좌석표에서 숨김
-          </label>
-          <Field label="사용 안 함 사유 (관리자용)">
-            <input
-              maxLength={300}
-              required={!seat.enabled}
-              disabled={seat.enabled}
-              value={seat.disabled_reason || ""}
-              placeholder="예: 책상 파손, 물품 보관"
-              onChange={(e) =>
-                setSeat({ ...seat, disabled_reason: e.target.value })
-              }
-            />
-          </Field>
-          <button disabled={busy}>좌석 저장</button>
-        </form>
-      </div>
+            }}
+          >
+            <fieldset disabled={busy} className="seat-settings-fields">
+              <Field label="좌석 번호">
+                <input
+                  type="number"
+                  min="1"
+                  value={seat.id}
+                  onChange={(e) => {
+                    const id = +e.target.value;
+                    setSeat(
+                      data.seats.find((s) => s.id === id) || {
+                        id,
+                        row: 10,
+                        col: 1,
+                        enabled: true,
+                      },
+                    );
+                  }}
+                />
+              </Field>
+              <Field label="행">
+                <input
+                  type="number"
+                  min="1"
+                  value={seat.row}
+                  onChange={(e) => setSeat({ ...seat, row: +e.target.value })}
+                />
+              </Field>
+              <Field label="열">
+                <input
+                  type="number"
+                  min="1"
+                  value={seat.col}
+                  onChange={(e) => setSeat({ ...seat, col: +e.target.value })}
+                />
+              </Field>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={seat.enabled}
+                  onChange={(e) =>
+                    setSeat({ ...seat, enabled: e.target.checked })
+                  }
+                />{" "}
+                사용 가능 · 체크 해제 시 좌석표에서 숨김
+              </label>
+              <Field label="사용 안 함 사유 (관리자용)">
+                <input
+                  maxLength={300}
+                  required={!seat.enabled}
+                  disabled={seat.enabled}
+                  value={seat.disabled_reason || ""}
+                  placeholder="예: 책상 파손, 물품 보관"
+                  onChange={(e) =>
+                    setSeat({ ...seat, disabled_reason: e.target.value })
+                  }
+                />
+              </Field>
+            </fieldset>
+            {seatSaveError && (
+              <p role="alert" className="error-text">
+                {seatSaveError}
+              </p>
+            )}
+            <div className="actions">
+              <button className="primary" disabled={busy}>
+                {busy ? "저장 중…" : "좌석 저장"}
+              </button>
+              <button type="button" disabled={busy} onClick={closeSeatSettings}>
+                취소
+              </button>
+            </div>
+          </form>
+        </SeatSettingsDialog>
+      )}
       <div className="panel">
         <h2>좌석 재추첨</h2>
         <p>

@@ -135,6 +135,7 @@ export function SeatArrangement({
                     <button
                       type="button"
                       key={seat.id}
+                      data-seat-id={seat.id}
                       style={{ gridColumn: seat.col }}
                       className={`seat ${st?.gender === "male" ? "gender-male" : st?.gender === "female" ? "gender-female" : ""} ${target === seat.id ? "mine" : ""} ${!seat.enabled ? "disabled" : ""}`}
                       aria-label={`${seat.id}번 좌석 편집 ${st ? `${st.number} ${st.name}` : "빈자리"}`}
