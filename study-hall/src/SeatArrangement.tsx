@@ -7,11 +7,13 @@ export function SeatArrangement({
   draft,
   fixed,
   onChange,
+  onSeatSettings,
 }: {
   data: Snapshot;
   draft: Assignment[];
   fixed: string[];
   onChange: (pairs: Assignment[]) => void;
+  onSeatSettings: (id: number) => void;
 }) {
   const [target, setTarget] = useState<number | null>(null);
   const [student, setStudent] = useState("");
@@ -38,51 +40,65 @@ export function SeatArrangement({
           <h3>
             {target}번 좌석 · 현재 {occupant?.name || "빈자리"}
           </h3>
-          <label className="field">
-            <span>배정할 학생 / 빈자리</span>
-            <select
-              value={student}
-              onChange={(e) => setStudent(e.target.value)}
-            >
-              <option value="">빈자리로 변경</option>
-              {students
-                .filter((s) => s.active && !s.deleted_at)
-                .sort(
-                  (a, b) =>
-                    a.number.localeCompare(b.number, "ko", { numeric: true }) ||
-                    a.name.localeCompare(b.name, "ko"),
-                )
-                .map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} · {s.number} ·{" "}
-                    {s.seat_id ? `${s.seat_id}번 자리` : "미배정"}
-                    {fixed.includes(s.id) ? " · 고정" : ""}
-                  </option>
-                ))}
-            </select>
-          </label>
+          {data.seats.find((s) => s.id === target)?.enabled && (
+            <>
+              <label className="field">
+                <span>배정할 학생 / 빈자리</span>
+                <select
+                  value={student}
+                  onChange={(e) => setStudent(e.target.value)}
+                >
+                  <option value="">빈자리로 변경</option>
+                  {students
+                    .filter((s) => s.active && !s.deleted_at)
+                    .sort(
+                      (a, b) =>
+                        a.number.localeCompare(b.number, "ko", {
+                          numeric: true,
+                        }) || a.name.localeCompare(b.name, "ko"),
+                    )
+                    .map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} · {s.number} ·{" "}
+                        {s.seat_id ? `${s.seat_id}번 자리` : "미배정"}
+                        {fixed.includes(s.id) ? " · 고정" : ""}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    onChange(
+                      editSeat(
+                        data.students,
+                        data.seats,
+                        draft,
+                        target,
+                        student || null,
+                        fixed,
+                      ),
+                    );
+                    setError("");
+                    setTarget(null);
+                  } catch (e) {
+                    setError((e as Error).message);
+                  }
+                }}
+              >
+                미리보기에 적용
+              </button>
+            </>
+          )}
           <button
             type="button"
             onClick={() => {
-              try {
-                onChange(
-                  editSeat(
-                    data.students,
-                    data.seats,
-                    draft,
-                    target,
-                    student || null,
-                    fixed,
-                  ),
-                );
-                setError("");
-                setTarget(null);
-              } catch (e) {
-                setError((e as Error).message);
-              }
+              onSeatSettings(target);
+              setTarget(null);
             }}
           >
-            미리보기에 적용
+            사용 여부·사유 설정
           </button>
           <button
             type="button"
@@ -121,7 +137,6 @@ export function SeatArrangement({
                       key={seat.id}
                       style={{ gridColumn: seat.col }}
                       className={`seat ${st?.gender === "male" ? "gender-male" : st?.gender === "female" ? "gender-female" : ""} ${target === seat.id ? "mine" : ""} ${!seat.enabled ? "disabled" : ""}`}
-                      disabled={!seat.enabled}
                       aria-label={`${seat.id}번 좌석 편집 ${st ? `${st.number} ${st.name}` : "빈자리"}`}
                       onClick={() => {
                         setTarget(seat.id);
@@ -131,7 +146,12 @@ export function SeatArrangement({
                     >
                       <b>{String(seat.id).padStart(2, "0")}</b>
                       {st && <small>{st.number}</small>}
-                      <small>{st?.name || "빈자리"}</small>
+                      <small>
+                        {!seat.enabled ? "사용 안 함" : st?.name || "빈자리"}
+                      </small>
+                      {!seat.enabled && (
+                        <small>{seat.disabled_reason || "사유 미등록"}</small>
+                      )}
                       <small>
                         {st
                           ? st.gender === "male"
@@ -139,7 +159,9 @@ export function SeatArrangement({
                             : st.gender === "female"
                               ? "여학생"
                               : "성별 미확인"
-                          : "학생 배정 가능"}
+                          : seat.enabled
+                            ? "학생 배정 가능"
+                            : "교사·학생에게 숨김"}
                       </small>
                       <small>
                         {st && fixed.includes(st.id) ? "고정" : "클릭하여 변경"}

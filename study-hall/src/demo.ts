@@ -221,7 +221,11 @@ export async function demoApi(
   const viewer = role === "viewer" && sid === "viewer";
   if (!teacher && !sid)
     throw Error("데모 세션이 만료되었습니다. 다시 로그인하세요.");
-  if (["polls", "poll_create", "poll_update", "poll_vote", "poll_close"].includes(action)) {
+  if (
+    ["polls", "poll_create", "poll_update", "poll_vote", "poll_close"].includes(
+      action,
+    )
+  ) {
     const polls: any[] = JSON.parse(
       localStorage.getItem("study-hall-polls") || "[]",
     );
@@ -242,21 +246,32 @@ export async function demoApi(
       )
         throw Error("제목·선택지·공개 방식을 확인하세요.");
       if (action === "poll_update") {
-        const poll = polls.find(x => x.id === p.id);
+        const poll = polls.find((x) => x.id === p.id);
         if (!poll) throw Error("투표를 찾을 수 없습니다.");
-        if (poll.anonymous !== p.anonymous) throw Error("공개 방식은 변경할 수 없습니다.");
-        if (poll.votes.length && JSON.stringify(poll.options) !== JSON.stringify(options)) throw Error("참여자가 있는 투표는 제목만 수정할 수 있습니다.");
-        if (poll.title !== p.expected_title || JSON.stringify(poll.options) !== JSON.stringify(p.expected_options)) throw Error("다른 변경이 있습니다. 새로고침 후 다시 수정하세요.");
-        poll.title = title; poll.options = options;
-      } else polls.unshift({
-        id: id(),
-        title,
-        options,
-        anonymous: p.anonymous,
-        closed: false,
-        created_at: now(),
-        votes: [],
-      });
+        if (poll.anonymous !== p.anonymous)
+          throw Error("공개 방식은 변경할 수 없습니다.");
+        if (
+          poll.votes.length &&
+          JSON.stringify(poll.options) !== JSON.stringify(options)
+        )
+          throw Error("참여자가 있는 투표는 제목만 수정할 수 있습니다.");
+        if (
+          poll.title !== p.expected_title ||
+          JSON.stringify(poll.options) !== JSON.stringify(p.expected_options)
+        )
+          throw Error("다른 변경이 있습니다. 새로고침 후 다시 수정하세요.");
+        poll.title = title;
+        poll.options = options;
+      } else
+        polls.unshift({
+          id: id(),
+          title,
+          options,
+          anonymous: p.anonymous,
+          closed: false,
+          created_at: now(),
+          votes: [],
+        });
     } else if (action !== "polls") {
       const poll = polls.find((x) => x.id === p.id);
       if (!poll) throw Error("투표를 찾을 수 없습니다.");
@@ -284,10 +299,13 @@ export async function demoApi(
     return polls.map(({ votes, ...poll }) => ({
       ...poll,
       total: teacher || viewer || poll.closed ? votes.length : null,
-      counts: teacher || viewer || poll.closed ? poll.options.map(
-        (_: string, i: number) =>
-          votes.filter((v: any) => v.choice === i).length,
-      ) : null,
+      counts:
+        teacher || viewer || poll.closed
+          ? poll.options.map(
+              (_: string, i: number) =>
+                votes.filter((v: any) => v.choice === i).length,
+            )
+          : null,
       my_choice: votes.find((v: any) => v.student_id === sid)?.choice ?? null,
       voters:
         teacher && !poll.anonymous
@@ -308,7 +326,9 @@ export async function demoApi(
   }
   if (action === "snapshot") {
     const data = structuredClone(state);
-    data.settings.participant_count = data.students.filter(s => s.active && !s.deleted_at).length;
+    data.settings.participant_count = data.students.filter(
+      (s) => s.active && !s.deleted_at,
+    ).length;
     if (!teacher && !viewer)
       data.clovers =
         demoCollections(
@@ -694,7 +714,8 @@ export async function demoApi(
       save();
     }
     if (
-      action !== "period_attendance" && teacher &&
+      action !== "period_attendance" &&
+      teacher &&
       shouldSyncAttendance(p.day, record.sessions, operation)
     ) {
       record.sessions.forEach((s) => {
@@ -709,7 +730,8 @@ export async function demoApi(
     localStorage.setItem("study-hall-period-attendance", JSON.stringify(all));
     const result = structuredClone(record);
     if (
-      action !== "period_attendance" && teacher &&
+      action !== "period_attendance" &&
+      teacher &&
       !shouldSyncAttendance(p.day, record.sessions, operation)
     )
       (result as any).sheet_deferred = true;
@@ -995,9 +1017,11 @@ export async function demoApi(
     );
     return { saved: p.slots.length };
   }
-    if (action === "supervision_import")
-      throw Error("데모에서는 구글 감독표를 불러올 수 없습니다. 운영 앱에서 사용하세요.");
-    if (action === "roster_import")
+  if (action === "supervision_import")
+    throw Error(
+      "데모에서는 구글 감독표를 불러올 수 없습니다. 운영 앱에서 사용하세요.",
+    );
+  if (action === "roster_import")
     throw Error("데모에서는 구글 출석부를 불러올 수 없습니다.");
   if (action === "sheet_sync_status")
     return {
@@ -1177,6 +1201,10 @@ export async function demoApi(
       created_at: now(),
     });
   } else if (action === "seat") {
+    if (!p.enabled && !String(p.disabled_reason || "").trim())
+      throw Error("사용 안 함 사유를 입력하세요.");
+    if (String(p.disabled_reason || "").length > 300)
+      throw Error("사유는 300자 이내로 입력하세요.");
     if (!p.enabled && state.students.some((s) => s.seat_id === p.id))
       throw Error("배정부터 해제하세요.");
     if (

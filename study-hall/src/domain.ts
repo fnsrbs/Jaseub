@@ -9,7 +9,13 @@ export type Student = {
   deleted_at?: string | null;
   seat_id: number | null;
 };
-export type Seat = { id: number; row: number; col: number; enabled: boolean };
+export type Seat = {
+  id: number;
+  row: number;
+  col: number;
+  enabled: boolean;
+  disabled_reason?: string;
+};
 export type Visit = {
   id: string;
   student_id: string;
@@ -71,8 +77,11 @@ export type Snapshot = {
 };
 export const koreanDay = (value: Date | string) =>
   new Date(new Date(value).getTime() + 9 * 3600000).toISOString().slice(0, 10);
-export const participantCount = (data: Pick<Snapshot, "students" | "settings">) =>
-  data.settings.participant_count ?? data.students.filter(s => s.active && !s.deleted_at).length;
+export const participantCount = (
+  data: Pick<Snapshot, "students" | "settings">,
+) =>
+  data.settings.participant_count ??
+  data.students.filter((s) => s.active && !s.deleted_at).length;
 export const dayStart = (day: string) => Date.parse(`${day}T00:00:00+09:00`);
 export const csvTime = (value: string | null) =>
   value

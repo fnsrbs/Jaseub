@@ -4,9 +4,11 @@ import type { Snapshot } from "./domain";
 
 export function SeatPrint({ data }: { data: Snapshot }) {
   const [pages, setPages] = useState(1);
-  const rows = [...new Set(data.seats.map((seat) => seat.row))].sort(
-    (a, b) => a - b,
-  );
+  const rows = [
+    ...new Set(
+      data.seats.filter((seat) => seat.enabled).map((seat) => seat.row),
+    ),
+  ].sort((a, b) => a - b);
   const split = Math.ceil(rows.length / pages);
   const groups = Array.from({ length: pages }, (_, i) =>
     rows.slice(i * split, (i + 1) * split),
@@ -48,7 +50,7 @@ export function SeatPrint({ data }: { data: Snapshot }) {
               {group.map((row) => (
                 <div className="seat-print-row" key={row}>
                   {data.seats
-                    .filter((seat) => seat.row === row)
+                    .filter((seat) => seat.row === row && seat.enabled)
                     .sort((a, b) => a.col - b.col)
                     .map((seat) => {
                       const student = data.students.find(

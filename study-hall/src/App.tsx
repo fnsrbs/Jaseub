@@ -23,6 +23,7 @@ import {
   validQr,
   type Snapshot,
   type Student,
+  type Seat,
   type Visit,
   type Notice,
 } from "./domain";
@@ -1469,7 +1470,9 @@ function SeatMap({
   selected?: string;
   onSelect: (id: string) => void;
 }) {
-  const rows = [...new Set(data.seats.map((s) => s.row))].sort((a, b) => a - b);
+  const rows = [
+    ...new Set(data.seats.filter((s) => s.enabled).map((s) => s.row)),
+  ].sort((a, b) => a - b);
   return (
     <div className="panel">
       <GenderLegend />
@@ -1479,19 +1482,20 @@ function SeatMap({
           입실 중
         </span>
         <span>{teacher ? "○ 미입실·퇴실 · 회색" : "○ 퇴실"}</span>
-        <span>▨ 사용 불가</span>
         <span>내 좌석 / 선택 좌석</span>
       </div>
       <div className="seat-scroll">
         <div className="seat-room">
-          <div className="room-caption">1층 프로젝트실 · 72석</div>
+          <div className="room-caption">
+            1층 프로젝트실 · {data.seats.filter((s) => s.enabled).length}석
+          </div>
           {rows.map((row) => (
             <div
               className={`seat-row ${row === 5 ? "cross-aisle" : ""}`}
               key={row}
             >
               {data.seats
-                .filter((s) => s.row === row)
+                .filter((s) => s.row === row && s.enabled)
                 .sort((a, b) => a.col - b.col)
                 .map((seat) => {
                   const st = data.students.find((s) => s.seat_id === seat.id);
@@ -2334,7 +2338,9 @@ function SeatAdmin({
       { student_id: string; seat_id: number | null }[] | null
     >(null),
     [error, setError] = useState(""),
-    [seat, setSeat] = useState({ id: 1, row: 1, col: 1, enabled: true });
+    [seat, setSeat] = useState<Seat>(
+      data.seats[0] || { id: 1, row: 1, col: 1, enabled: true },
+    );
   const toggle = (array: any[], value: any) =>
     array.includes(value)
       ? array.filter((v) => v !== value)
@@ -2424,6 +2430,13 @@ function SeatAdmin({
           data={data}
           draft={preview || []}
           fixed={fixed}
+          onSeatSettings={(id) => {
+            const current = data.seats.find((s) => s.id === id);
+            if (current) setSeat({ ...current });
+            document
+              .getElementById("seat-settings")
+              ?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
           onChange={(pairs) => {
             setPreview(pairs);
             setError("");
@@ -2436,12 +2449,27 @@ function SeatAdmin({
         )}
       </div>
       <div className="panel">
-        <h2>좌석 번호·위치 관리</h2>
+        <h2 id="seat-settings">좌석 사용 여부·사유 관리</h2>
+        <p>
+          사용 안 함으로 저장하면 추첨에서 제외하고 교사·학생 좌석표와
+          인쇄물에서 숨깁니다. 학생이 배정된 자리는 먼저 배정을 해제하세요.
+        </p>
         <form
           className="form-grid"
           onSubmit={(e) => {
             e.preventDefault();
-            void act("seat", seat).catch(() => {});
+            void act("seat", {
+              ...seat,
+              disabled_reason: seat.enabled ? "" : seat.disabled_reason?.trim(),
+            })
+              .then(() => {
+                setAvailable((ids) =>
+                  seat.enabled
+                    ? [...new Set([...ids, seat.id])]
+                    : ids.filter((id) => id !== seat.id),
+                );
+              })
+              .catch(() => {});
           }}
         >
           <Field label="좌석 번호">
@@ -2484,8 +2512,20 @@ function SeatAdmin({
               checked={seat.enabled}
               onChange={(e) => setSeat({ ...seat, enabled: e.target.checked })}
             />{" "}
-            사용 가능
+            사용 가능 · 체크 해제 시 좌석표에서 숨김
           </label>
+          <Field label="사용 안 함 사유 (관리자용)">
+            <input
+              maxLength={300}
+              required={!seat.enabled}
+              disabled={seat.enabled}
+              value={seat.disabled_reason || ""}
+              placeholder="예: 책상 파손, 물품 보관"
+              onChange={(e) =>
+                setSeat({ ...seat, disabled_reason: e.target.value })
+              }
+            />
+          </Field>
           <button disabled={busy}>좌석 저장</button>
         </form>
       </div>
