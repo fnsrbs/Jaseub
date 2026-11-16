@@ -26,6 +26,106 @@
   flex-shrink: 0;
   background: #fffdf6;
 }
+.farewell-home .farewell-read-button {
+  background: #146c53;
+  color: white;
+  border-color: #146c53;
+  font-weight: 700;
+  padding: 13px 22px;
+}
+.farewell-dialog.farewell-invitation-dialog {
+  width: min(510px, calc(100vw - 28px));
+}
+.farewell-dialog .farewell-letter {
+  animation: farewell-reveal 0.35s ease-out;
+}
+@keyframes farewell-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .farewell-dialog .farewell-letter {
+    animation: none;
+  }
+}
+.farewell-invitation {
+  text-align: center;
+  padding: 28px 30px 8px;
+}
+.farewell-invitation-eyebrow {
+  color: #6c7e63;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+.farewell-envelope {
+  position: relative;
+  width: 144px;
+  height: 96px;
+  margin: 38px auto 28px;
+  border: 1px solid #cbd8bd;
+  border-radius: 8px;
+  background: linear-gradient(146deg, #edf2df 49.5%, #dce5cd 50%, #f5f3e3 51%);
+  box-shadow: 0 12px 30px #5b73591a;
+}
+.farewell-envelope::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 3px;
+  width: 134px;
+  height: 68px;
+  background: #e1e9cf;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+.farewell-envelope span {
+  position: absolute;
+  inset: 42px 0 auto;
+  font-size: 32px;
+  line-height: 1;
+}
+.farewell-invitation-recipient {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: #6c7e63;
+}
+.farewell-invitation h2 {
+  font-size: clamp(28px, 6vw, 35px);
+  line-height: 1.55;
+  letter-spacing: -0.05em;
+  margin: 0;
+}
+.farewell-invitation-description {
+  font-size: 14px;
+  line-height: 1.9;
+  color: #6c7e63;
+  margin: 20px 0 28px;
+}
+.farewell-invitation .farewell-read-button {
+  width: min(100%, 320px);
+  padding: 16px 20px;
+  font-size: 17px;
+  font-weight: 700;
+  box-shadow: 0 6px 16px #146c5326;
+}
+.farewell-read-button span {
+  margin-left: 14px;
+}
+.farewell-footer .farewell-read-later {
+  background: transparent;
+  border-color: transparent;
+  padding: 7px 16px;
+  color: #687966;
+}
+.farewell-letter h2:focus,
+.farewell-invitation h2:focus {
+  outline: none;
+}
 .farewell-editor-intro {
   display: flex;
   align-items: center;

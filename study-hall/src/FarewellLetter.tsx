@@ -30,7 +30,9 @@ export function FarewellLetter({
       <p className="farewell-eyebrow">
         {copy.farewell_eyebrow} · {copy.farewell_date.replaceAll("-", ". ")}.
       </p>
-      <h2 id={titleId}>{copy.farewell_title}</h2>
+      <h2 id={titleId} tabIndex={-1}>
+        {copy.farewell_title}
+      </h2>
       <p className="farewell-recipient">{name} 님에게</p>
 
       <div className="farewell-records" aria-label="나의 자습실 기록">

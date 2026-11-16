@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { FarewellLetter } from "./FarewellLetter";
 import { FarewellDialog } from "./FarewellDialog";
+import { FarewellInvitation } from "./FarewellInvitation";
 import {
   defaultFarewellCopy,
   readFarewellCopy,
@@ -44,6 +45,7 @@ export function FarewellEditor({
   const [draft, setDraft] = useState(() => readFarewellCopy(copy));
   const [dirty, setDirty] = useState(false);
   const [preview, setPreview] = useState(false);
+  const [previewLetter, setPreviewLetter] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   useEffect(() => {
@@ -69,7 +71,13 @@ export function FarewellEditor({
             기록이 표시됩니다.
           </p>
         </div>
-        <button type="button" onClick={() => setPreview(true)}>
+        <button
+          type="button"
+          onClick={() => {
+            setPreviewLetter(false);
+            setPreview(true);
+          }}
+        >
           학생 화면처럼 미리보기
         </button>
       </div>
@@ -115,8 +123,9 @@ export function FarewellEditor({
               />
             </label>
             <p className="muted">
-              지정한 날 로그인하면 자동으로 열립니다. 다음 날부터는 홈에서 다시
-              볼 수 있습니다. 표시를 끄면 학생 화면에서 숨겨집니다.
+              지정한 날 로그인하면 ‘마지막 편지 읽기’ 안내가 뜨고, 누르면 편지가
+              펼쳐집니다. 다음 날부터는 홈에서 읽을 수 있습니다. 표시를 끄면
+              학생 화면에서 숨겨집니다.
             </p>
             {fields.map(([key, label, rows]) => (
               <label key={key} className="field">
@@ -187,9 +196,17 @@ export function FarewellEditor({
         <FarewellDialog
           name={example.name}
           preview
+          invitation={!previewLetter}
           close={() => setPreview(false)}
         >
-          <FarewellLetter {...example} copy={draft} />
+          {previewLetter ? (
+            <FarewellLetter {...example} copy={draft} />
+          ) : (
+            <FarewellInvitation
+              name={example.name}
+              read={() => setPreviewLetter(true)}
+            />
+          )}
         </FarewellDialog>
       )}
     </>

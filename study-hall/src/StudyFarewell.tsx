@@ -5,6 +5,7 @@ import { farewellRecord } from "./farewell";
 import { FarewellLetter } from "./FarewellLetter";
 import { FarewellDialog } from "./FarewellDialog";
 import { readFarewellCopy } from "./farewell-copy";
+import { FarewellInvitation } from "./FarewellInvitation";
 import "./farewell.css";
 
 export function StudyFarewell({
@@ -20,7 +21,9 @@ export function StudyFarewell({
   autoOpen: boolean;
   home: boolean;
 }) {
-  const [open, setOpen] = useState(autoOpen);
+  const [view, setView] = useState<"invitation" | "letter" | null>(
+    autoOpen ? "invitation" : null,
+  );
   const [awards, setAwards] = useState<{
     crowns: number;
     stars: number;
@@ -40,7 +43,7 @@ export function StudyFarewell({
     .join("|");
 
   useEffect(() => {
-    if (!open) return;
+    if (view !== "letter") return;
     let alive = true;
     setError(false);
     api("weekly_ranking", { scope: "day" }, "student", token)
@@ -55,7 +58,7 @@ export function StudyFarewell({
     return () => {
       alive = false;
     };
-  }, [open, token, student.id, revision, retry]);
+  }, [view, token, student.id, revision, retry]);
 
   return (
     <>
@@ -66,23 +69,38 @@ export function StudyFarewell({
             <p>{copy.farewell_title.replaceAll("\n", " ")}</p>
             <small>나의 공부 기록과 온실이 보내는 응원 편지</small>
           </div>
-          <button type="button" onClick={() => setOpen(true)}>
-            나의 편지 열기
+          <button
+            type="button"
+            className="farewell-read-button"
+            onClick={() => setView("letter")}
+          >
+            마지막 편지 읽기
           </button>
         </section>
       )}
-      {open && (
-        <FarewellDialog name={student.name} close={() => setOpen(false)}>
-          <FarewellLetter
-            name={student.name}
-            seconds={record.seconds}
-            days={record.days}
-            clovers={data.clovers ?? 0}
-            awards={awards}
-            awardsError={error}
-            retry={() => setRetry((value) => value + 1)}
-            copy={copy}
-          />
+      {view && (
+        <FarewellDialog
+          name={student.name}
+          invitation={view === "invitation"}
+          close={() => setView(null)}
+        >
+          {view === "invitation" ? (
+            <FarewellInvitation
+              name={student.name}
+              read={() => setView("letter")}
+            />
+          ) : (
+            <FarewellLetter
+              name={student.name}
+              seconds={record.seconds}
+              days={record.days}
+              clovers={data.clovers ?? 0}
+              awards={awards}
+              awardsError={error}
+              retry={() => setRetry((value) => value + 1)}
+              copy={copy}
+            />
+          )}
         </FarewellDialog>
       )}
     </>

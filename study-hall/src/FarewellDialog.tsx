@@ -6,11 +6,13 @@ export function FarewellDialog({
   close,
   children,
   preview = false,
+  invitation = false,
 }: {
   name: string;
   close: () => void;
   children: ReactNode;
   preview?: boolean;
+  invitation?: boolean;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -23,10 +25,18 @@ export function FarewellDialog({
       document.body.style.overflow = overflow;
     };
   }, []);
+  useEffect(() => {
+    if (invitation) return;
+    const element = dialog.current;
+    if (element) element.scrollTop = 0;
+    element
+      ?.querySelector<HTMLHeadingElement>("h2")
+      ?.focus({ preventScroll: true });
+  }, [invitation]);
   return (
     <dialog
       ref={dialog}
-      className="farewell-dialog"
+      className={`farewell-dialog${invitation ? " farewell-invitation-dialog" : ""}`}
       aria-labelledby="farewell-title"
       onClose={close}
     >
@@ -43,13 +53,21 @@ export function FarewellDialog({
       </div>
       {children}
       <div className="farewell-footer">
-        <button type="button" className="primary" onClick={close}>
-          {preview ? "미리보기 닫기" : "응원 담고, 나의 홈으로"}
+        <button
+          type="button"
+          className={invitation ? "farewell-read-later" : "primary"}
+          onClick={close}
+        >
+          {invitation
+            ? "나중에 읽기"
+            : preview
+              ? "미리보기 닫기"
+              : "응원 담고, 나의 홈으로"}
         </button>
         <small>
           {preview
             ? "저장 전 미리보기입니다. 기록과 이름은 예시입니다."
-            : "홈에서 언제든 편지를 다시 볼 수 있어요."}
+            : "홈의 ‘마지막 편지 읽기’에서 언제든 볼 수 있어요."}
         </small>
       </div>
     </dialog>
