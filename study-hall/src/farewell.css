@@ -1,0 +1,246 @@
+.farewell-home {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 0 0 24px;
+  padding: 22px 26px;
+  border: 1px solid #ceddcc;
+  border-radius: 16px;
+  background: #f3f6ec;
+  color: #244936;
+}
+.farewell-home > span {
+  font-size: 34px;
+}
+.farewell-home > div {
+  flex: 1;
+}
+.farewell-home p {
+  margin: 0 0 5px;
+  font-weight: 700;
+}
+.farewell-home small {
+  color: #657467;
+}
+.farewell-home button {
+  flex-shrink: 0;
+  background: #fffdf6;
+}
+dialog.farewell-dialog {
+  width: min(680px, calc(100vw - 28px));
+  max-width: none;
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #d5dccb;
+  border-radius: 22px;
+  color: #294635;
+  background: #fffdf6;
+  box-shadow: 0 24px 100px #183a3433;
+}
+.farewell-dialog::backdrop {
+  background: #132d27a6;
+  backdrop-filter: blur(5px);
+}
+.farewell-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px;
+  border-bottom: 1px solid #e9e8dc;
+  background: #fffdf6f5;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+.farewell-toolbar button {
+  padding: 7px 12px;
+  background: transparent;
+}
+.farewell-toolbar button span {
+  margin-left: 8px;
+}
+.farewell-letter {
+  padding: 28px 42px 12px;
+  text-align: center;
+}
+.farewell-clover {
+  font-size: 46px;
+  line-height: 1.5;
+}
+.farewell-eyebrow {
+  margin: 12px 0 18px;
+  color: #6c7e63;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+.farewell-letter h2 {
+  margin: 0;
+  font-size: clamp(29px, 5vw, 40px);
+  line-height: 1.5;
+  font-weight: 800;
+  letter-spacing: -0.055em;
+}
+.farewell-recipient {
+  margin: 18px 0 28px;
+  font-size: 15px;
+  color: #687966;
+}
+.farewell-records {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  border-block: 1px solid #dce2d1;
+  padding: 22px 0;
+}
+.farewell-records > div {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.farewell-records > div + div {
+  border-left: 1px solid #dce2d1;
+}
+.farewell-records span {
+  font-size: 12px;
+  color: #687966;
+}
+.farewell-records strong {
+  font-size: clamp(19px, 4vw, 26px);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+}
+.farewell-record-note {
+  margin: 10px 0 16px;
+  font-size: 10px;
+  color: #78816d;
+}
+.farewell-collections {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.farewell-collections > span {
+  padding: 7px 12px;
+  border-radius: 100px;
+  background: #eff3e7;
+  font-size: 12px;
+}
+.farewell-collections button {
+  font-size: 12px;
+}
+.farewell-message {
+  padding-top: 14px;
+}
+.farewell-message p {
+  margin: 26px 0;
+  font-size: 15px;
+  line-height: 2;
+  letter-spacing: -0.03em;
+  word-break: keep-all;
+}
+.farewell-message .farewell-wish {
+  margin: 28px 0;
+  font-size: 19px;
+  font-weight: 800;
+  color: #1c6447;
+}
+.farewell-medal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 34px 0 24px;
+  padding: 23px 16px;
+  border: 1px solid #e6d9af;
+  border-radius: 14px;
+  background: #faf4df;
+  text-align: left;
+}
+.farewell-medal-icon {
+  font-size: 48px;
+}
+.farewell-medal small {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: #92723a;
+}
+.farewell-medal h3 {
+  margin: 6px 0;
+  font-size: 17px;
+}
+.farewell-medal p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.8;
+  color: #786b4d;
+  word-break: keep-all;
+}
+.farewell-signature {
+  margin: 26px 0 14px;
+  font-size: 12px;
+  color: #6c7e63;
+}
+.farewell-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 24px 28px;
+}
+.farewell-footer button {
+  width: min(100%, 320px);
+  padding: 13px 18px;
+}
+.farewell-footer small {
+  font-size: 11px;
+  color: #78816d;
+}
+@media (max-width: 520px) {
+  .farewell-home {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 18px;
+  }
+  .farewell-home > span {
+    font-size: 28px;
+  }
+  .farewell-home > div {
+    flex-basis: calc(100% - 52px);
+  }
+  .farewell-home p {
+    font-size: 14px;
+  }
+  .farewell-home small {
+    font-size: 11px;
+  }
+  .farewell-home button {
+    width: 100%;
+  }
+  .farewell-toolbar {
+    padding: 10px 16px;
+  }
+  .farewell-letter {
+    padding: 24px 20px 8px;
+  }
+  .farewell-eyebrow {
+    font-size: 10px;
+  }
+  .farewell-message p {
+    font-size: 14px;
+  }
+  .farewell-medal {
+    gap: 10px;
+    padding: 20px 12px;
+  }
+  .farewell-medal h3 {
+    font-size: 15px;
+  }
+  .farewell-medal-icon {
+    font-size: 40px;
+  }
+}

@@ -58,6 +58,8 @@ const Cleaning = deferredPanel(() =>
 );
 import { WeeklyRanking } from "./WeeklyRanking";
 import { HomeCollectedRecords } from "./CollectedRecords";
+import { StudyFarewell } from "./StudyFarewell";
+import { farewellVisibility } from "./farewell";
 import { rememberedLogin, rememberLogin } from "./remembered-login";
 import { orderedMenu, cachedMenuOrders, cacheMenuOrders } from "./menu-order";
 import { MenuOrderEditor, type MenuConfig } from "./MenuOrderEditor";
@@ -442,6 +444,16 @@ export default function App() {
             </div>
           ) : (
             <>
+              {!teacher && me && farewellVisibility(currentNow).available && (
+                <StudyFarewell
+                  key={`${me.id}:${token}`}
+                  data={data}
+                  token={token}
+                  now={currentNow}
+                  autoOpen={farewellVisibility(currentNow).autoOpen}
+                  home={page === "home"}
+                />
+              )}
               {page === "home" && (
                 <>
                   <div
