@@ -1,4 +1,6 @@
+import { defaultFarewellCopy } from "./farewell-copy";
 export const defaultSiteCopy = {
+  ...defaultFarewellCopy,
   hero_eyebrow: "A SPACE FOR YOUR GROWTH",
   hero_title: "꾸준한 오늘이\n더 큰 내일을 만듭니다.",
   hero_description:

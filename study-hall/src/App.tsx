@@ -60,6 +60,7 @@ import { WeeklyRanking } from "./WeeklyRanking";
 import { HomeCollectedRecords } from "./CollectedRecords";
 import { StudyFarewell } from "./StudyFarewell";
 import { farewellVisibility } from "./farewell";
+import { FarewellEditor } from "./FarewellEditor";
 import { rememberedLogin, rememberLogin } from "./remembered-login";
 import { orderedMenu, cachedMenuOrders, cacheMenuOrders } from "./menu-order";
 import { MenuOrderEditor, type MenuConfig } from "./MenuOrderEditor";
@@ -347,6 +348,11 @@ export default function App() {
               {label}
             </a>
           ))}
+          {admin && (
+            <a href="#farewell" className={page === "farewell" ? "active" : ""}>
+              <span>🍀</span>마지막 날 편지
+            </a>
+          )}
         </nav>
         <div className="sidebar-bottom">
           <small>차분하게, 꾸준하게 성장하는 공간</small>
@@ -380,7 +386,11 @@ export default function App() {
                   weekday: "long",
                 })}
               </p>
-              <h1>{menu.find((m) => m[0] === page)?.[2] || "자습실"}</h1>
+              <h1>
+                {page === "farewell" && admin
+                  ? "마지막 날 편지"
+                  : menu.find((m) => m[0] === page)?.[2] || "자습실"}
+              </h1>
               <p>
                 {page === "polls"
                   ? "투표에 참여하고 결과를 확인하세요."
@@ -444,18 +454,41 @@ export default function App() {
             </div>
           ) : (
             <>
-              {!teacher && me && farewellVisibility(currentNow).available && (
-                <StudyFarewell
-                  key={`${me.id}:${token}`}
-                  data={data}
-                  token={token}
-                  now={currentNow}
-                  autoOpen={farewellVisibility(currentNow).autoOpen}
-                  home={page === "home"}
-                />
-              )}
+              {!teacher &&
+                me &&
+                farewellVisibility(currentNow, data.settings.site_copy)
+                  .available && (
+                  <StudyFarewell
+                    key={`${me.id}:${token}`}
+                    data={data}
+                    token={token}
+                    now={currentNow}
+                    autoOpen={
+                      farewellVisibility(currentNow, data.settings.site_copy)
+                        .autoOpen
+                    }
+                    home={page === "home"}
+                  />
+                )}
               {page === "home" && (
                 <>
+                  {admin && (
+                    <section
+                      className="farewell-home"
+                      aria-label="관리자 편지 미리보기"
+                    >
+                      <span aria-hidden="true">🍀</span>
+                      <div>
+                        <p>마지막 날, 학생에게 보내는 편지</p>
+                        <small>
+                          날짜와 관계없이 미리 보고 문구를 수정할 수 있습니다.
+                        </small>
+                      </div>
+                      <a className="button" href="#farewell">
+                        편지 미리보기·수정
+                      </a>
+                    </section>
+                  )}
                   <div
                     className={teacher ? "metrics" : "metrics student-metrics"}
                   >
@@ -766,6 +799,14 @@ export default function App() {
               {page === "stats" && (
                 <Statistics data={data} teacher={teacher} now={currentNow} />
               )}
+              {page === "farewell" && admin && (
+                <FarewellEditor
+                  copy={copy}
+                  onSaved={updateCopy}
+                  act={act}
+                  busy={busy}
+                />
+              )}
               {page === "settings" && admin && (
                 <>
                   <MenuOrderEditor
@@ -775,6 +816,16 @@ export default function App() {
                     busy={busy}
                   />
                   <TeacherAccess act={act} busy={busy} />
+                  <div className="panel">
+                    <h2>마지막 날 편지</h2>
+                    <p>
+                      학생에게 보여줄 응원 편지를 미리 보고 문구·훈장·표시
+                      날짜를 수정합니다.
+                    </p>
+                    <a className="button" href="#farewell">
+                      편지 미리보기·수정
+                    </a>
+                  </div>
                   <SiteCopyEditor
                     copy={copy}
                     onSaved={updateCopy}
@@ -877,7 +928,7 @@ function SiteCopyEditor({
 }) {
   const [draft, setDraft] = useState(copy);
   useEffect(() => setDraft(copy), [copy]);
-  const labels: Record<keyof SiteCopy, string> = {
+  const labels = {
     hero_eyebrow: "큰 제목 위의 문구",
     hero_title: "큰 제목",
     hero_description: "큰 제목 아래 설명",
@@ -896,12 +947,19 @@ function SiteCopyEditor({
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          void act("site_copy", { copy: draft })
+          void act("site_copy", {
+            copy: Object.fromEntries(
+              Object.keys(labels).map((key) => [
+                key,
+                draft[key as keyof typeof labels],
+              ]),
+            ),
+          })
             .then(onSaved)
             .catch(() => {});
         }}
       >
-        {(Object.keys(labels) as (keyof SiteCopy)[]).map((key) => (
+        {(Object.keys(labels) as (keyof typeof labels)[]).map((key) => (
           <Field key={key} label={labels[key]}>
             <textarea
               aria-label={labels[key]}
@@ -924,7 +982,17 @@ function SiteCopyEditor({
           </button>
           <button
             type="button"
-            onClick={() => setDraft({ ...defaultSiteCopy })}
+            onClick={() =>
+              setDraft({
+                ...draft,
+                ...Object.fromEntries(
+                  Object.keys(labels).map((key) => [
+                    key,
+                    defaultSiteCopy[key as keyof typeof labels],
+                  ]),
+                ),
+              })
+            }
           >
             기본 문구 불러오기
           </button>

@@ -26,6 +26,101 @@
   flex-shrink: 0;
   background: #fffdf6;
 }
+.farewell-editor-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.farewell-editor-intro button {
+  flex-shrink: 0;
+}
+.farewell-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+}
+.farewell-editor-form fieldset {
+  min-width: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.farewell-editor-form legend {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 22px;
+}
+.farewell-enabled {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  font-weight: 600;
+}
+.farewell-editor-form .muted {
+  font-size: 12px;
+  line-height: 1.8;
+}
+.farewell-editor-preview {
+  position: sticky;
+  top: 20px;
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  border: 1px solid #d5dccb;
+  border-radius: 20px;
+  background: #fffdf6;
+  color: #294635;
+}
+.farewell-preview-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 16px 22px;
+  border-bottom: 1px solid #e9e8dc;
+  font-size: 13px;
+}
+.farewell-preview-heading small {
+  color: #78816d;
+}
+.farewell-editor-preview .farewell-letter {
+  padding-inline: 22px;
+}
+.farewell-editor-preview .farewell-letter h2 {
+  font-size: 30px;
+}
+.farewell-editor-preview .farewell-message p {
+  font-size: 14px;
+}
+.farewell-save-success {
+  color: #1c6447;
+  font-weight: 600;
+}
+.farewell-medal h3,
+.farewell-medal p,
+.farewell-signature {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.farewell-letter h2,
+.farewell-message p {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 1000px) {
+  .farewell-editor-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .farewell-editor-preview {
+    position: static;
+    max-height: none;
+  }
+  .farewell-editor-intro {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
 dialog.farewell-dialog {
   width: min(680px, calc(100vw - 28px));
   max-width: none;
@@ -79,6 +174,7 @@ dialog.farewell-dialog {
   letter-spacing: 0.04em;
 }
 .farewell-letter h2 {
+  white-space: pre-line;
   margin: 0;
   font-size: clamp(29px, 5vw, 40px);
   line-height: 1.5;
@@ -137,6 +233,7 @@ dialog.farewell-dialog {
   padding-top: 14px;
 }
 .farewell-message p {
+  white-space: pre-line;
   margin: 26px 0;
   font-size: 15px;
   line-height: 2;

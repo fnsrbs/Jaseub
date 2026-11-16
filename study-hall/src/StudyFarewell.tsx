@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "./api";
 import type { Snapshot } from "./domain";
 import { farewellRecord } from "./farewell";
 import { FarewellLetter } from "./FarewellLetter";
+import { FarewellDialog } from "./FarewellDialog";
+import { readFarewellCopy } from "./farewell-copy";
 import "./farewell.css";
 
 export function StudyFarewell({
@@ -25,8 +27,8 @@ export function StudyFarewell({
   } | null>(null);
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
-  const dialog = useRef<HTMLDialogElement>(null);
   const student = data.students[0];
+  const copy = readFarewellCopy(data.settings.site_copy);
   const record = farewellRecord(
     data.visits,
     student.id,
@@ -55,25 +57,13 @@ export function StudyFarewell({
     };
   }, [open, token, student.id, revision, retry]);
 
-  useEffect(() => {
-    if (!open) return;
-    const element = dialog.current;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    element?.showModal();
-    return () => {
-      element?.close();
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [open]);
-
   return (
     <>
       {home && (
         <section className="farewell-home" aria-label="온실의 마지막 편지">
           <span aria-hidden="true">🍀</span>
           <div>
-            <p>쌓아온 시간, 빛날 너의 내일</p>
+            <p>{copy.farewell_title.replaceAll("\n", " ")}</p>
             <small>나의 공부 기록과 온실이 보내는 응원 편지</small>
           </div>
           <button type="button" onClick={() => setOpen(true)}>
@@ -82,23 +72,7 @@ export function StudyFarewell({
         </section>
       )}
       {open && (
-        <dialog
-          ref={dialog}
-          className="farewell-dialog"
-          aria-labelledby="farewell-title"
-          onClose={() => setOpen(false)}
-        >
-          <div className="farewell-toolbar">
-            <span>TO. {student.name}</span>
-            <button
-              type="button"
-              autoFocus
-              onClick={() => setOpen(false)}
-              aria-label="응원 편지 닫기"
-            >
-              닫기 <span aria-hidden="true">×</span>
-            </button>
-          </div>
+        <FarewellDialog name={student.name} close={() => setOpen(false)}>
           <FarewellLetter
             name={student.name}
             seconds={record.seconds}
@@ -107,18 +81,9 @@ export function StudyFarewell({
             awards={awards}
             awardsError={error}
             retry={() => setRetry((value) => value + 1)}
+            copy={copy}
           />
-          <div className="farewell-footer">
-            <button
-              type="button"
-              className="primary"
-              onClick={() => setOpen(false)}
-            >
-              응원 담고, 나의 홈으로
-            </button>
-            <small>홈에서 언제든 편지를 다시 볼 수 있어요.</small>
-          </div>
-        </dialog>
+        </FarewellDialog>
       )}
     </>
   );

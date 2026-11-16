@@ -1,10 +1,15 @@
 import { koreanDay, totals, type Visit } from "./domain";
+import { readFarewellCopy } from "./farewell-copy";
 
-// The final study-room day, in Korea. Keep the letter available afterwards.
-export const farewellDay = "2026-11-17";
-export function farewellVisibility(now: number) {
+export function farewellVisibility(now: number, copy?: Record<string, string>) {
+  const config = readFarewellCopy(copy);
   const day = koreanDay(new Date(now));
-  return { available: day >= farewellDay, autoOpen: day === farewellDay };
+  return {
+    available:
+      config.farewell_enabled === "true" && day >= config.farewell_date,
+    autoOpen:
+      config.farewell_enabled === "true" && day === config.farewell_date,
+  };
 }
 
 export function farewellRecord(
