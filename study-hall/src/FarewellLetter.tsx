@@ -79,10 +79,10 @@ export function FarewellLetter({
 
       <div
         className="farewell-medal"
-        aria-label={`완주 훈장: ${copy.farewell_medal_title}`}
+        aria-label={`완주 트로피: ${copy.farewell_medal_title}`}
       >
         <span className="farewell-medal-icon" aria-hidden="true">
-          🥇
+          🏆
         </span>
         <div>
           <small>{copy.farewell_medal_label}</small>

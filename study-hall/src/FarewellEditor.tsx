@@ -16,9 +16,9 @@ const fields: [keyof FarewellCopy, string, number][] = [
   ["farewell_title", "편지 제목", 2],
   ["farewell_body", "편지 본문", 15],
   ["farewell_wish", "마지막 응원 문구", 2],
-  ["farewell_medal_label", "훈장 위 안내 문구", 1],
-  ["farewell_medal_title", "훈장 이름", 2],
-  ["farewell_medal_body", "훈장 설명", 2],
+  ["farewell_medal_label", "트로피 위 안내 문구", 1],
+  ["farewell_medal_title", "트로피 이름", 2],
+  ["farewell_medal_body", "트로피 설명", 2],
   ["farewell_signature", "보내는 이 · 서명", 2],
 ];
 const example = {

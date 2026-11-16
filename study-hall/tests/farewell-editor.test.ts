@@ -39,7 +39,7 @@ test("관리자 수정 문구와 줄바꿈을 편지에 반영하고 HTML 입력
     ...defaultFarewellCopy,
     farewell_title: "새 제목\n다음 줄",
     farewell_body: "첫 문단\n다음 줄\n\n두 번째 문단<script>alert(1)</script>",
-    farewell_medal_title: "우리의 훈장",
+    farewell_medal_title: "우리의 트로피",
     farewell_date: "2026-11-18",
   };
   const html = renderToStaticMarkup(
@@ -57,7 +57,7 @@ test("관리자 수정 문구와 줄바꿈을 편지에 반영하고 HTML 입력
   for (const text of [
     "새 제목\n다음 줄",
     "첫 문단\n다음 줄",
-    "우리의 훈장",
+    "우리의 트로피",
     "2026. 11. 18.",
     "&lt;script&gt;",
   ])

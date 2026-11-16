@@ -66,7 +66,7 @@ test("본인의 퇴실 완료 기록만 합산하고 같은 날 재입실은 하
   assert.deepEqual(record, { seconds: 4.5 * 3600, days: 2 });
 });
 
-test("기록이나 수집이 없어도 응원과 완주 훈장을 표시하고 12년을 집계 수치로 오해하지 않게 안내", () => {
+test("기록이나 수집이 없어도 응원과 완주 트로피를 표시하고 12년을 집계 수치로 오해하지 않게 안내", () => {
   const html = renderToStaticMarkup(
     createElement(FarewellLetter, {
       name: "테스트",

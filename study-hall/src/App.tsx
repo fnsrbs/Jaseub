@@ -819,7 +819,7 @@ export default function App() {
                   <div className="panel">
                     <h2>마지막 날 편지</h2>
                     <p>
-                      학생에게 보여줄 응원 편지를 미리 보고 문구·훈장·표시
+                      학생에게 보여줄 응원 편지를 미리 보고 문구·트로피·표시
                       날짜를 수정합니다.
                     </p>
                     <a className="button" href="#farewell">
