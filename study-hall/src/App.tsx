@@ -348,7 +348,7 @@ export default function App() {
               {label}
             </a>
           ))}
-          {admin && (
+          {teacher && (
             <a href="#farewell" className={page === "farewell" ? "active" : ""}>
               <span>🍀</span>마지막 날 편지
             </a>
@@ -387,7 +387,7 @@ export default function App() {
                 })}
               </p>
               <h1>
-                {page === "farewell" && admin
+                {page === "farewell" && teacher
                   ? "마지막 날 편지"
                   : menu.find((m) => m[0] === page)?.[2] || "자습실"}
               </h1>
@@ -472,20 +472,22 @@ export default function App() {
                 )}
               {page === "home" && (
                 <>
-                  {admin && (
+                  {teacher && (
                     <section
                       className="farewell-home"
-                      aria-label="관리자 편지 미리보기"
+                      aria-label="마지막 날 편지 보기"
                     >
                       <span aria-hidden="true">🍀</span>
                       <div>
                         <p>마지막 날, 학생에게 보내는 편지</p>
                         <small>
-                          날짜와 관계없이 미리 보고 문구를 수정할 수 있습니다.
+                          {admin
+                            ? "날짜와 관계없이 미리 보고 문구를 수정할 수 있습니다."
+                            : "학생에게 보내는 편지를 읽을 수 있습니다."}
                         </small>
                       </div>
                       <a className="button" href="#farewell">
-                        편지 미리보기·수정
+                        {admin ? "편지 미리보기·수정" : "편지 읽기"}
                       </a>
                     </section>
                   )}
@@ -799,8 +801,9 @@ export default function App() {
               {page === "stats" && (
                 <Statistics data={data} teacher={teacher} now={currentNow} />
               )}
-              {page === "farewell" && admin && (
+              {page === "farewell" && teacher && (
                 <FarewellEditor
+                  readOnly={!admin}
                   copy={copy}
                   onSaved={updateCopy}
                   act={act}
